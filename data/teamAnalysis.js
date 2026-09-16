@@ -2,19 +2,22 @@ import { filterTeams, summarizeCandidates } from './candidateFilter';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 
-// Apply the Battle Factory species-clause constraint to a candidate pool.
-// This module deliberately reports facts instead of choosing a "best" play.
-export function excludeHeldSpecies(teams = [], heldSpecies = []) {
-  const held = new Set((heldSpecies || []).filter(Boolean).map(norm));
-  if (!held.size) return teams;
+// Apply only the species that are actually blocked for the current opponent.
+// Do not use a global "seen species" list: ordinary Factory generation only
+// needs the current six blocked slots (or the six draft species on battle 1).
+export function excludeBlockedSpecies(teams = [], blockedSpecies = []) {
+  const blocked = new Set((blockedSpecies || []).filter(Boolean).map(norm));
+  if (!blocked.size) return teams;
   return teams.filter((team) => {
     const sets = team.sets || team;
-    return !sets.some((set) => held.has(norm(set.species || set.name)));
+    return !sets.some((set) => blocked.has(norm(set.species || set.name)));
   });
 }
 
-export function excludeSeenSpecies(teams = [], seenSpecies = []) {
-  return excludeHeldSpecies(teams, seenSpecies);
+// Backward-compatible alias for callers that used the old name. The argument
+// should contain only the legitimately blocked species for this battle.
+export function excludeHeldSpecies(teams = [], heldSpecies = []) {
+  return excludeBlockedSpecies(teams, heldSpecies);
 }
 
 export function getCandidateSpeciesCounts(teams = []) {
@@ -44,13 +47,18 @@ export function getCandidateSetFacts(teams = [], species) {
 export function buildOpponentCandidateState({
   teams = [],
   scientist = {},
-  heldSpecies = [],
-  seenSpecies = [],
+  blockedSpecies = [],
   revealed = {},
+  battleState = {},
 } = {}) {
-  let candidates = filterTeams(teams, scientist);
-  candidates = excludeHeldSpecies(candidates, heldSpecies);
-  candidates = excludeSeenSpecies(candidates, seenSpecies);
+  const blocked = blockedSpecies.length
+    ? blockedSpecies
+    : (battleState.blockedSpecies || []);
+
+  let candidates = filterTeams(teams, {
+    ...scientist,
+    blockedSpecies: blocked,
+  });
 
   if (revealed.setFacts?.length) {
     candidates = filterTeams(candidates, { revealedSetFacts: revealed.setFacts });
@@ -61,5 +69,6 @@ export function buildOpponentCandidateState({
     candidates,
     summary: summarizeCandidates(candidates),
     possibleNextSpecies: getCandidateSpeciesCounts(candidates),
+    blockedSpecies: blocked,
   };
 }
