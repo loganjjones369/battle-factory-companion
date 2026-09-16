@@ -8,7 +8,6 @@ const LEVELS = ['Open Level', 'Level 50'];
 const WEATHER = [['none', 'None'], ['sun', 'Sun'], ['rain', 'Rain'], ['hail', 'Hail']];
 const STATUS = [['healthy', 'Healthy'], ['burned', 'Burned']];
 const STARTER_POKEMON = ['Heracross', 'Regice', 'Moltres', 'Gardevoir', 'Metagross', 'Swampert'];
-const SPEED_NATURES = { Timid: 1.1, Jolly: 1.1, Hasty: 1.1, Naive: 1.1, Brave: 0.9, Quiet: 0.9, Relaxed: 0.9, Sassy: 0.9 };
 
 function ChoiceButton({ label, selected, onPress }) {
   return <TouchableOpacity style={[styles.choice, selected && styles.choiceSelected]} onPress={onPress} activeOpacity={0.8}><Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>{label}</Text></TouchableOpacity>;
@@ -58,9 +57,16 @@ export default function App() {
   const speedSummary = useMemo(() => {
     if (recognizedPokemon.length !== 2) return null;
     const [a, b] = recognizedPokemon;
-    const speeds = (mon) => mon.sets.map((set) => Math.floor(getStats(mon, set, level, round).spe * (SPEED_NATURES[set.nature] || 1)));
-    const aSpeeds = speeds(a); const bSpeeds = speeds(b);
-    return { a, b, aSpeeds, bSpeeds, aFaster: aSpeeds.filter((v) => v > Math.max(...bSpeeds)).length, bFaster: bSpeeds.filter((v) => v > Math.max(...aSpeeds)).length };
+    const speeds = (mon) => mon.sets.map((set) => getStats(mon, set, level, round).spe);
+    const aSpeeds = speeds(a);
+    const bSpeeds = speeds(b);
+    const aMatchups = aSpeeds.map((speed) => bSpeeds.filter((opponentSpeed) => speed > opponentSpeed).length);
+    const bMatchups = bSpeeds.map((speed) => aSpeeds.filter((opponentSpeed) => speed > opponentSpeed).length);
+    const aAny = aMatchups.filter((count) => count > 0).length;
+    const bAny = bMatchups.filter((count) => count > 0).length;
+    const aAll = aMatchups.filter((count) => count === bSpeeds.length).length;
+    const bAll = bMatchups.filter((count) => count === aSpeeds.length).length;
+    return { a, b, aSpeeds, bSpeeds, aMatchups, bMatchups, aAny, bAny, aAll, bAll };
   }, [recognizedPokemon, level, round]);
 
   const selectedDamage = useMemo(() => {
@@ -88,7 +94,7 @@ export default function App() {
       <View style={styles.card}><Text style={styles.sectionTitle}>3. Scientist information</Text><TextInput value={scientist} onChangeText={setScientist} placeholder="Enter notes / information" placeholderTextColor="#718096" multiline style={styles.notesInput} /></View>
       <TouchableOpacity style={styles.primaryButton} onPress={() => setStarted(true)} activeOpacity={0.85}><Text style={styles.primaryButtonText}>Start Factory Analysis</Text><Text style={styles.primaryButtonSubtext}>{knownPokemon}/3 Pokémon entered</Text></TouchableOpacity>
 
-      {started && <View style={styles.analysisCard}><Text style={styles.analysisEyebrow}>LIVE FACTORY DATA</Text><Text style={styles.analysisTitle}>Draft analysis workspace</Text><Text style={styles.analysisCopy}>{levelMode} • Round {round || '1'} • Rental IVs {getFactoryIV(round)}</Text>{speedSummary && <View style={styles.speedSummary}><Text style={styles.featureTitle}>SPEED CHECK</Text><Text style={styles.summaryText}>{speedSummary.aFaster ? `${speedSummary.aFaster}/4 ${speedSummary.a.name} sets are faster than every ${speedSummary.b.name} set.` : `No ${speedSummary.a.name} set is faster than every ${speedSummary.b.name} set.`}</Text><Text style={styles.summaryText}>{speedSummary.bFaster ? `${speedSummary.bFaster}/4 ${speedSummary.b.name} sets are faster than every ${speedSummary.a.name} set.` : `No ${speedSummary.b.name} set is faster than every ${speedSummary.a.name} set.`}</Text><Text style={styles.summaryDetail}>Set speeds: {speedSummary.a.name} [{speedSummary.aSpeeds.join(', ')}] • {speedSummary.b.name} [{speedSummary.bSpeeds.join(', ')}]</Text></View>}{recognizedPokemon.map((mon) => <View key={mon.name} style={styles.pokemonSets}><Text style={styles.setSectionTitle}>{mon.name} — loaded Factory sets</Text>{mon.sets.map((set) => <SetCard key={`${mon.name}-${set.id}`} pokemon={mon} set={set} levelMode={levelMode} round={round} />)}</View>)}</View>}
+      {started && <View style={styles.analysisCard}><Text style={styles.analysisEyebrow}>LIVE FACTORY DATA</Text><Text style={styles.analysisTitle}>Draft analysis workspace</Text><Text style={styles.analysisCopy}>{levelMode} • Round {round || '1'} • Rental IVs {getFactoryIV(round)}</Text>{speedSummary && <View style={styles.speedSummary}><Text style={styles.featureTitle}>SPEED CHECK</Text><Text style={styles.summaryText}>{speedSummary.aAll ? `${speedSummary.aAll}/${speedSummary.a.sets.length} ${speedSummary.a.name} sets outspeed every ${speedSummary.b.name} set.` : `${speedSummary.aAny}/${speedSummary.a.sets.length} ${speedSummary.a.name} sets outspeed at least one ${speedSummary.b.name} set.`}</Text><Text style={styles.summaryText}>{speedSummary.bAll ? `${speedSummary.bAll}/${speedSummary.b.sets.length} ${speedSummary.b.name} sets outspeed every ${speedSummary.a.name} set.` : `${speedSummary.bAny}/${speedSummary.b.sets.length} ${speedSummary.b.name} sets outspeed at least one ${speedSummary.a.name} set.`}</Text><Text style={styles.summaryDetail}>{speedSummary.a.name}: {speedSummary.aMatchups.map((count, i) => `Set ${i + 1} ${count}/${speedSummary.b.sets.length}`).join(' • ')} • {speedSummary.b.name}: {speedSummary.bMatchups.map((count, i) => `Set ${i + 1} ${count}/${speedSummary.a.sets.length}`).join(' • ')}</Text><Text style={styles.summaryDetail}>Set speeds: {speedSummary.a.name} [{speedSummary.aSpeeds.join(', ')}] • {speedSummary.b.name} [{speedSummary.bSpeeds.join(', ')}]</Text></View>}{recognizedPokemon.map((mon) => <View key={mon.name} style={styles.pokemonSets}><Text style={styles.setSectionTitle}>{mon.name} — loaded Factory sets</Text>{mon.sets.map((set) => <SetCard key={`${mon.name}-${set.id}`} pokemon={mon} set={set} levelMode={levelMode} round={round} />)}</View>)}</View>}
 
       <View style={styles.calculatorCard}>
         <TouchableOpacity onPress={() => setCalculatorOpen((open) => !open)} style={styles.calcHeader} activeOpacity={0.8}><View><Text style={styles.analysisEyebrow}>GEN III ENGINE</Text><Text style={styles.calcTitle}>Damage & matchup calculator</Text></View><Text style={styles.expand}>{calculatorOpen ? '−' : '+'}</Text></TouchableOpacity>
@@ -105,7 +111,7 @@ export default function App() {
           <Text style={styles.setSectionTitle}>All known {defenderName} sets</Text>{allDefenderResults.map(({ set, damage }) => <View key={set.id} style={styles.miniResult}><View style={styles.setHeader}><Text style={styles.setName}>Set {set.id} • {set.nature} • {set.item}</Text><Text style={styles.setSpeed}>{damage.effectiveness === 0 ? 'IMMUNE' : `${damage.percentMin}–${damage.percentMax}%`}</Text></View>{damage.effectiveness !== 0 && <Text style={styles.setMeta}>{damage.min}–{damage.max} damage • {damage.ko}HKO at minimum damage</Text>}</View>)}
         </>}
       </View>
-      <Text style={styles.footer}>Battle Factory Companion • v0.3.0</Text>
+      <Text style={styles.footer}>Battle Factory Companion • v0.3.1</Text>
     </ScrollView>
   </SafeAreaView>;
 }
