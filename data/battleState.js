@@ -1,22 +1,20 @@
 import { buildBattleState, getBlockedSpecies, getSwapElevation } from './factoryRules';
 
-// A Factory round contains seven battles. Battle 7/14/21/28/... is the
-// round-ending battle (Noland is handled separately by the UI/rules layer).
 export function getFactoryRound(battle = 1) {
   return Math.max(1, Math.ceil((Number(battle) || 1) / 7));
 }
 
+// These are the three progression points the UI treats as major celebrations.
+// Ordinary round endings still advance normally without the major animation.
 export function getBattleMilestone(battle = 1) {
   const n = Number(battle) || 1;
-  return n > 0 && n % 7 === 0;
+  return [28, 35, 42].includes(n);
 }
 
 function speciesName(pokemon) {
   return String(typeof pokemon === 'string' ? pokemon : (pokemon?.species || pokemon?.name) || '').trim().toLowerCase();
 }
 
-// The Factory only permits one post-battle swap. With unique species on the
-// player's team, a one-swap transition changes exactly one species.
 export function detectSwapCount(previousTeam = [], nextTeam = []) {
   const previous = previousTeam.map(speciesName).filter(Boolean);
   const next = nextTeam.map(speciesName).filter(Boolean);
@@ -26,7 +24,7 @@ export function detectSwapCount(previousTeam = [], nextTeam = []) {
   const added = next.filter((name) => !previous.includes(name));
   const count = Math.max(removed.length, added.length);
 
-  if (count > 1) return { valid: false, count, reason: 'The Battle Factory permits only one swap after a battle.' };
+  if (count > 1) return { valid: false, count, reason: 'The Battle Factory permits only one Pokémon swap after a battle.' };
   return { valid: true, count, reason: count === 1 ? 'One Pokémon was swapped.' : 'Team was kept.' };
 }
 
@@ -35,17 +33,12 @@ export function createInitialBattleState(options = {}) {
   return { ...state, round: getFactoryRound(state.battle), swapElevation: getSwapElevation(state.swaps) };
 }
 
-export function advanceAfterBattle(
-  state,
-  { nextCurrentTeam = [], defeatedOpponent = [], didSwap = null } = {},
-) {
+export function advanceAfterBattle(state, { nextCurrentTeam = [], defeatedOpponent = [], didSwap = null } = {}) {
   const detected = didSwap === null
     ? detectSwapCount(state.currentTeam || [], nextCurrentTeam)
     : { valid: true, count: didSwap ? 1 : 0, reason: didSwap ? 'One Pokémon was swapped.' : 'Team was kept.' };
 
-  if (!detected.valid) {
-    return { ...state, progressionError: detected.reason, swapAttempt: detected };
-  }
+  if (!detected.valid) return { ...state, progressionError: detected.reason, swapAttempt: detected };
 
   const nextBattle = Math.max(1, Number(state.battle) || 1) + 1;
   const nextSwaps = Math.max(0, Number(state.swaps) || 0) + detected.count;
