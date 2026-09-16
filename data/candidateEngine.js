@@ -8,19 +8,12 @@ export function getDraftBlockedSpecies(draft = []) {
   return draft.map((x) => typeof x === 'string' ? x : x?.name).filter(Boolean);
 }
 
-/** Map an actual battle to the canonical 436-set pool used by this app. */
 export function getOpponentRoundBucket(levelMode = 'Open Level', battle = 1) {
   const b = Math.max(1, Number(battle) || 1);
   const lastBattleOfRound = b % 7 === 0;
   const round = Math.ceil(b / 7);
   const effectiveRound = lastBattleOfRound ? round + 1 : round;
-
-  if (levelMode === 'Open Level') {
-    return effectiveRound >= 5 ? '6' : String(effectiveRound);
-  }
-
-  // Level 50 battles 1-3 use the separate low/mid-tier data that is not part
-  // of the 436 Group-3 set database. Group-3 begins at Factory round 4.
+  if (levelMode === 'Open Level') return effectiveRound >= 5 ? '6' : String(effectiveRound);
   if (effectiveRound <= 3) return null;
   if (effectiveRound <= 7) return String(effectiveRound - 3);
   return '5';
@@ -40,11 +33,7 @@ function setMatchesObservation(set, observation) {
 }
 
 function teamMatchesObservations(team, revealed) {
-  const observations = observedList(revealed);
-  for (const observation of observations) {
-    if (!team.some((set) => setMatchesObservation(set, observation))) return false;
-  }
-  return true;
+  return observedList(revealed).every((observation) => team.some((set) => setMatchesObservation(set, observation)));
 }
 
 function teamMatchesClue(team, scientist) {
@@ -66,14 +55,6 @@ function teamAllowed(team, blocked) {
   return team.every((set) => !blocked.has(norm(set.species)));
 }
 
-/**
- * Exact candidate search over the canonical Factory set database.
- *
- * Important performance change: sets are restricted to the actual opponent
- * pool for this battle BEFORE team enumeration. The old engine walked every
- * Group-3 set regardless of battle number, which was both slower on phones
- * and could produce sets from the wrong Factory round.
- */
 export function analyzeFactoryCandidates({
   draft = [],
   blockedSpecies = [],
@@ -103,7 +84,6 @@ export function analyzeFactoryCandidates({
     };
   }
 
-  // Filter at the set level first. This is the key phone-performance fix.
   const pools = Object.values(POKEMON)
     .map((pokemon) => ({
       ...pokemon,
@@ -114,26 +94,19 @@ export function analyzeFactoryCandidates({
   const possibleIds = new Set();
   const possibleBySpecies = {};
   let matchingTeams = 0;
-
   const mark = (set) => {
-    const id = `${set.species}-${set.id}`;
-    possibleIds.add(id);
+    possibleIds.add(`${set.species}-${set.id}`);
     const key = norm(set.species);
     if (!possibleBySpecies[key]) possibleBySpecies[key] = [];
     if (!possibleBySpecies[key].some((x) => x.id === set.id)) possibleBySpecies[key].push(set);
   };
 
-  // If a specific observed species is known, force it into the species trio.
-  const requiredSpecies = [...observedSpecies];
-  const candidateSpecies = pools.filter((p) => !requiredSpecies.length || requiredSpecies.includes(norm(p.name)) || !observedSpecies.size);
-
-  for (let i = 0; i < candidateSpecies.length - 2; i += 1) {
-    for (let j = i + 1; j < candidateSpecies.length - 1; j += 1) {
-      for (let k = j + 1; k < candidateSpecies.length; k += 1) {
-        const speciesTeam = [candidateSpecies[i], candidateSpecies[j], candidateSpecies[k]];
+  for (let i = 0; i < pools.length - 2; i += 1) {
+    for (let j = i + 1; j < pools.length - 1; j += 1) {
+      for (let k = j + 1; k < pools.length; k += 1) {
+        const speciesTeam = [pools[i], pools[j], pools[k]];
         const names = new Set(speciesTeam.map((p) => norm(p.name)));
-        if (requiredSpecies.some((name) => !names.has(name))) continue;
-
+        if ([...observedSpecies].some((name) => !names.has(name))) continue;
         const [aSets, bSets, cSets] = speciesTeam.map((p) => p.sets);
         for (const a of aSets) for (const b of bSets) {
           if (itemKey(a.item) && itemKey(a.item) === itemKey(b.item)) continue;
@@ -185,7 +158,7 @@ export function getPossibleSets({ species, blockedSpecies = [], occupiedItems = 
   const occupied = new Set(occupiedItems.map(itemKey));
   const observed = observedList(revealed).find((o) => norm(o.species) === norm(pokemon.name));
   const pool = roundBucket == null ? pokemon.sets : pokemon.sets.filter((set) => String(set.round) === String(roundBucket));
-  const possible = pool.filter((set) => !blocked.has(norm(pokemon.name)) && !occupied.has(itemKey(set.item) || '') && (!observed || setMatchesObservation(set, observed)));
+  const possible = pool.filter((set) => !blocked.has(norm(pokemon.name)) && !occupied.has(itemKey(set.item)) && (!observed || setMatchesObservation(set, observed)));
   return {
     pokemon,
     possible,
