@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Battle Factory Companion",
+    "slug": "battle-factory-companion",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#10151c"
+    },
+    "android": {
+      "package": "com.loganjjones369.battlefactorycompanion"
+    },
+    "ios": {
+      "bundleIdentifier": "com.loganjjones369.battlefactorycompanion"
+    }
+  }
+}
