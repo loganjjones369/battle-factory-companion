@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { Animated, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { getPokemon } from './data/factoryData';
 import { analyzeFactoryCandidates } from './data/candidateEngine';
@@ -16,7 +16,9 @@ function SetRow({ set, possible = true, reason }) { return <View style={[s.setRo
 export default function AppShellV2() {
   const [levelMode, setLevelMode] = useState('Open Level');
   const [round, setRound] = useState('1');
+  const [battleNumber, setBattleNumber] = useState(1);
   const [draft, setDraft] = useState(['', '', '', '', '', '']);
+  const [currentTeam, setCurrentTeam] = useState([]);
   const [scientistStyle, setScientistStyle] = useState(-1);
   const [scientistType, setScientistType] = useState('Any');
   const [observedSpecies, setObservedSpecies] = useState('');
@@ -25,12 +27,15 @@ export default function AppShellV2() {
   const [analysis, setAnalysis] = useState(null);
   const [selectedSpecies, setSelectedSpecies] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+  const celebrationScale = useRef(new Animated.Value(0.7)).current;
+  const celebrationOpacity = useRef(new Animated.Value(0)).current;
 
   const recognizedDraft = useMemo(() => draft.map(getPokemon).filter(Boolean), [draft]);
   const setDraftSlot = (index, value) => setDraft((current) => current.map((x, i) => i === index ? value : x));
   const clue = { type: scientistType === 'Any' ? undefined : scientistType, style: scientistStyle < 0 ? undefined : scientistStyle };
 
-  const runAnalysis = () => {
+  const runAnalysis = (overrides = {}) => {
     setBusy(true);
     setTimeout(() => {
       const result = analyzeFactoryCandidates({
@@ -39,6 +44,8 @@ export default function AppShellV2() {
         levelMode,
         round,
         revealed: observedSpecies ? { species: observedSpecies, item: observedItem, moves: observedMoves.split(',').map((x) => x.trim()).filter(Boolean) } : {},
+        blockedSpecies: overrides.blockedSpecies,
+        noland: overrides.noland,
       });
       setAnalysis(result);
       setSelectedSpecies(result.possibleSpecies[0]?.pokemon?.name || null);
@@ -46,12 +53,43 @@ export default function AppShellV2() {
     }, 30);
   };
 
+  const showVictory = () => {
+    celebrationScale.setValue(0.7);
+    celebrationOpacity.setValue(0);
+    setCelebrating(true);
+    Animated.parallel([
+      Animated.spring(celebrationScale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 12 }),
+      Animated.timing(celebrationOpacity, { toValue: 1, duration: 140, useNativeDriver: true }),
+    ]).start(() => {
+      setTimeout(() => {
+        Animated.timing(celebrationOpacity, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => setCelebrating(false));
+      }, 700);
+    });
+  };
+
+  const goToNextBattle = () => {
+    showVictory();
+    const nextBattle = battleNumber + 1;
+    setBattleNumber(nextBattle);
+    setRound(String(nextBattle));
+    setAnalysis(null);
+    setSelectedSpecies(null);
+    setObservedSpecies('');
+    setObservedItem('');
+    setObservedMoves('');
+    // Keep the three Pokémon the player is carrying forward visible as the next battle's current team.
+    // The full battle-state engine will replace this with the actual selected team + previous opponent.
+    setCurrentTeam((current) => current.length ? current : recognizedDraft.slice(0, 3));
+  };
+
   const selected = analysis?.possibleSpecies.find((x) => x.pokemon.name === selectedSpecies);
 
   return <SafeAreaView style={s.safe}><StatusBar style="light" /><ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
-    <View style={s.header}><Text style={s.brand}>POKÉMON EMERALD</Text><Text style={s.hero}>BATTLE FACTORY</Text><Text style={s.subhero}>COMPANION</Text><Text style={s.copy}>Exact set-level Factory analysis, built to work offline.</Text></View>
+    <View style={s.header}><View style={s.battlePill}><Text style={s.battlePillText}>BATTLE {battleNumber}</Text></View><Text style={s.brand}>POKÉMON EMERALD</Text><Text style={s.hero}>BATTLE FACTORY</Text><Text style={s.subhero}>COMPANION</Text><Text style={s.copy}>Exact set-level Factory analysis, built to work offline.</Text></View>
 
-    <Card eyebrow="SETUP" title="Battle setup"><Text style={s.label}>Level</Text><View style={s.wrap}>{LEVELS.map((x) => <Choice key={x} label={x} selected={levelMode === x} onPress={() => setLevelMode(x)} />)}</View><Text style={s.label}>Current round</Text><TextInput value={round} onChangeText={setRound} keyboardType="number-pad" style={s.input} /></Card>
+    {currentTeam.length > 0 && <Card eyebrow="YOUR ACTIVE PARTY" title="Still with you"><Text style={s.helper}>These are the three Pokémon you carried into this battle. They stay available here for quick stats, set reference, and matchup calculations.</Text><View style={s.partyRow}>{currentTeam.map((pokemon, i) => <View key={`${pokemon.name}-${i}`} style={s.partyCard}><View style={s.spritePlaceholder}><Text style={s.spriteLetter}>{pokemon.name.slice(0, 1)}</Text></View><Text style={s.partyName}>{pokemon.name}</Text><Text style={s.partyMeta}>Tap later for stats</Text></View>)}</View></Card>}
+
+    <Card eyebrow="SETUP" title="Battle setup"><Text style={s.label}>Level</Text><View style={s.wrap}>{LEVELS.map((x) => <Choice key={x} label={x} selected={levelMode === x} onPress={() => setLevelMode(x)} />)}</View><Text style={s.label}>Factory battle / round</Text><TextInput value={round} onChangeText={(v) => { setRound(v); const n = Number(v); if (Number.isFinite(n) && n > 0) setBattleNumber(n); }} keyboardType="number-pad" style={s.input} /><Text style={s.helper}>The large battle counter and this round stay together, so moving from 28 → 29 → 30 is a single tap.</Text></Card>
 
     <Card eyebrow="YOUR SIX" title="Draft / blocked Pokémon"><Text style={s.helper}>For the first battle, these six species are unavailable to the opponent. Later we will switch this automatically to your current 3 + the previous opponent's 3.</Text>{draft.map((name, i) => <View style={s.inputRow} key={i}><Text style={s.slot}>{i + 1}</Text><TextInput value={name} onChangeText={(v) => setDraftSlot(i, v)} placeholder="Pokémon" placeholderTextColor="#647383" autoCapitalize="words" style={s.input} /></View>)}</Card>
 
@@ -59,13 +97,17 @@ export default function AppShellV2() {
 
     <Card eyebrow="BATTLE EVIDENCE" title="What have you seen?"><Text style={s.helper}>Enter an observed opponent to narrow the exact sets. Item Clause will then eliminate that held item from its teammates.</Text><Text style={s.label}>Observed Pokémon</Text><TextInput value={observedSpecies} onChangeText={setObservedSpecies} placeholder="e.g. Suicune" placeholderTextColor="#647383" autoCapitalize="words" style={s.input} /><Text style={s.label}>Observed item</Text><TextInput value={observedItem} onChangeText={setObservedItem} placeholder="e.g. Lum Berry" placeholderTextColor="#647383" autoCapitalize="words" style={s.input} /><Text style={s.label}>Observed moves</Text><TextInput value={observedMoves} onChangeText={setObservedMoves} placeholder="e.g. Surf, Calm Mind" placeholderTextColor="#647383" style={s.input} /><Text style={s.helper}>Separate multiple moves with commas.</Text></Card>
 
-    <TouchableOpacity style={s.primary} onPress={runAnalysis} disabled={busy} activeOpacity={0.85}><Text style={s.primaryText}>{busy ? 'ANALYZING FACTORY...' : 'FIND WHAT CAN STILL BE AHEAD'}</Text><Text style={s.primarySub}>{recognizedDraft.length}/6 draft slots recognized</Text></TouchableOpacity>
+    <TouchableOpacity style={s.primary} onPress={() => runAnalysis()} disabled={busy} activeOpacity={0.85}><Text style={s.primaryText}>{busy ? 'ANALYZING FACTORY...' : 'FIND WHAT CAN STILL BE AHEAD'}</Text><Text style={s.primarySub}>{recognizedDraft.length}/6 draft slots recognized</Text></TouchableOpacity>
 
     {analysis && <Card eyebrow="FACTORY INTELLIGENCE" title="What can still be ahead?"><View style={s.summary}><Text style={s.summaryBig}>{analysis.possibleSpecies.length}</Text><Text style={s.summaryLabel}>possible species</Text><Text style={s.summarySmall}>{analysis.matchingTeams.toLocaleString()} legal teams match the current clues and evidence.</Text><Text style={s.summarySmall}>Round bucket {analysis.roundBucket} • Exact possibility search</Text></View><Text style={s.label}>Possible Pokémon</Text><View style={s.wrap}>{analysis.possibleSpecies.map((row) => <TouchableOpacity key={row.pokemon.name} onPress={() => setSelectedSpecies(row.pokemon.name)} style={[s.speciesChip, selectedSpecies === row.pokemon.name && s.speciesSelected]}><Text style={s.speciesName}>{row.pokemon.name}</Text><Text style={s.speciesCount}>{row.possible.length} sets</Text></TouchableOpacity>)}</View>{selected && <View style={s.details}><View style={s.row}><Text style={s.detailTitle}>{selected.pokemon.name}</Text><Text style={s.detailCount}>{selected.possible.length} possible</Text></View><Text style={s.helper}>Tap a Pokémon above to inspect its remaining sets.</Text>{selected.possible.map((set) => <SetRow key={`${set.species}-${set.id}`} set={set} />)}{selected.eliminated.length > 0 && <><Text style={s.elimHeader}>Eliminated sets</Text>{selected.eliminated.map(({ set, reason }) => <SetRow key={`e-${set.species}-${set.id}`} set={set} possible={false} reason={reason} />)}</>}</View>}</Card>}
 
-    <Text style={s.footer}>Battle Factory Companion • exact candidate engine v0.6.0</Text>
-  </ScrollView></SafeAreaView>;
+    <TouchableOpacity style={s.nextBattle} onPress={goToNextBattle} activeOpacity={0.85}><Text style={s.nextBattleStar}>✦</Text><View style={s.nextBattleCopy}><Text style={s.nextBattleTitle}>NEXT BATTLE</Text><Text style={s.nextBattleSub}>I WON — MOVE TO BATTLE {battleNumber + 1}</Text></View><Text style={s.nextBattleArrow}>›</Text></TouchableOpacity>
+
+    <Card eyebrow="NEXT PHASE" title="Research the next opponent"><Text style={s.helper}>After the victory celebration, the app moves you into the next battle's research phase. Your three surviving Pokémon remain visible while the previous opponent and current team become the new Factory knowledge used to narrow what can appear.</Text><View style={s.phaseRow}><View style={s.phaseDot}><Text style={s.phaseDotText}>1</Text></View><Text style={s.phaseText}>Carry your 3 Pokémon forward</Text></View><View style={s.phaseRow}><View style={s.phaseDot}><Text style={s.phaseDotText}>2</Text></View><Text style={s.phaseText}>Remember the previous opponent's 3</Text></View><View style={s.phaseRow}><View style={s.phaseDot}><Text style={s.phaseDotText}>3</Text></View><Text style={s.phaseText}>Research the new Scientist + possible sets</Text></View></Card>
+
+    <Text style={s.footer}>Battle Factory Companion • exact candidate engine v0.7.0</Text>
+  </ScrollView>{celebrating && <Animated.View pointerEvents="none" style={[s.celebration, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}><Text style={s.confetti}>✦ ✧ ✦</Text><Text style={s.winTitle}>BATTLE WON!</Text><Text style={s.winSub}>ON TO BATTLE {battleNumber}</Text><Text style={s.confetti}>✧ ✦ ✧</Text></Animated.View>}</SafeAreaView>;
 }
 
-const s = StyleSheet.create({ safe:{flex:1,backgroundColor:'#071018'}, container:{padding:16,paddingBottom:48}, header:{paddingTop:18,paddingBottom:20}, brand:{color:'#77c9f2',fontSize:11,fontWeight:'900',letterSpacing:2}, hero:{color:'#f6fbff',fontSize:31,fontWeight:'900',marginTop:6}, subhero:{color:'#a9bfd0',fontSize:19,fontWeight:'800'}, copy:{color:'#7e91a2',fontSize:13,lineHeight:19,marginTop:9}, card:{backgroundColor:'#111b25',borderRadius:20,padding:16,marginBottom:13,borderWidth:1,borderColor:'#253441'}, eyebrow:{color:'#63b7e8',fontSize:10,fontWeight:'900',letterSpacing:1.7,marginBottom:5}, title:{color:'#f5f8fb',fontSize:19,fontWeight:'900',marginBottom:12}, label:{color:'#a9b7c4',fontSize:12,fontWeight:'800',marginTop:12,marginBottom:7}, helper:{color:'#7f8f9e',fontSize:12,lineHeight:18}, wrap:{flexDirection:'row',flexWrap:'wrap',gap:7}, horizontal:{gap:7,paddingBottom:3}, choice:{backgroundColor:'#0b141c',borderWidth:1,borderColor:'#2a3947',borderRadius:12,paddingVertical:9,paddingHorizontal:11}, choiceSelected:{backgroundColor:'#1e4053',borderColor:'#70c8f2'}, choiceText:{color:'#94a5b4',fontSize:11,fontWeight:'800'}, choiceTextSelected:{color:'#f4fbff'}, inputRow:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:8}, slot:{width:30,height:42,borderRadius:10,backgroundColor:'#203342',color:'#a9dbf4',textAlign:'center',textAlignVertical:'center',paddingTop:11,fontWeight:'900'}, input:{flex:1,backgroundColor:'#09131b',borderWidth:1,borderColor:'#293947',borderRadius:12,color:'#f5f8fb',paddingHorizontal:12,paddingVertical:10,fontSize:14,fontWeight:'700'}, reference:{marginTop:12}, primary:{backgroundColor:'#1e718f',borderRadius:18,padding:16,marginBottom:13,borderWidth:1,borderColor:'#65c5e8'}, primaryText:{color:'#fff',fontSize:13,fontWeight:'900',letterSpacing:1}, primarySub:{color:'#c2e9f6',fontSize:11,marginTop:4}, summary:{backgroundColor:'#0b141c',borderRadius:15,padding:14,borderWidth:1,borderColor:'#293846'}, summaryBig:{color:'#f7fbff',fontSize:30,fontWeight:'900'}, summaryLabel:{color:'#9fb2c2',fontSize:12,fontWeight:'800'}, summarySmall:{color:'#728393',fontSize:11,marginTop:6,lineHeight:16}, speciesChip:{backgroundColor:'#162530',borderWidth:1,borderColor:'#2b3d4a',borderRadius:14,paddingVertical:9,paddingHorizontal:11,minWidth:90}, speciesSelected:{backgroundColor:'#23475a',borderColor:'#73c9ee'}, speciesName:{color:'#eaf4fa',fontWeight:'900',fontSize:12}, speciesCount:{color:'#8ca1b0',fontSize:10,marginTop:2}, details:{marginTop:15}, detailTitle:{color:'#f5f8fb',fontSize:18,fontWeight:'900'}, detailCount:{color:'#75c9ed',fontSize:12,fontWeight:'900'}, row:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}, setRow:{backgroundColor:'#0b141c',borderRadius:13,padding:12,marginTop:8,borderWidth:1,borderColor:'#253542'}, eliminated:{opacity:0.7,borderColor:'#51373a'}, setName:{color:'#eef7fb',fontSize:13,fontWeight:'900'}, possible:{color:'#74d6a2',fontSize:9,fontWeight:'900'}, reason:{color:'#d59b9b',fontSize:9,fontWeight:'900'}, meta:{color:'#8496a5',fontSize:10,lineHeight:16,marginTop:4}, reasonText:{color:'#b98282',fontSize:10,lineHeight:15,marginTop:6}, elimHeader:{color:'#b7c1ca',fontSize:11,fontWeight:'900',marginTop:18,letterSpacing:1}, footer:{color:'#536575',fontSize:10,textAlign:'center',marginTop:8}
+const s = StyleSheet.create({ safe:{flex:1,backgroundColor:'#071018'}, container:{padding:16,paddingBottom:48}, header:{paddingTop:12,paddingBottom:20}, battlePill:{alignSelf:'flex-start',backgroundColor:'#193447',borderWidth:1,borderColor:'#4b9ac0',borderRadius:999,paddingHorizontal:12,paddingVertical:5,marginBottom:12}, battlePillText:{color:'#bfeeff',fontSize:10,fontWeight:'900',letterSpacing:1.4}, brand:{color:'#77c9f2',fontSize:11,fontWeight:'900',letterSpacing:2}, hero:{color:'#f6fbff',fontSize:31,fontWeight:'900',marginTop:6}, subhero:{color:'#a9bfd0',fontSize:19,fontWeight:'800'}, copy:{color:'#7e91a2',fontSize:13,lineHeight:19,marginTop:9}, card:{backgroundColor:'#111b25',borderRadius:20,padding:16,marginBottom:13,borderWidth:1,borderColor:'#253441'}, eyebrow:{color:'#63b7e8',fontSize:10,fontWeight:'900',letterSpacing:1.7,marginBottom:5}, title:{color:'#f5f8fb',fontSize:19,fontWeight:'900',marginBottom:12}, label:{color:'#a9b7c4',fontSize:12,fontWeight:'800',marginTop:12,marginBottom:7}, helper:{color:'#7f8f9e',fontSize:12,lineHeight:18}, wrap:{flexDirection:'row',flexWrap:'wrap',gap:7}, horizontal:{gap:7,paddingBottom:3}, choice:{backgroundColor:'#0b141c',borderWidth:1,borderColor:'#2a3947',borderRadius:12,paddingVertical:9,paddingHorizontal:11}, choiceSelected:{backgroundColor:'#1e4053',borderColor:'#70c8f2'}, choiceText:{color:'#94a5b4',fontSize:11,fontWeight:'800'}, choiceTextSelected:{color:'#f4fbff'}, inputRow:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:8}, slot:{width:30,height:42,borderRadius:10,backgroundColor:'#203342',color:'#a9dbf4',textAlign:'center',textAlignVertical:'center',paddingTop:11,fontWeight:'900'}, input:{flex:1,backgroundColor:'#09131b',borderWidth:1,borderColor:'#293947',borderRadius:12,color:'#f5f8fb',paddingHorizontal:12,paddingVertical:10,fontSize:14,fontWeight:'700'}, reference:{marginTop:12}, primary:{backgroundColor:'#1e718f',borderRadius:18,padding:16,marginBottom:13,borderWidth:1,borderColor:'#65c5e8'}, primaryText:{color:'#fff',fontSize:13,fontWeight:'900',letterSpacing:1}, primarySub:{color:'#c2e9f6',fontSize:11,marginTop:4}, summary:{backgroundColor:'#0b141c',borderRadius:15,padding:14,borderWidth:1,borderColor:'#293846'}, summaryBig:{color:'#f7fbff',fontSize:30,fontWeight:'900'}, summaryLabel:{color:'#9fb2c2',fontSize:12,fontWeight:'800'}, summarySmall:{color:'#728393',fontSize:11,marginTop:6,lineHeight:16}, speciesChip:{backgroundColor:'#162530',borderWidth:1,borderColor:'#2b3d4a',borderRadius:14,paddingVertical:9,paddingHorizontal:11,minWidth:90}, speciesSelected:{backgroundColor:'#23475a',borderColor:'#73c9ee'}, speciesName:{color:'#eaf4fa',fontWeight:'900',fontSize:12}, speciesCount:{color:'#8ca1b0',fontSize:10,marginTop:2}, details:{marginTop:15}, detailTitle:{color:'#f5f8fb',fontSize:18,fontWeight:'900'}, detailCount:{color:'#75c9ed',fontSize:12,fontWeight:'900'}, row:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}, setRow:{backgroundColor:'#0b141c',borderRadius:13,padding:12,marginTop:8,borderWidth:1,borderColor:'#253542'}, eliminated:{opacity:0.7,borderColor:'#51373a'}, setName:{color:'#eef7fb',fontSize:13,fontWeight:'900'}, possible:{color:'#74d6a2',fontSize:9,fontWeight:'900'}, reason:{color:'#d59b9b',fontSize:9,fontWeight:'900'}, meta:{color:'#8496a5',fontSize:10,lineHeight:16,marginTop:4}, reasonText:{color:'#b98282',fontSize:10,lineHeight:15,marginTop:6}, elimHeader:{color:'#b7c1ca',fontSize:11,fontWeight:'900',marginTop:18,letterSpacing:1}, partyRow:{flexDirection:'row',gap:8,marginTop:14}, partyCard:{flex:1,backgroundColor:'#0b141c',borderRadius:14,padding:10,borderWidth:1,borderColor:'#293846',alignItems:'center'}, spritePlaceholder:{width:54,height:54,borderRadius:27,backgroundColor:'#203442',alignItems:'center',justifyContent:'center',marginBottom:7}, spriteLetter:{color:'#bfe9fa',fontSize:24,fontWeight:'900'}, partyName:{color:'#eef7fb',fontSize:11,fontWeight:'900',textAlign:'center'}, partyMeta:{color:'#647989',fontSize:8,marginTop:3,textAlign:'center'}, nextBattle:{flexDirection:'row',alignItems:'center',backgroundColor:'#17394a',borderRadius:19,padding:14,marginBottom:13,borderWidth:1,borderColor:'#4b9ac0'}, nextBattleStar:{color:'#b9ecff',fontSize:25,width:35,textAlign:'center'}, nextBattleCopy:{flex:1}, nextBattleTitle:{color:'#f5fbff',fontSize:13,fontWeight:'900',letterSpacing:1}, nextBattleSub:{color:'#8fc4db',fontSize:10,fontWeight:'800',marginTop:3}, nextBattleArrow:{color:'#c7f0ff',fontSize:28,fontWeight:'300'}, phaseRow:{flexDirection:'row',alignItems:'center',marginTop:10}, phaseDot:{width:25,height:25,borderRadius:13,backgroundColor:'#1d4052',alignItems:'center',justifyContent:'center',marginRight:9}, phaseDotText:{color:'#aee2f5',fontWeight:'900',fontSize:11}, phaseText:{color:'#9babb9',fontSize:11,fontWeight:'700',flex:1}, celebration:{position:'absolute',left:24,right:24,top:'40%',backgroundColor:'#15384a',borderWidth:1,borderColor:'#74d4f5',borderRadius:26,paddingVertical:24,paddingHorizontal:20,alignItems:'center',shadowColor:'#000',shadowOpacity:0.35,shadowRadius:18,shadowOffset:{width:0,height:8},elevation:10}, confetti:{color:'#bceeff',fontSize:24,letterSpacing:8}, winTitle:{color:'#fff',fontSize:27,fontWeight:'900',marginTop:5}, winSub:{color:'#9bd9ed',fontSize:11,fontWeight:'900',letterSpacing:1.4,marginTop:5}, footer:{color:'#536575',fontSize:10,textAlign:'center',marginTop:8}
 });
