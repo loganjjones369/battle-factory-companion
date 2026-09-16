@@ -31,7 +31,6 @@ jobs:
           def norm(s):
               return re.sub(r'[^a-z0-9]', '', str(s).lower())
 
-          # Gen III default Pokémon and their base stats from veekun.
           names = {}
           with open('/tmp/pokemon.csv', newline='', encoding='utf-8') as f:
               for row in csv.DictReader(f):
@@ -50,18 +49,13 @@ jobs:
               key = norm(display)
               if key in names:
                   return names[key][0]
-              aliases = {
-                  'mrmime': 'mr-mime', 'farfetchd': 'farfetchd', 'nidoranf': 'nidoran-f',
-                  'nidoranm': 'nidoran-m', 'hooh': 'ho-oh', 'porygon2': 'porygon2'
-              }
+              aliases = {'mrmime':'mr-mime','nidoranf':'nidoran-f','nidoranm':'nidoran-m','hooh':'ho-oh'}
               alias = aliases.get(key)
               if alias and norm(alias) in names:
                   return names[norm(alias)][0]
-              for nk, (pid, _) in names.items():
-                  if nk == key or nk.replace('-', '') == key.replace('-', ''):
-                      return pid
               raise SystemExit(f'Could not map Factory species to Gen III dex data: {display}')
 
+          type_by_species = {}
           sets_by_species = defaultdict(list)
           with open('/tmp/allpkmn.csv', encoding='utf-8') as f:
               for line in f:
@@ -72,44 +66,46 @@ jobs:
                   pid = find_species_id(species)
                   ev_parts = [int(x.strip() or 0) for x in ev_text.split('/')]
                   ev_parts += [0] * (6 - len(ev_parts))
-                  base = stats[pid]
-                  if len(base) != 6:
+                  if len(stats[pid]) != 6:
                       raise SystemExit(f'Missing base stats for {species} ({pid})')
-                  set_obj = {
-                      'id': int(set_no),
+                  try:
+                      set_number_value = int(set_no)
+                  except ValueError:
+                      set_number_value = set_no
+                  try:
+                      round_value = int(round_marker)
+                  except ValueError:
+                      round_value = round_marker
+                  try:
+                      source_id_value = int(source_id)
+                  except ValueError:
+                      source_id_value = source_id
+                  sets_by_species[species].append({
+                      'id': set_number_value,
                       'item': item,
                       'nature': nature,
                       'ability': ability,
                       'evs': dict(zip(['hp','atk','def','spa','spd','spe'], ev_parts[:6])),
                       'moves': [m1,m2,m3,m4],
                       'style': style_text.split(),
-                      'round': int(round_marker),
+                      'round': round_value,
                       'baseSpeed': int(base_speed),
-                      'sourceId': int(source_id),
-                  }
-                  sets_by_species[species].append(set_obj)
+                      'sourceId': source_id_value,
+                  })
+                  type_by_species.setdefault(species, type_text.split())
 
           pokemon = {}
           for species, sets in sets_by_species.items():
               pid = find_species_id(species)
               base = stats[pid]
-              types = []
-              # The canonical CSV's type field is authoritative for Factory data.
-              # It is attached below from the first row's temporary field.
-              with open('/tmp/allpkmn.csv', encoding='utf-8') as f:
-                  for line in f:
-                      fields = [x.strip() for x in line.strip().split(',')]
-                      if len(fields) >= 15 and fields[2].strip() == species:
-                          types = fields[0].split()
-                          break
               pokemon[species] = {
                   'id': pid,
-                  'types': types,
+                  'types': type_by_species[species],
                   'baseStats': dict(zip(['hp','atk','def','spa','spd','spe'], [base[1],base[2],base[3],base[4],base[5],base[6]])),
                   'sets': sets,
               }
 
-          js = '''// Generated from BattleFactoryBuddy's canonical allpkmn.csv.\n// Do not edit manually; the import workflow regenerates this file.\n\nexport const DATASET_META = { source: 'BattleFactoryBuddy/allpkmn.csv', generated: '%s', speciesCount: %d, setCount: %d };\nexport const FACTORY_RULES = {\n  rentalIVsByRound: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 },\n};\n\nexport const POKEMON = %s;\n\nexport function normalizePokemonName(value) {\n  const cleaned = String(value || '').trim().toLowerCase();\n  return Object.keys(POKEMON).find((name) => name.toLowerCase() === cleaned) || null;\n}\nexport function getPokemon(value) {\n  const name = normalizePokemonName(value);\n  return name ? { name, ...POKEMON[name] } : null;\n}\nexport function getSets(value) { return getPokemon(value)?.sets || []; }\n''' % ('github-actions', len(pokemon), sum(len(v) for v in pokemon.values()), json.dumps(pokemon, ensure_ascii=False, separators=(',', ':')))
+          js = '''// Generated from BattleFactoryBuddy's canonical allpkmn.csv.\n// Do not edit manually; the import workflow regenerates this file.\n\nexport const DATASET_META = { source: 'BattleFactoryBuddy/allpkmn.csv', generated: 'github-actions', speciesCount: %d, setCount: %d };\nexport const FACTORY_RULES = { rentalIVsByRound: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 } };\nexport const POKEMON = %s;\nexport function normalizePokemonName(value) { const cleaned = String(value || '').trim().toLowerCase(); return Object.keys(POKEMON).find((name) => name.toLowerCase() === cleaned) || null; }\nexport function getPokemon(value) { const name = normalizePokemonName(value); return name ? { name, ...POKEMON[name] } : null; }\nexport function getSets(value) { return getPokemon(value)?.sets || []; }\n''' % (len(pokemon), sum(len(v) for v in pokemon.values()), json.dumps(pokemon, ensure_ascii=False, separators=(',', ':')))
           Path('data/factoryData.js').write_text(js, encoding='utf-8')
           PY
 
