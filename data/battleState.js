@@ -1,4 +1,5 @@
 import { buildBattleState, getBlockedSpecies, getSwapElevation } from './factoryRules';
+import { makeSwapReplacement } from './setIdentity';
 
 export function getFactoryRound(battle = 1) {
   return Math.max(1, Math.ceil((Number(battle) || 1) / 7));
@@ -15,6 +16,13 @@ function speciesName(pokemon) {
   return String(typeof pokemon === 'string' ? pokemon : (pokemon?.species || pokemon?.name) || '').trim().toLowerCase();
 }
 
+function setIdentityKey(pokemon) {
+  if (!pokemon) return '';
+  const species = speciesName(pokemon);
+  const setId = pokemon?.setId ?? pokemon?.factorySetId ?? (pokemon?.moves && pokemon?.item ? pokemon?.id : null);
+  return `${species}#${setId ?? ''}`;
+}
+
 export function detectSwapCount(previousTeam = [], nextTeam = []) {
   const previous = previousTeam.map(speciesName).filter(Boolean);
   const next = nextTeam.map(speciesName).filter(Boolean);
@@ -28,9 +36,24 @@ export function detectSwapCount(previousTeam = [], nextTeam = []) {
   return { valid: true, count, reason: count === 1 ? 'One Pokémon was swapped.' : 'Team was kept.' };
 }
 
+/**
+ * Replace one exact team slot. The incoming Pokémon gets that slot number,
+ * while draft elevation belongs only to the original draft position and is
+ * deliberately cleared from a swap replacement.
+ */
+export function replaceTeamSlot(team = [], outgoing = null, incoming = null) {
+  if (!outgoing || !incoming || team.length !== 3) return team;
+  const outgoingIndex = team.findIndex((pokemon) => setIdentityKey(pokemon) === setIdentityKey(outgoing));
+  if (outgoingIndex < 0) return team;
+  const teamSlot = outgoing?.teamSlot ?? outgoingIndex;
+  const replacement = makeSwapReplacement(incoming, teamSlot);
+  return team.map((pokemon, index) => index === outgoingIndex ? replacement : { ...pokemon, teamSlot: pokemon?.teamSlot ?? index });
+}
+
 export function createInitialBattleState(options = {}) {
   const state = buildBattleState(options);
-  return { ...state, round: getFactoryRound(state.battle), swapElevation: getSwapElevation(state.swaps) };
+  const currentTeam = (state.currentTeam || []).map((pokemon, index) => ({ ...pokemon, teamSlot: pokemon?.teamSlot ?? index }));
+  return { ...state, currentTeam, round: getFactoryRound(state.battle), swapElevation: getSwapElevation(state.swaps) };
 }
 
 export function advanceAfterBattle(state, { nextCurrentTeam = [], defeatedOpponent = [], didSwap = null } = {}) {
@@ -42,12 +65,13 @@ export function advanceAfterBattle(state, { nextCurrentTeam = [], defeatedOppone
 
   const nextBattle = Math.max(1, Number(state.battle) || 1) + 1;
   const nextSwaps = Math.max(0, Number(state.swaps) || 0) + detected.count;
+  const normalizedTeam = (nextCurrentTeam || []).map((pokemon, index) => ({ ...pokemon, teamSlot: pokemon?.teamSlot ?? index }));
   const next = {
     ...state,
     battle: nextBattle,
     round: getFactoryRound(nextBattle),
     swaps: nextSwaps,
-    currentTeam: nextCurrentTeam,
+    currentTeam: normalizedTeam,
     previousOpponent: defeatedOpponent,
     swapElevation: getSwapElevation(nextSwaps),
     progressionError: null,
