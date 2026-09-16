@@ -7,9 +7,25 @@ export function isLegalOpponentTeam(team = []) {
   return team.length === 3 && !hasDuplicateSpecies(team) && !hasDuplicateItems(team);
 }
 
-function passesPoolFilters(set, blocked) {
-  const species = norm(set.species || set.name);
-  return species && !blocked.has(species);
+function setSpecies(set) {
+  return norm(set.species || set.name);
+}
+
+function setItem(set) {
+  return norm(set.item);
+}
+
+function buildPool(sets, options) {
+  const blocked = new Set((options.blockedSpecies || []).map(norm));
+  const required = (options.revealed?.requiredSpecies || []).map(norm);
+  const base = filterSets(sets, {}).filter((set) => {
+    const species = setSpecies(set);
+    return species && !blocked.has(species);
+  });
+
+  // If a revealed species is required, keep its sets plus all other legal sets.
+  // Team-level required-species validation still happens after combinations are built.
+  return { pool: base, blocked, required };
 }
 
 function passesTeamFilters(team, options) {
@@ -22,30 +38,77 @@ function passesTeamFilters(team, options) {
   }).length > 0;
 }
 
-/** Lazily yield legal teams so the full Factory universe is never materialized in memory. */
+/**
+ * Build compact indexes used by the Factory candidate engine. The app can use
+ * these indexes to narrow the search before asking for concrete team samples.
+ */
+export function buildCandidateIndex(sets = [], options = {}) {
+  const { pool, blocked } = buildPool(sets, options);
+  const bySpecies = new Map();
+  const byItem = new Map();
+
+  pool.forEach((set) => {
+    const species = setSpecies(set);
+    const item = setItem(set);
+    if (!bySpecies.has(species)) bySpecies.set(species, []);
+    bySpecies.get(species).push(set);
+    if (item) {
+      if (!byItem.has(item)) byItem.set(item, []);
+      byItem.get(item).push(set);
+    }
+  });
+
+  return {
+    pool,
+    blockedSpecies: [...blocked],
+    species: bySpecies,
+    items: byItem,
+    speciesCount: bySpecies.size,
+    setCount: pool.length,
+  };
+}
+
+function orderedSpecies(index, options) {
+  const required = new Set((options.revealed?.requiredSpecies || []).map(norm));
+  return [...index.species.keys()].sort((a, b) => {
+    const ar = required.has(a) ? 0 : 1;
+    const br = required.has(b) ? 0 : 1;
+    return ar - br || a.localeCompare(b);
+  });
+}
+
+/**
+ * Lazily yield legal teams. Species are selected first, then individual sets,
+ * which avoids repeatedly comparing every raw set against every other set.
+ */
 export function* iterateLegalTeams(sets = [], options = {}) {
-  const blocked = new Set((options.blockedSpecies || []).map(norm));
-  const pool = filterSets(sets, {}).filter((set) => passesPoolFilters(set, blocked));
+  const index = buildCandidateIndex(sets, options);
+  const speciesList = orderedSpecies(index, options);
 
-  for (let i = 0; i < pool.length - 2; i += 1) {
-    const first = pool[i];
-    const firstSpecies = norm(first.species || first.name);
-    const firstItem = norm(first.item);
-    for (let j = i + 1; j < pool.length - 1; j += 1) {
-      const second = pool[j];
-      const secondSpecies = norm(second.species || second.name);
-      const secondItem = norm(second.item);
-      if (firstSpecies === secondSpecies || firstItem === secondItem) continue;
+  for (let a = 0; a < speciesList.length - 2; a += 1) {
+    const speciesA = speciesList[a];
+    const setsA = index.species.get(speciesA);
+    for (let b = a + 1; b < speciesList.length - 1; b += 1) {
+      const speciesB = speciesList[b];
+      const setsB = index.species.get(speciesB);
+      for (let c = b + 1; c < speciesList.length; c += 1) {
+        const speciesC = speciesList[c];
+        const setsC = index.species.get(speciesC);
 
-      for (let k = j + 1; k < pool.length; k += 1) {
-        const third = pool[k];
-        const thirdSpecies = norm(third.species || third.name);
-        const thirdItem = norm(third.item);
-        if (firstSpecies === thirdSpecies || secondSpecies === thirdSpecies) continue;
-        if (firstItem === thirdItem || secondItem === thirdItem) continue;
+        for (const first of setsA) {
+          const itemA = setItem(first);
+          for (const second of setsB) {
+            const itemB = setItem(second);
+            if (itemA && itemA === itemB) continue;
+            for (const third of setsC) {
+              const itemC = setItem(third);
+              if (itemC && (itemC === itemA || itemC === itemB)) continue;
 
-        const team = [first, second, third];
-        if (passesTeamFilters(team, options)) yield team;
+              const team = [first, second, third];
+              if (passesTeamFilters(team, options)) yield team;
+            }
+          }
+        }
       }
     }
   }
@@ -61,6 +124,17 @@ export function generateLegalTeams(sets = [], options = {}) {
     teams.push(next.value);
   }
   return teams;
+}
+
+/**
+ * Count the concrete teams in a bounded search without retaining them. This is
+ * exact for the supplied set pool/options, but intentionally does not create
+ * millions of arrays in memory.
+ */
+export function countLegalTeams(sets = [], options = {}) {
+  let count = 0;
+  for (const _team of iterateLegalTeams(sets, options)) count += 1;
+  return count;
 }
 
 export function getLegalTeamCounts(teams = []) {
