@@ -1,4 +1,5 @@
 import { calculateTeamRoundBucket, calculateTeamStyle, calculateTeamType } from './scientistAnalysis';
+import { getBlockedSpecies } from './factoryRules';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 const has = (list, value) => !value || (list || []).some((x) => norm(x) === norm(value));
@@ -15,14 +16,15 @@ export function filterSets(sets = [], facts = {}) {
 }
 
 export function filterTeams(teams = [], facts = {}) {
+  const blockedSpecies = (facts.blockedSpecies || facts.excludedSpecies || []).map(norm);
   return teams.filter((team) => {
     const sets = team.sets || team;
     if (facts.type && norm(calculateTeamType(sets)) !== norm(facts.type)) return false;
     if (facts.style !== undefined && calculateTeamStyle(sets) !== Number(facts.style)) return false;
     if (facts.roundBucket && String(calculateTeamRoundBucket(sets)) !== String(facts.roundBucket)) return false;
     const species = sets.map((s) => norm(s.species || s.name));
+    if (blockedSpecies.some((s) => species.includes(s))) return false;
     if (facts.requiredSpecies?.some((s) => !species.includes(norm(s)))) return false;
-    if (facts.excludedSpecies?.some((s) => species.includes(norm(s)))) return false;
     if (facts.revealedSetFacts?.some((fact) => !filterSets(sets, fact).length)) return false;
     return true;
   });
@@ -40,7 +42,18 @@ export function summarizeCandidates(teams = []) {
   return { totalTeams: teams.length, species: sort(species), items: sort(items), moves: sort(moves) };
 }
 
-export function buildCandidateState({ teams = [], scientist = {}, revealed = {} } = {}) {
-  const candidates = filterTeams(teams, { ...scientist, requiredSpecies: revealed.requiredSpecies, excludedSpecies: revealed.excludedSpecies, revealedSetFacts: revealed.setFacts });
-  return { candidates, remaining: candidates.length, summary: summarizeCandidates(candidates) };
+export function buildCandidateState({
+  teams = [],
+  scientist = {},
+  revealed = {},
+  battleState = {},
+} = {}) {
+  const blockedSpecies = battleState.blockedSpecies || getBlockedSpecies(battleState);
+  const candidates = filterTeams(teams, {
+    ...scientist,
+    blockedSpecies,
+    requiredSpecies: revealed.requiredSpecies,
+    revealedSetFacts: revealed.setFacts,
+  });
+  return { candidates, remaining: candidates.length, summary: summarizeCandidates(candidates), blockedSpecies };
 }
