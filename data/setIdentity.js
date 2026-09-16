@@ -44,13 +44,14 @@ export function getSetIdentity(pokemon = {}, fallbackSetId = null) {
 export function makeTeamPokemon(pokemon, options = {}) {
   if (!pokemon) return pokemon;
   const identity = getSetIdentity(pokemon, options.setId);
+  const elevated = Boolean(options.isElevated ?? pokemon.isElevated);
   return {
     ...pokemon,
     ...identity,
     draftSlot: options.draftSlot ?? pokemon.draftSlot ?? null,
     teamSlot: options.teamSlot ?? pokemon.teamSlot ?? null,
-    isElevated: Boolean(options.isElevated ?? pokemon.isElevated),
-    elevationSource: options.isElevated ?? pokemon.isElevated ? (options.draftSlot ?? pokemon.draftSlot ?? null) : null,
+    isElevated: elevated,
+    elevationSource: elevated ? (options.draftSlot ?? pokemon.draftSlot ?? null) : null,
     factoryIV: options.factoryIV ?? pokemon.factoryIV ?? null,
   };
 }
