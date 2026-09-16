@@ -7,7 +7,7 @@ export const FACTORY_RULES = {
   draftSize: 6,
   noGlobalSeenSpeciesBan: true,
   ordinaryOpponentBlockedSlots: 6,
-  ordinaryOpponentBlockSource: 'current-player-team + immediately-previous-opponent-team',
+  ordinaryOpponentBlockSource: 'first battle: six draft species; later battles: current-player-team + immediately-previous-opponent-team',
   nolandIgnoresPlayerSpeciesForGeneration: true,
   itemClause: true,
   speciesClause: true,
@@ -27,11 +27,12 @@ export function getSwapElevation(swaps = 0) {
   return FACTORY_RULES.swapElevation.find((row) => n >= row.min && n <= row.max)?.elevated ?? 0;
 }
 
-export function getBlockedSpecies({ currentTeam = [], previousOpponent = [], noland = false } = {}) {
+export function getBlockedSpecies({ currentTeam = [], previousOpponent = [], draft = [], battle = 1, noland = false } = {}) {
   if (noland) return [];
-  return [...currentTeam, ...previousOpponent]
+  const source = Number(battle) <= 1 ? draft : [...currentTeam, ...previousOpponent];
+  return [...new Set(source
     .map((p) => typeof p === 'string' ? p : (p?.species || p?.name))
-    .filter(Boolean);
+    .filter(Boolean))];
 }
 
 export function hasDuplicateSpecies(sets = []) {
@@ -84,6 +85,6 @@ export function buildBattleState({
     scientist,
     noland: Boolean(noland),
     revealed,
-    blockedSpecies: getBlockedSpecies({ currentTeam, previousOpponent, noland }),
+    blockedSpecies: getBlockedSpecies({ currentTeam, previousOpponent, draft, battle, noland }),
   };
 }
