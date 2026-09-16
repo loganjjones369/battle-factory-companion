@@ -82,6 +82,7 @@ jobs:
                       source_id_value = source_id
                   sets_by_species[species].append({
                       'id': set_number_value,
+                      'species': species,
                       'item': item,
                       'nature': nature,
                       'ability': ability,
