@@ -22,6 +22,7 @@ export function getPossibleSets({ species, blockedSpecies = [], occupiedItems = 
   const occupied = new Set(occupiedItems.map(itemKey));
   const observedMoves = (revealed.moves || []).map(norm);
   const observedSpecies = norm(revealed.species);
+  const isObservedSpecies = observedSpecies === norm(pokemon.name);
 
   if (blocked.has(norm(pokemon.name))) {
     return {
@@ -35,15 +36,16 @@ export function getPossibleSets({ species, blockedSpecies = [], occupiedItems = 
   const eliminated = [];
   pokemon.sets.forEach((set) => {
     const setItem = itemKey(set.item);
-    if (occupied.has(setItem)) {
+    // The observed Pokemon is allowed to keep the item we observed on itself;
+    // Item Clause only excludes that item from its teammates.
+    if (!isObservedSpecies && occupied.has(setItem)) {
       eliminated.push({ set, reason: `Item Clause — ${set.item} is already occupied` });
       return;
     }
 
-    // If this is the specifically observed species, every move we have seen
-    // must exist on the set. This is deliberately species-specific: seeing a
-    // move on Suicune must not eliminate an unrelated Swampert set.
-    if (observedSpecies === norm(pokemon.name) && observedMoves.length) {
+    // Move evidence is species-specific. Seeing a move on Suicune must not
+    // eliminate an unrelated Swampert set.
+    if (isObservedSpecies && observedMoves.length) {
       const moves = new Set((set.moves || []).map(norm));
       const missing = observedMoves.find((move) => !moves.has(move));
       if (missing) {
