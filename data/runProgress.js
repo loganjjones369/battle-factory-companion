@@ -9,6 +9,7 @@ export function createRun(options = {}) {
     currentTeam: options.currentTeam || [],
     previousOpponent: options.previousOpponent || [],
     draft: options.draft || [],
+    draftSlots: options.draftSlots || undefined,
     scientist: options.scientist || {},
     noland: options.noland || false,
     revealed: options.revealed || {},
@@ -48,6 +49,8 @@ export function getRunSummary(state = {}) {
     swapElevation: Number(state.swapElevation) || 0,
     currentTeam: state.currentTeam || [],
     previousOpponent: state.previousOpponent || [],
+    draft: state.draft || [],
+    draftSlots: state.draftSlots || [],
     blockedSpecies: state.blockedSpecies || [],
   };
 }
