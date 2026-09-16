@@ -3,15 +3,6 @@ import { getSwapElevation } from './factoryRules';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 
-/**
- * Maps an actual Factory battle to the set-marker bucket used by the
- * canonical Battle Factory data.
- *
- * The 436-set local dataset represents Group 3 / higher Factory sets. The
- * Level 50 rounds 1-3 use the separate low/mid-tier pools and therefore are
- * reported as unavailable here rather than pretending the 436-set dataset is
- * complete for those rounds.
- */
 export function getPlayerDraftBaseBucket(levelMode = 'Open Level', battle = 1) {
   const b = Math.max(1, Number(battle) || 1);
   if (levelMode === 'Open Level') return b <= 4 ? String(b) : '6';
@@ -20,7 +11,6 @@ export function getPlayerDraftBaseBucket(levelMode = 'Open Level', battle = 1) {
   return '5';
 }
 
-/** The next-round bucket used by an upgraded draft slot. */
 export function getPlayerDraftUpgradeBucket(levelMode = 'Open Level', battle = 1) {
   const b = Math.max(1, Number(battle) || 1);
   if (levelMode === 'Open Level') return b < 4 ? String(b + 1) : '6';
@@ -29,10 +19,6 @@ export function getPlayerDraftUpgradeBucket(levelMode = 'Open Level', battle = 1
   return '5';
 }
 
-/**
- * Returns the number of upgraded Pokémon in the six-Pokémon opening draft.
- * The initial rental counts toward the persistent Factory swap/rental counter.
- */
 export function getDraftElevation(swaps = 0) {
   return Math.min(5, getSwapElevation(swaps));
 }
@@ -45,11 +31,6 @@ function uniqueSpecies(sets) {
   return [...new Set(sets.map((set) => norm(set.species)))].length;
 }
 
-/**
- * Returns the legal set pools for each draft slot before the game's random
- * six-Pokémon selection is applied. This is intentionally a pool, not a fake
- * probability model.
- */
 export function getDraftSetPools({ levelMode = 'Open Level', battle = 1, swaps = 0, blockedSpecies = [] } = {}) {
   const baseBucket = getPlayerDraftBaseBucket(levelMode, battle);
   const upgradeBucket = getPlayerDraftUpgradeBucket(levelMode, battle);
@@ -84,9 +65,35 @@ export function getDraftSetPools({ levelMode = 'Open Level', battle = 1, swaps =
   };
 }
 
+// Factory rental IVs by actual round. At a draft, an elevated slot uses the
+// next-round rental quality while a normal slot uses the current round quality.
+export function getDraftIV(levelMode = 'Open Level', battle = 1, elevated = false) {
+  const round = Math.max(1, Math.ceil((Number(battle) || 1) / 7));
+  const effectiveRound = elevated ? round + 1 : round;
+  const ivByRound = { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 };
+  return ivByRound[Math.min(7, effectiveRound)] || 31;
+}
+
 /**
- * Human-readable explanation for the setup screen.
+ * Gives one draft position its gameplay identity. The UI can use this object
+ * to show the tiny elevation arrow and the calculator can carry the same IV
+ * into future damage/speed calculations.
  */
+export function getDraftSlotInfo({ levelMode = 'Open Level', battle = 1, swaps = 0, slotIndex = 0, blockedSpecies = [] } = {}) {
+  const pool = getDraftSetPools({ levelMode, battle, swaps, blockedSpecies });
+  const elevated = Number(slotIndex) >= 0 && Number(slotIndex) < pool.elevation;
+  return {
+    slotIndex: Number(slotIndex) || 0,
+    isElevated: elevated,
+    poolBucket: elevated ? pool.upgradeBucket : pool.baseBucket,
+    iv: getDraftIV(levelMode, battle, elevated),
+    elevationCount: pool.elevation,
+    baseBucket: pool.baseBucket,
+    upgradeBucket: pool.upgradeBucket,
+    supported: pool.supported,
+  };
+}
+
 export function describeDraftPool({ levelMode = 'Open Level', battle = 1, swaps = 0 } = {}) {
   const pool = getDraftSetPools({ levelMode, battle, swaps });
   if (!pool.supported) return pool.reason;
