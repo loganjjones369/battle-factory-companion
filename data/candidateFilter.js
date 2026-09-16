@@ -5,16 +5,21 @@ const norm = (v) => String(v || '').trim().toLowerCase();
 const has = (list, value) => !value || (list || []).some((x) => norm(x) === norm(value));
 
 export function filterSets(sets = [], facts = {}) {
+  const forbiddenItems = (facts.forbiddenItems || facts.revealedItems || []).map(norm);
   return sets.filter((set) => {
     if (facts.species && norm(set.species || set.name) !== norm(facts.species)) return false;
     if (facts.item && norm(set.item) !== norm(facts.item)) return false;
     if (facts.nature && norm(set.nature) !== norm(facts.nature)) return false;
-    if (facts.ability && norm(set.ability) !== norm(facts.ability)) return false;
+    if (facts.ability && !has(String(set.ability || '').split('/').map((value) => value.trim()), facts.ability)) return false;
     if (facts.move && !has(set.moves, facts.move)) return false;
     if (facts.revealedMoves?.some((move) => !has(set.moves, move))) return false;
-    if (facts.forbiddenItems?.some((item) => norm(set.item) === norm(item))) return false;
+    if (forbiddenItems.includes(norm(set.item))) return false;
     return true;
   });
+}
+
+function teamPassesSetFacts(sets, setFacts = []) {
+  return (setFacts || []).every((fact) => filterSets(sets, fact).length > 0);
 }
 
 export function filterTeams(teams = [], facts = {}) {
@@ -29,7 +34,7 @@ export function filterTeams(teams = [], facts = {}) {
     if (blockedSpecies.some((s) => species.includes(s))) return false;
     if (facts.requiredSpecies?.some((s) => !species.includes(norm(s)))) return false;
     if (forbiddenItems.length && sets.some((s) => forbiddenItems.includes(norm(s.item)))) return false;
-    if (facts.revealedSetFacts?.some((fact) => !filterSets(sets, fact).length)) return false;
+    if (!teamPassesSetFacts(sets, facts.revealedSetFacts || facts.setFacts)) return false;
     return true;
   });
 }
@@ -48,18 +53,14 @@ export function summarizeCandidates(teams = []) {
 
 export function getPossibleSetsForSpecies(sets = [], species, facts = {}) {
   const wanted = norm(species);
-  const forbiddenItems = new Set((facts.forbiddenItems || facts.revealedItems || []).map(norm));
-  return filterSets(sets, facts).filter((set) => {
-    if (norm(set.species || set.name) !== wanted) return false;
-    if (forbiddenItems.has(norm(set.item))) return false;
-    return true;
-  });
+  return filterSets(sets, facts).filter((set) => norm(set.species || set.name) === wanted);
 }
 
-export function buildCandidateState({ teams = [], scientist = {}, revealed = {}, battleState = {} } = {}) {
+export function buildCandidateState({ teams = [], facts = {}, scientist = {}, revealed = {}, battleState = {} } = {}) {
   const blockedSpecies = battleState.blockedSpecies || getBlockedSpecies(battleState);
   const forbiddenItems = [...new Set((revealed.items || revealed.heldItems || []).filter(Boolean))];
   const candidates = filterTeams(teams, {
+    ...facts,
     ...scientist,
     blockedSpecies,
     forbiddenItems,
