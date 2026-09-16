@@ -7,25 +7,19 @@ export function isLegalOpponentTeam(team = []) {
   return team.length === 3 && !hasDuplicateSpecies(team) && !hasDuplicateItems(team);
 }
 
-function setSpecies(set) {
-  return norm(set.species || set.name);
-}
-
-function setItem(set) {
-  return norm(set.item);
-}
+function setSpecies(set) { return norm(set.species || set.name); }
+function setItem(set) { return norm(set.item); }
 
 function buildPool(sets, options) {
   const blocked = new Set((options.blockedSpecies || []).map(norm));
   const required = (options.revealed?.requiredSpecies || []).map(norm);
+  const forbiddenItems = new Set((options.revealed?.items || options.revealed?.heldItems || []).map(norm));
   const base = filterSets(sets, {}).filter((set) => {
     const species = setSpecies(set);
-    return species && !blocked.has(species);
+    const item = setItem(set);
+    return species && !blocked.has(species) && !forbiddenItems.has(item);
   });
-
-  // If a revealed species is required, keep its sets plus all other legal sets.
-  // Team-level required-species validation still happens after combinations are built.
-  return { pool: base, blocked, required };
+  return { pool: base, blocked, required, forbiddenItems };
 }
 
 function passesTeamFilters(team, options) {
@@ -33,20 +27,16 @@ function passesTeamFilters(team, options) {
   return filterTeams([team], {
     ...scientist,
     blockedSpecies,
+    forbiddenItems: revealed.items || revealed.heldItems,
     requiredSpecies: revealed.requiredSpecies,
     revealedSetFacts: revealed.setFacts,
   }).length > 0;
 }
 
-/**
- * Build compact indexes used by the Factory candidate engine. The app can use
- * these indexes to narrow the search before asking for concrete team samples.
- */
 export function buildCandidateIndex(sets = [], options = {}) {
-  const { pool, blocked } = buildPool(sets, options);
+  const { pool, blocked, forbiddenItems } = buildPool(sets, options);
   const bySpecies = new Map();
   const byItem = new Map();
-
   pool.forEach((set) => {
     const species = setSpecies(set);
     const item = setItem(set);
@@ -57,10 +47,10 @@ export function buildCandidateIndex(sets = [], options = {}) {
       byItem.get(item).push(set);
     }
   });
-
   return {
     pool,
     blockedSpecies: [...blocked],
+    forbiddenItems: [...forbiddenItems],
     species: bySpecies,
     items: byItem,
     speciesCount: bySpecies.size,
@@ -77,14 +67,9 @@ function orderedSpecies(index, options) {
   });
 }
 
-/**
- * Lazily yield legal teams. Species are selected first, then individual sets,
- * which avoids repeatedly comparing every raw set against every other set.
- */
 export function* iterateLegalTeams(sets = [], options = {}) {
   const index = buildCandidateIndex(sets, options);
   const speciesList = orderedSpecies(index, options);
-
   for (let a = 0; a < speciesList.length - 2; a += 1) {
     const speciesA = speciesList[a];
     const setsA = index.species.get(speciesA);
@@ -94,7 +79,6 @@ export function* iterateLegalTeams(sets = [], options = {}) {
       for (let c = b + 1; c < speciesList.length; c += 1) {
         const speciesC = speciesList[c];
         const setsC = index.species.get(speciesC);
-
         for (const first of setsA) {
           const itemA = setItem(first);
           for (const second of setsB) {
@@ -103,7 +87,6 @@ export function* iterateLegalTeams(sets = [], options = {}) {
             for (const third of setsC) {
               const itemC = setItem(third);
               if (itemC && (itemC === itemA || itemC === itemB)) continue;
-
               const team = [first, second, third];
               if (passesTeamFilters(team, options)) yield team;
             }
@@ -114,7 +97,6 @@ export function* iterateLegalTeams(sets = [], options = {}) {
   }
 }
 
-/** Return only a bounded sample; callers must not treat this as the complete candidate universe. */
 export function generateLegalTeams(sets = [], options = {}) {
   const limit = Number.isFinite(options.limit) ? Math.max(0, options.limit) : 250;
   if (limit === 0) return [];
@@ -126,11 +108,6 @@ export function generateLegalTeams(sets = [], options = {}) {
   return teams;
 }
 
-/**
- * Count the concrete teams in a bounded search without retaining them. This is
- * exact for the supplied set pool/options, but intentionally does not create
- * millions of arrays in memory.
- */
 export function countLegalTeams(sets = [], options = {}) {
   let count = 0;
   for (const _team of iterateLegalTeams(sets, options)) count += 1;
