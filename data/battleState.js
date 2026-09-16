@@ -1,4 +1,4 @@
-import { buildBattleState, getBlockedSpecies } from './factoryRules';
+import { buildBattleState, getBlockedSpecies, getSwapElevation } from './factoryRules';
 
 // A Factory round contains seven battles. Battle 7/14/21/28/... is the
 // round-ending battle (Noland is handled separately by the UI/rules layer).
@@ -32,7 +32,7 @@ export function detectSwapCount(previousTeam = [], nextTeam = []) {
 
 export function createInitialBattleState(options = {}) {
   const state = buildBattleState(options);
-  return { ...state, round: getFactoryRound(state.battle) };
+  return { ...state, round: getFactoryRound(state.battle), swapElevation: getSwapElevation(state.swaps) };
 }
 
 export function advanceAfterBattle(
@@ -56,7 +56,7 @@ export function advanceAfterBattle(
     swaps: nextSwaps,
     currentTeam: nextCurrentTeam,
     previousOpponent: defeatedOpponent,
-    swapElevation: state.swapElevation,
+    swapElevation: getSwapElevation(nextSwaps),
     progressionError: null,
     swapAttempt: detected,
   };
