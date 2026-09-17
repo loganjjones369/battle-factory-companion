@@ -27,13 +27,13 @@ export function getBattleStatus(team = [], opponent = [], knockedOut = {}) {
   };
 }
 
-export function getNextPlayerChoices(team = [], knockedOut = {}) {
+export function getNextPlayerChoices(team = [], knockedOut = {}, activeTeamIndex = null) {
   return getAvailableBattleSlots(team, knockedOut.team).map(({ pokemon, index }) => ({
     pokemon,
     index,
     species: speciesOf(pokemon),
     setId: pokemon?.setId ?? pokemon?.id ?? null,
-    isCurrent: false,
+    isCurrent: Number(index) === Number(activeTeamIndex),
   }));
 }
 
@@ -51,10 +51,17 @@ export function getOpponentEvidenceAfterKO(opponent = [], knockedOut = {}, obser
 
 export function buildBattleSequence({ team = [], opponent = [], knockedOut = {}, activeTeamIndex = null, activeOpponentIndex = null, observations = [] } = {}) {
   const status = getBattleStatus(team, opponent, knockedOut);
-  const playerChoices = getNextPlayerChoices(team, knockedOut);
+  const playerChoices = getNextPlayerChoices(team, knockedOut, activeTeamIndex);
   const opponentEvidence = getOpponentEvidenceAfterKO(opponent, knockedOut, observations);
   const activeTeam = Number.isInteger(activeTeamIndex) && !knockedOut.team?.includes(activeTeamIndex) ? team[activeTeamIndex] : null;
   const activeOpponent = Number.isInteger(activeOpponentIndex) && !knockedOut.opponent?.includes(activeOpponentIndex) ? opponent[activeOpponentIndex] : null;
+  const availableOpponentSlots = getAvailableBattleSlots(opponent, knockedOut.opponent).map(({ pokemon, index }) => ({
+    pokemon,
+    index,
+    species: speciesOf(pokemon),
+    setId: pokemon?.setId ?? pokemon?.id ?? null,
+    isCurrent: Number(index) === Number(activeOpponentIndex),
+  }));
   return {
     ...status,
     knockedOut,
@@ -63,6 +70,7 @@ export function buildBattleSequence({ team = [], opponent = [], knockedOut = {},
     activeTeam,
     activeOpponent,
     playerChoices,
+    availableOpponentSlots,
     opponentEvidence,
     nextDecision: status.battleOver
       ? 'BATTLE OVER'
@@ -79,6 +87,8 @@ export function applyBattleKO(sequence, side, index) {
   const next = { ...sequence, knockedOut: { ...(sequence.knockedOut || {}) } };
   const values = Array.isArray(next.knockedOut[side]) ? next.knockedOut[side] : [];
   next.knockedOut[side] = [...new Set([...values, Number(index)])].sort((a, b) => a - b);
+  if (side === 'team' && Number(next.activeTeamIndex) === Number(index)) next.activeTeamIndex = null;
+  if (side === 'opponent' && Number(next.activeOpponentIndex) === Number(index)) next.activeOpponentIndex = null;
   return buildBattleSequence(next);
 }
 
@@ -86,5 +96,17 @@ export function undoBattleKO(sequence, side, index) {
   if (!sequence || !['team', 'opponent'].includes(side)) return sequence;
   const next = { ...sequence, knockedOut: { ...(sequence.knockedOut || {}) } };
   next.knockedOut[side] = (next.knockedOut[side] || []).filter((value) => Number(value) !== Number(index));
+  return buildBattleSequence(next);
+}
+
+export function selectActivePokemon(sequence, side, index) {
+  if (!sequence || !['team', 'opponent'].includes(side)) return sequence;
+  const numericIndex = Number(index);
+  const slots = side === 'team' ? sequence.team || [] : sequence.opponent || [];
+  const ko = side === 'team' ? sequence.knockedOut?.team || [] : sequence.knockedOut?.opponent || [];
+  if (!slots[numericIndex] || ko.map(Number).includes(numericIndex)) return sequence;
+  const next = { ...sequence };
+  if (side === 'team') next.activeTeamIndex = numericIndex;
+  else next.activeOpponentIndex = numericIndex;
   return buildBattleSequence(next);
 }
