@@ -4,6 +4,7 @@ import { analyzeFactoryCandidates } from '../data/candidateEngine';
 import { bestDamagingMoves, calculateDamage, getEffectiveSpeed, getStats } from '../data/damageCalc';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
+const setKey = (set) => `${norm(set?.species)}#${set?.id ?? set?.setId ?? set?.sourceId ?? ''}`;
 const setLabel = (set) => `${set?.species || 'Unknown'} ${set?.id ?? set?.setId ?? set?.sourceId ?? ''}`.trim();
 
 function bestHit(attacker, defender, level, round) {
@@ -23,7 +24,7 @@ function threatLine(set, team, level, round) {
     const hit = bestHit(set, ally, level, round);
     return { ally, hit, faster: speed > allySpeed };
   });
-  const dangerous = hits.filter((x) => x.faster || x.hit?.percentMax >= 50 || (x.hit?.ko && x.hit.ko <= 2));
+  const dangerous = hits.filter((x) => x.faster || x.hit?.percentMax >= 50 || x.hit?.percentMin >= 50);
   if (!dangerous.length) return 'No mapped high-priority pressure against your current team.';
   const x = dangerous[0];
   const damage = x.hit ? `${x.hit.moveName} ${x.hit.percentMin.toFixed(1)}–${x.hit.percentMax.toFixed(1)}%` : 'No mapped damage';
@@ -33,18 +34,23 @@ function threatLine(set, team, level, round) {
 export default function LiveOpponentAnalysis({ draft = [], scientist = {}, levelMode = 'Open Level', battle = 1, blockedSpecies = [], observations = [], currentTeam = [], previousOpponent = [], noland = false }) {
   const result = useMemo(() => analyzeFactoryCandidates({ draft, blockedSpecies, scientist, levelMode, battle, revealed: { observations }, currentTeam, previousOpponent, noland }), [draft, blockedSpecies, scientist, levelMode, battle, observations, currentTeam, previousOpponent, noland]);
   const observedSpecies = [...new Set(observations.map((o) => norm(o.species)).filter(Boolean))];
-  const observedSets = observedSpecies.map((species) => ({ species, sets: (result.rankedSets || []).filter((entry) => norm(entry.set?.species) === species).map((entry) => entry.set) }));
+  const observedSets = observedSpecies.map((species) => {
+    const unique = new Map();
+    (result.rankedSets || []).filter((entry) => norm(entry.set?.species) === species).forEach((entry) => unique.set(setKey(entry.set), entry.set));
+    return { species, sets: [...unique.values()] };
+  });
   const exact = observedSets.filter((x) => x.sets.length === 1);
   const unresolved = observedSets.filter((x) => x.sets.length > 1);
+  const candidateCount = result.rankedSets?.length || 0;
 
   if (!observations.length) return null;
   return <View style={styles.card}>
-    <View style={styles.header}><View style={{ flex: 1 }}><Text style={styles.kicker}>LIVE RESEARCH</Text><Text style={styles.title}>Opponent possibilities updated</Text></View><Text style={styles.badge}>{result.supported ? result.rankedSets?.length || 0 : '—'}</Text></View>
+    <View style={styles.header}><View style={{ flex: 1 }}><Text style={styles.kicker}>LIVE RESEARCH</Text><Text style={styles.title}>Opponent possibilities updated</Text></View><Text style={styles.badge}>{result.supported ? candidateCount : '—'}</Text></View>
     {!result.supported ? <Text style={styles.warning}>{result.reason}</Text> : <>
       {!!exact.length && <View style={styles.exactBox}><Text style={styles.exactTitle}>SET IDENTIFIED FROM CURRENT CLUES</Text>{exact.map((x) => <Text key={x.species} style={styles.exactText}>✓ {setLabel(x.sets[0])} — the current recorded clues leave one compatible set.</Text>)}</View>}
       {!!unresolved.length && <View style={styles.section}><Text style={styles.sectionTitle}>STILL ALIVE</Text>{unresolved.map((x) => <View key={x.species} style={styles.speciesRow}><Text style={styles.speciesName}>{x.species}</Text><Text style={styles.speciesText}>{x.sets.length} compatible sets remain: {x.sets.slice(0, 6).map(setLabel).join(' • ')}{x.sets.length > 6 ? ' • …' : ''}</Text></View>)}</View>}
-      {currentTeam.length > 0 && <View style={styles.section}><Text style={styles.sectionTitle}>IMMEDIATE THREATS</Text>{observedSets.flatMap((x) => x.sets.slice(0, 4)).map((set, i) => <Text key={`${setLabel(set)}-${i}`} style={styles.threat}>{threatLine(set, currentTeam, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil((Number(battle) || 1) / 7)))}</Text>)}</View>}
-      <Text style={styles.note}>{result.matchingTeams?.length || 0} legal clue-compatible opponent teams remain in the current screen. This is a candidate set, not a probability.</Text>
+      {currentTeam.length > 0 && <View style={styles.section}><Text style={styles.sectionTitle}>IMMEDIATE THREATS</Text>{observedSets.flatMap((x) => x.sets.slice(0, 4)).map((set, i) => <Text key={`${setKey(set)}-${i}`} style={styles.threat}>{threatLine(set, currentTeam, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil((Number(battle) || 1) / 7)))}</Text>)}</View>}
+      <Text style={styles.note}>{candidateCount} surviving set candidates are shown from the current clue screen. Candidate frequency is not a probability.</Text>
     </>}
   </View>;
 }
