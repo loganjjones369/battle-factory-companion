@@ -16,7 +16,7 @@ export function abilitySpeedMultiplier(ability, weather = 'none') {
   return 1;
 }
 
-export function abilityDamageEffect({ moveType, effectiveness, category, attackerAbility, defenderAbility, attackerStatus = 'healthy' }) {
+export function abilityDamageEffect({ moveType, effectiveness, category, attackerAbility, defenderAbility }) {
   const atk = normalizeAbility(attackerAbility);
   const def = normalizeAbility(defenderAbility);
 
@@ -29,7 +29,6 @@ export function abilityDamageEffect({ moveType, effectiveness, category, attacke
   let multiplier = 1;
   const reasons = [];
   if (def === 'thick fat' && (moveType === 'Fire' || moveType === 'Ice')) { multiplier *= 0.5; reasons.push('Thick Fat'); }
-  if (atk === 'guts' && attackerStatus !== 'healthy') { multiplier *= 1.5; reasons.push('Guts'); }
   if (category === 'physical' && (atk === 'huge power' || atk === 'pure power')) { multiplier *= 2; reasons.push('Huge/Pure Power'); }
   return { immune: false, multiplier, reason: reasons.join(' • ') };
 }
