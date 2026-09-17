@@ -10,7 +10,7 @@ const itemKey = (v) => norm(v).replace(/[^a-z0-9]/g, '');
 const setLabel = (set) => `${set?.species || set?.name || 'Unknown'} ${set?.setId ?? set?.sourceId ?? set?.id ?? ''}`.trim();
 const moveNames = (set) => (set?.moves || []).map((move) => typeof move === 'string' ? move : move?.name).filter(Boolean);
 
-function knownSet(p) { return p?.species && p?.setId != null ? p : null; }
+function knownSet(p) { return p?.species && (p?.setId != null || p?.sourceId != null || p?.id != null) ? p : null; }
 
 function clueMatches(set, observations = []) {
   const observation = observations.find((o) => norm(o?.species) === norm(set?.species));
@@ -153,7 +153,7 @@ export default function CandidateAnalysisPanel({ draft = [], team = [], currentT
           const threatKey = `${norm(set.species)}#${set.id ?? set.sourceId ?? set.setId ?? ''}`;
           const threat = threatMap[threatKey];
           return <View key={key} style={styles.setBlock}><Pressable style={styles.setRow} onPress={() => setExpandedSet(open ? null : key)}><View style={styles.rankBadge}><Text style={styles.rankText}>{index + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.setName}>{setLabel(set)}</Text><Text style={styles.frequency}>{percent.toFixed(1)}% of surviving candidate teams</Text>{!!threatLabel(threat) && <Text style={styles.threatLine}>⚠ {threatLabel(threat)}</Text>}{!!matches.length && <Text style={styles.matchLine}>✓ {matches.join('  •  ')}</Text>}</View><Text style={styles.chevron}>{open ? '▲' : '▼'}</Text></Pressable>
-            {open && <View style={styles.detailCard}>{!!matches.length && <><Text style={styles.reasonTitle}>WHY THIS SET SURVIVED</Text><Text style={styles.reasonText}>{matches.join(' • ')}</Text></>}{!!threat && analysisTeam.length > 0 && <><Text style={styles.reasonTitle}>WHY THIS SET MATTERS</Text>{threat.details.map((detail, i) => <Text key={`${detail.defender.species}-${i}`} style={styles.detail}>{setLabel(detail.defender)}: {detail.aSpeed > detail.dSpeed ? `faster (${detail.aSpeed} vs ${detail.dSpeed})` : detail.aSpeed === detail.dSpeed ? `speed tie (${detail.aSpeed})` : `slower (${detail.aSpeed} vs ${detail.dSpeed})`)}{detail.best ? ` • ${detail.best.moveName}: ${detail.best.percentMin.toFixed(1)}%–${detail.best.percentMax.toFixed(1)}%` : ' • no mapped damaging move'}</Text>)}</>}{!!set.item && <Text style={styles.detail}>Item: {set.item}</Text>}{!!set.nature && <Text style={styles.detail}>Nature: {set.nature}</Text>}{!!set.ability && <Text style={styles.detail}>Ability: {set.ability}</Text>}{!!moveNames(set).length && <Text style={styles.detail}>Moves: {moveNames(set).join(' • ')}</Text>}</View>}
+            {open && <View style={styles.detailCard}>{!!matches.length && <><Text style={styles.reasonTitle}>WHY THIS SET SURVIVED</Text><Text style={styles.reasonText}>{matches.join(' • ')}</Text></>}{!!threat && <Text style={styles.detail}>{threatLabel(threat)}</Text>}{!!set.item && <Text style={styles.detail}>Item: {set.item}</Text>}{!!set.nature && <Text style={styles.detail}>Nature: {set.nature}</Text>}{!!set.ability && <Text style={styles.detail}>Ability: {set.ability}</Text>}{!!moveNames(set).length && <Text style={styles.detail}>Moves: {moveNames(set).join(' • ')}</Text>}</View>}
           </View>;
         })}
         {!visibleSets.length && <Text style={styles.empty}>No surviving candidate sets match the current information.</Text>}
