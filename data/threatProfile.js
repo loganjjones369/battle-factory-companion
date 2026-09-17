@@ -16,8 +16,6 @@ const unique = (items = []) => [...new Set(items.filter(Boolean))];
 function offensiveSignalForSet(set = {}) {
   const signal = {};
 
-  // Actual mapped attacks are the strongest evidence of what a surviving
-  // Factory set can pressure with. A species' typing is secondary context.
   unique(getMappedMoveTypes(set)).forEach((type) => {
     signal[type] = (signal[type] || 0) + 2;
   });
@@ -79,8 +77,6 @@ export function buildThreatProfile(rankedSets = [], team = []) {
   ).length;
   const answers = answerDetails.filter((item) => item.isAnswer).length;
 
-  // Keep the profile descriptive. It is a matchup signal, not an in-game
-  // probability calculation; Factory team generation is not uniform.
   const threatLevel =
     vulnerable >= 2 && pressureShare >= 0.3 ? 'high' :
     vulnerable >= 1 && pressureShare >= 0.2 ? 'medium' :
