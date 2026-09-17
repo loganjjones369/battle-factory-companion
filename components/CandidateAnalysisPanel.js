@@ -14,15 +14,11 @@ function clueMatches(set, observations = []) {
   const matches = ['Species'];
   if (observation.item && itemKey(set.item) === itemKey(observation.item)) matches.push(`Item: ${set.item}`);
   const moves = moveNames(set).map(norm);
-  (observation.moves || []).filter(Boolean).forEach((move) => {
-    if (moves.includes(norm(move))) matches.push(`Move: ${move}`);
-  });
+  (observation.moves || []).filter(Boolean).forEach((move) => { if (moves.includes(norm(move))) matches.push(`Move: ${move}`); });
   return matches;
 }
 
-function knownSet(p) {
-  return p?.species && p?.setId != null ? p : null;
-}
+function knownSet(p) { return p?.species && p?.setId != null ? p : null; }
 
 function threatAgainstTeam(candidate, team = [], levelNumber = 50, round = 1) {
   const attacker = knownSet(candidate);
@@ -57,12 +53,14 @@ function threatLabel(threat) {
 }
 
 export default function CandidateAnalysisPanel({
-  draft = [], team = [], blockedSpecies = [], scientist = {}, levelMode = 'Open Level', battle = 1,
+  draft = [], team = [], currentTeam = [], previousOpponent = [], blockedSpecies = [], scientist = {}, levelMode = 'Open Level', battle = 1,
   revealed = {}, noland = false, maxResults = 20,
 }) {
   const [result, setResult] = useState(null);
   const [expandedSet, setExpandedSet] = useState(null);
+  const [showEliminated, setShowEliminated] = useState(false);
   const [busy, setBusy] = useState(false);
+  const analysisTeam = currentTeam.length ? currentTeam : team;
   const draftNames = useMemo(() => draft.map((p) => p?.species || p?.name).filter(Boolean), [draft]);
   const observations = revealed?.observations || [];
   const levelNumber = levelMode === 'Open Level' ? 100 : 50;
@@ -72,8 +70,9 @@ export default function CandidateAnalysisPanel({
     setBusy(true);
     setTimeout(() => {
       try {
-        setResult(analyzeFactoryCandidates({ draft, blockedSpecies, scientist, levelMode, battle, revealed, noland }));
+        setResult(analyzeFactoryCandidates({ draft, blockedSpecies, scientist, levelMode, battle, revealed, noland, currentTeam: analysisTeam, previousOpponent }));
         setExpandedSet(null);
+        setShowEliminated(false);
       } finally { setBusy(false); }
     }, 0);
   };
@@ -81,16 +80,22 @@ export default function CandidateAnalysisPanel({
   const rankedSets = result?.rankedSets || [];
   const visibleSets = rankedSets.slice(0, maxResults);
   const remainingCount = Math.max(0, rankedSets.length - visibleSets.length);
+  const eliminated = result?.eliminatedSets || [];
+  const eliminationGroups = useMemo(() => {
+    const groups = {};
+    eliminated.forEach((entry) => { groups[entry.reason] = (groups[entry.reason] || 0) + 1; });
+    return Object.entries(groups).sort((a, b) => b[1] - a[1]);
+  }, [eliminated]);
   const threatMap = useMemo(() => {
     const map = {};
     visibleSets.forEach((entry) => {
       const key = `${norm(entry.set.species)}#${entry.set.id ?? entry.set.sourceId ?? entry.set.setId ?? ''}`;
-      map[key] = threatAgainstTeam(entry.set, team, levelNumber, battleRound);
+      map[key] = threatAgainstTeam(entry.set, analysisTeam, levelNumber, battleRound);
     });
     return map;
-  }, [visibleSets, team, levelNumber, battleRound]);
+  }, [visibleSets, analysisTeam, levelNumber, battleRound]);
 
-  const teamNames = team.map((p) => `${p.species} ${p.setId}`).filter(Boolean);
+  const teamNames = analysisTeam.map((p) => `${p.species} ${p.setId}`).filter(Boolean);
 
   return (
     <View style={styles.card}>
@@ -108,23 +113,18 @@ export default function CandidateAnalysisPanel({
       </Pressable>
       <Text style={styles.contextText}>Draft: {draftNames.length ? draftNames.join(' • ') : 'not entered'}</Text>
       {!!teamNames.length && <Text style={styles.teamContext}>Current team: {teamNames.join(' • ')}</Text>}
+      {!!previousOpponent.length && <Text style={styles.teamContext}>Previous opponent: {previousOpponent.map((p) => `${p.species} ${p.setId}`).join(' • ')}</Text>}
 
       {observations.length > 0 && (
         <View style={styles.observationBox}>
           <Text style={styles.observationTitle}>KNOWN OPPONENT CLUES</Text>
-          {observations.map((o, i) => (
-            <Text key={`${o.species}-${i}`} style={styles.observationText}>
-              {o.species}{o.item ? ` • ${o.item}` : ''}{o.moves?.length ? ` • ${o.moves.join(', ')}` : ''}
-            </Text>
-          ))}
+          {observations.map((o, i) => <Text key={`${o.species}-${i}`} style={styles.observationText}>{o.species}{o.item ? ` • ${o.item}` : ''}{o.moves?.length ? ` • ${o.moves.join(', ')}` : ''}</Text>)}
         </View>
       )}
 
       {result && (
         <View style={styles.resultBox}>
-          {!result.supported ? (
-            <Text style={styles.warning}>{result.reason || 'This Factory pool is not supported by the current dataset.'}</Text>
-          ) : (
+          {!result.supported ? <Text style={styles.warning}>{result.reason || 'This Factory pool is not supported by the current dataset.'}</Text> : (
             <>
               <View style={styles.summaryBox}>
                 <Text style={styles.summaryTitle}>WHAT TO WORRY ABOUT NEXT</Text>
@@ -156,7 +156,7 @@ export default function CandidateAnalysisPanel({
                       {open && (
                         <View style={styles.detailCard}>
                           {!!matches.length && <><Text style={styles.reasonTitle}>WHY THIS SET SURVIVED</Text><Text style={styles.reasonText}>{matches.join(' • ')}</Text></>}
-                          {!!threat && team.length > 0 && <>
+                          {!!threat && analysisTeam.length > 0 && <>
                             <Text style={styles.reasonTitle}>WHY THIS SET MATTERS</Text>
                             {threat.details.map((detail, i) => <Text key={`${detail.defender.species}-${i}`} style={styles.detail}>
                               {setLabel(detail.defender)}: {detail.aSpeed > detail.dSpeed ? `faster (${detail.aSpeed} vs ${detail.dSpeed})` : detail.aSpeed === detail.dSpeed ? `speed tie (${detail.aSpeed})` : `slower (${detail.aSpeed} vs ${detail.dSpeed})`}
@@ -175,6 +175,15 @@ export default function CandidateAnalysisPanel({
                 {!visibleSets.length && <Text style={styles.empty}>No surviving candidate sets match the current information.</Text>}
                 {!!remainingCount && <Text style={styles.more}>+ {remainingCount} lower-frequency possibilities hidden</Text>}
               </ScrollView>
+
+              {!!eliminated.length && <Pressable style={styles.eliminationToggle} onPress={() => setShowEliminated(!showEliminated)}>
+                <View style={{ flex: 1 }}><Text style={styles.eliminationTitle}>WHY DID SETS DISAPPEAR?</Text><Text style={styles.eliminationSummary}>{eliminated.length} set candidates were eliminated by the current evidence and Factory rules.</Text></View>
+                <Text style={styles.chevron}>{showEliminated ? '▲' : '▼'}</Text>
+              </Pressable>}
+              {showEliminated && <View style={styles.eliminationBox}>
+                {eliminationGroups.map(([reason, count]) => <Text key={reason} style={styles.eliminationRow}>• {reason}: {count}</Text>)}
+                <Text style={styles.eliminationHint}>This groups eliminations by the first clear rule that explains why the set cannot survive. Some sets can fail multiple constraints.</Text>
+              </View>}
 
               {!!result.rankingNote && <Text style={styles.note}>{result.rankingNote}</Text>}
               <Text style={styles.eliminationNote}>Sets disappear when they fail the current Factory pool, blocked-species/team rules, Scientist clue, held-item clue, or any move you've recorded. Threat analysis is advisory and only uses exact-set stats plus moves supported by the current Gen III damage database.</Text>
@@ -222,6 +231,12 @@ const styles = StyleSheet.create({
   reasonTitle: { fontSize: 9, fontWeight: '900', color: '#536453', letterSpacing: 0.8, marginTop: 3 },
   reasonText: { fontSize: 10, color: '#4e5a50', marginTop: 3, marginBottom: 5, lineHeight: 14 },
   detail: { fontSize: 11, color: '#555e57', marginTop: 3, lineHeight: 15 },
+  eliminationToggle: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#dfe4dc', borderRadius: 10, padding: 10, marginTop: 9 },
+  eliminationTitle: { fontSize: 10, fontWeight: '900', color: '#435045', letterSpacing: 0.7 },
+  eliminationSummary: { fontSize: 9, color: '#697269', marginTop: 2 },
+  eliminationBox: { backgroundColor: '#f5f5ef', borderRadius: 9, padding: 9, marginTop: 5, borderLeftWidth: 3, borderLeftColor: '#8a967f' },
+  eliminationRow: { fontSize: 10, color: '#4f5b51', marginTop: 3, lineHeight: 14 },
+  eliminationHint: { fontSize: 9, color: '#737a72', marginTop: 7, lineHeight: 13 },
   empty: { color: '#626a63', fontSize: 12, paddingVertical: 12 },
   more: { color: '#526153', fontSize: 11, fontWeight: '800', paddingVertical: 10 },
   note: { color: '#697169', fontSize: 9, lineHeight: 13, marginTop: 8 },
