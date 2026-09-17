@@ -1,0 +1,34 @@
+name: Fix Scientist contribution styles
+on:
+  push:
+    paths:
+      - 'components/CandidateAnalysisPanel.js'
+      - '.github/workflows/fix-scientist-style.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add missing styles
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('components/CandidateAnalysisPanel.js')
+          s=p.read_text()
+          if 'scientistInsight:{' not in s:
+              marker='  detailCard:{'
+              styles="  scientistInsight:{backgroundColor:'#e2eadf',borderRadius:7,padding:7,marginTop:7,borderWidth:1,borderColor:'#9cac98'},scientistInsightTitle:{fontSize:8.5,fontWeight:'900',letterSpacing:.7,color:'#536453'},scientistInsightText:{fontSize:10,color:'#3f4b42',lineHeight:15,marginTop:3},\n"
+              s=s.replace(marker, styles+marker)
+              p.write_text(s)
+          PY
+      - name: Commit and remove workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add components/CandidateAnalysisPanel.js
+          git rm .github/workflows/fix-scientist-style.yml
+          git commit -m 'Fix Scientist contribution panel styles' || exit 0
+          git push
