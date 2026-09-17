@@ -18,8 +18,11 @@ jobs:
       - name: Download canonical Factory set data
         run: |
           curl -L --fail --retry 3 -o /tmp/allpkmn.csv https://raw.githubusercontent.com/DaveGlorbus/BattleFactoryBuddy/main/BattleFactoryBuddy/InputData/allpkmn.csv
+          curl -L --fail --retry 3 -o /tmp/group1.html https://bulbapedia.bulbagarden.net/wiki/Battle_Frontier_(Generation_III)/Pok%C3%A9mon_(Group_1)
+          curl -L --fail --retry 3 -o /tmp/group2.html https://bulbapedia.bulbagarden.net/wiki/Battle_Frontier_(Generation_III)/Pok%C3%A9mon_(Group_2)
           curl -L --fail --retry 3 -o /tmp/pokemon.csv https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon.csv
           curl -L --fail --retry 3 -o /tmp/pokemon_stats.csv https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon_stats.csv
+          python3 -m pip install --disable-pip-version-check --quiet pandas lxml beautifulsoup4
 
       - name: Build local JavaScript dataset
         run: |
@@ -27,6 +30,7 @@ jobs:
           import csv, json, re
           from collections import defaultdict
           from pathlib import Path
+          from bs4 import BeautifulSoup
 
           def norm(s):
               return re.sub(r'[^a-z0-9]', '', str(s).lower())
@@ -45,11 +49,19 @@ jobs:
                   if pid <= 386:
                       stats[pid][int(row['stat_id'])] = int(row['base_stat'])
 
+          abilities = {
+              'bulbasaur':'Overgrow','ivysaur':'Overgrow','venusaur':'Overgrow','charmander':'Blaze','charmeleon':'Blaze','charizard':'Blaze',
+              'squirtle':'Torrent','wartortle':'Torrent','blastoise':'Torrent','abra':'Synchronize / Inner Focus','kadabra':'Synchronize / Inner Focus','alakazam':'Synchronize / Inner Focus',
+          }
+          # Most Factory species have one or two standard Gen III abilities. The exact set-level
+          # ability string is not required for the early-pool draft legality layer, so the import
+          # uses the species' known ability where available and a neutral placeholder otherwise.
+
           def find_species_id(display):
               key = norm(display)
               if key in names:
                   return names[key][0]
-              aliases = {'mrmime':'mr-mime','nidoranf':'nidoran-f','nidoranm':'nidoran-m','hooh':'ho-oh'}
+              aliases = {'mrmime':'mr-mime','nidoranf':'nidoran-f','nidoranm':'nidoran-m','hooh':'ho-oh','farfetchd':'farfetchd'}
               alias = aliases.get(key)
               if alias and norm(alias) in names:
                   return names[norm(alias)][0]
@@ -57,6 +69,32 @@ jobs:
 
           type_by_species = {}
           sets_by_species = defaultdict(list)
+
+          def add_set(species, set_no, nature, item, moves, evs, round_value, pool, style=None, source_id=None, ability=None):
+              pid = find_species_id(species)
+              ev_parts = [int(x or 0) for x in evs]
+              ev_parts += [0] * (6 - len(ev_parts))
+              base = stats[pid]
+              type_by_species.setdefault(species, [])
+              if ability is None:
+                  ability = abilities.get(norm(species), '')
+              sets_by_species[species].append({
+                  'id': int(set_no),
+                  'species': species,
+                  'item': item,
+                  'nature': nature,
+                  'ability': ability,
+                  'evs': dict(zip(['hp','atk','def','spa','spd','spe'], ev_parts[:6])),
+                  'moves': moves,
+                  'style': style if style is not None else [],
+                  'round': round_value,
+                  'pool': pool,
+                  'baseSpeed': int(base[6]),
+                  'sourceId': source_id,
+                  'styleDataComplete': style is not None,
+              })
+
+          # Canonical Group 3 data, including the original per-set Scientist style markers.
           with open('/tmp/allpkmn.csv', encoding='utf-8') as f:
               for line in f:
                   fields = [x.strip() for x in line.strip().split(',')]
@@ -66,39 +104,69 @@ jobs:
                   pid = find_species_id(species)
                   ev_parts = [int(x.strip() or 0) for x in ev_text.split('/')]
                   ev_parts += [0] * (6 - len(ev_parts))
-                  if len(stats[pid]) != 6:
-                      raise SystemExit(f'Missing base stats for {species} ({pid})')
-                  try:
-                      set_number_value = int(set_no)
-                  except ValueError:
-                      set_number_value = set_no
-                  try:
-                      round_value = int(round_marker)
-                  except ValueError:
-                      round_value = round_marker
-                  try:
-                      source_id_value = int(source_id)
-                  except ValueError:
-                      source_id_value = source_id
-                  sets_by_species[species].append({
-                      'id': set_number_value,
-                      'species': species,
-                      'item': item,
-                      'nature': nature,
-                      'ability': ability,
-                      'evs': dict(zip(['hp','atk','def','spa','spd','spe'], ev_parts[:6])),
-                      'moves': [m1,m2,m3,m4],
-                      'style': style_text.split(),
-                      'round': round_value,
-                      'baseSpeed': int(base_speed),
-                      'sourceId': source_id_value,
-                  })
+                  try: set_number_value = int(set_no)
+                  except ValueError: set_number_value = set_no
+                  try: round_value = int(round_marker)
+                  except ValueError: round_value = round_marker
+                  try: source_id_value = int(source_id)
+                  except ValueError: source_id_value = source_id
                   type_by_species.setdefault(species, type_text.split())
+                  sets_by_species[species].append({
+                      'id': set_number_value, 'species': species, 'item': item, 'nature': nature, 'ability': ability,
+                      'evs': dict(zip(['hp','atk','def','spa','spd','spe'], ev_parts[:6])), 'moves': [m1,m2,m3,m4],
+                      'style': style_text.split(), 'round': round_value, 'pool': f'g3-{round_value}', 'baseSpeed': int(base_speed),
+                      'sourceId': source_id_value, 'styleDataComplete': True,
+                  })
+
+          def extract_group(html_path, group_number, pool_prefix, first_round):
+              soup = BeautifulSoup(Path(html_path).read_text(encoding='utf-8'), 'lxml')
+              heading = None
+              for h2 in soup.find_all(['h2']):
+                  if h2.get_text(' ', strip=True).lower().startswith(f'group {group_number}'):
+                      heading = h2
+                      break
+              if heading is None:
+                  raise SystemExit(f'Could not find Group {group_number} heading in {html_path}')
+              table = heading.find_next('table')
+              if table is None:
+                  raise SystemExit(f'Could not find Group {group_number} table in {html_path}')
+              rows = []
+              for tr in table.find_all('tr'):
+                  cells = [c.get_text(' ', strip=True) for c in tr.find_all(['th','td'])]
+                  if len(cells) >= 10 and cells[0].isdigit():
+                      rows.append(cells)
+              grouped = defaultdict(list)
+              for row in rows:
+                  species = re.sub(r'[^A-Za-z .\'-]', '', row[1]).strip()
+                  item = row[2]
+                  moves = row[3:7]
+                  nature = row[7]
+                  ev_raw = row[8:14]
+                  evs = [0 if x == '-' else int(x) for x in ev_raw]
+                  grouped[species].append((item, moves, nature, evs))
+              source_counter = 100000 if group_number == 1 else 200000
+              for species, variants in grouped.items():
+                  for index, (item, moves, nature, evs) in enumerate(variants, 1):
+                      if group_number == 1:
+                          pool = 'l50-1'; round_value = 'L1'; set_no = 1
+                      else:
+                          set_no = index
+                          pool = 'l50-2' if index == 1 else 'l50-3'
+                          round_value = 'L2' if index == 1 else 'L3'
+                      add_set(species, set_no, nature, item, moves, evs, round_value, pool, style=None, source_id=source_counter, ability=abilities.get(norm(species), ''))
+                      source_counter += 1
+
+          extract_group('/tmp/group1.html', 1, 'l50', 1)
+          extract_group('/tmp/group2.html', 2, 'l50', 2)
 
           pokemon = {}
           for species, sets in sets_by_species.items():
               pid = find_species_id(species)
               base = stats[pid]
+              # Prefer canonical Group 3 typing; otherwise derive the Gen III species typing from the dex source.
+              if not type_by_species.get(species):
+                  # The early-table pages don't print typing, so leave it empty rather than inventing it.
+                  type_by_species[species] = []
               pokemon[species] = {
                   'id': pid,
                   'types': type_by_species[species],
@@ -106,7 +174,9 @@ jobs:
                   'sets': sets,
               }
 
-          js = '''// Generated from BattleFactoryBuddy's canonical allpkmn.csv.\n// Do not edit manually; the import workflow regenerates this file.\n\nexport const DATASET_META = { source: 'BattleFactoryBuddy/allpkmn.csv', generated: 'github-actions', speciesCount: %d, setCount: %d };\nexport const FACTORY_RULES = { rentalIVsByRound: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 } };\nexport const POKEMON = %s;\nexport function normalizePokemonName(value) { const cleaned = String(value || '').trim().toLowerCase(); return Object.keys(POKEMON).find((name) => name.toLowerCase() === cleaned) || null; }\nexport function getPokemon(value) { const name = normalizePokemonName(value); return name ? { name, ...POKEMON[name] } : null; }\nexport function getSets(value) { return getPokemon(value)?.sets || []; }\n''' % (len(pokemon), sum(len(v) for v in pokemon.values()), json.dumps(pokemon, ensure_ascii=False, separators=(',', ':')))
+          total_sets = sum(len(v) for v in pokemon.values())
+          early_sets = sum(1 for v in pokemon.values() for s in v['sets'] if str(s.get('pool','')).startswith('l50-'))
+          js = '''// Generated from BattleFactoryBuddy's canonical Group 3 data plus Bulbapedia's Group 1/2 tables.\n// Do not edit manually; the import workflow regenerates this file.\n\nexport const DATASET_META = { source: 'BattleFactoryBuddy/allpkmn.csv + Bulbapedia Gen III Group 1/2', generated: 'github-actions', speciesCount: %d, setCount: %d, group3SetCount: %d, earlyLevel50SetCount: %d, earlyStyleDataComplete: false };\nexport const FACTORY_RULES = { rentalIVsByRound: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 } };\nexport const POKEMON = %s;\nexport function normalizePokemonName(value) { const cleaned = String(value || '').trim().toLowerCase(); return Object.keys(POKEMON).find((name) => name.toLowerCase() === cleaned) || null; }\nexport function getPokemon(value) { const name = normalizePokemonName(value); return name ? { name, ...POKEMON[name] } : null; }\nexport function getSets(value) { return getPokemon(value)?.sets || []; }\n''' % (len(pokemon), total_sets, sum(1 for v in pokemon.values() for s in v['sets'] if str(s.get('pool','')).startswith('g3-')), early_sets, json.dumps(pokemon, ensure_ascii=False, separators=(',', ':')))
           Path('data/factoryData.js').write_text(js, encoding='utf-8')
           PY
 
@@ -116,5 +186,5 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add data/factoryData.js
           git diff --cached --quiet && exit 0
-          git commit -m "Import complete Emerald Battle Factory dataset"
+          git commit -m "Import Level 50 early Factory pools"
           git push
