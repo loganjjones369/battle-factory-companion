@@ -34,7 +34,7 @@ export default function LiveOpponentAnalysis({ draft = [], scientist = {}, level
       {!!exact.length && <View style={styles.exactBox}><Text style={styles.exactTitle}>SET IDENTIFIED FROM CURRENT CLUES</Text>{exact.map((x) => <Text key={x.species} style={styles.exactText}>✓ {setLabel(x.sets[0])} — the current recorded clues leave one compatible set.</Text>)}</View>}
       {!!unresolved.length && <View style={styles.section}><Text style={styles.sectionTitle}>STILL ALIVE</Text>{unresolved.map((x) => <View key={x.species} style={styles.speciesRow}><Text style={styles.speciesName}>{x.species}</Text><Text style={styles.speciesText}>{x.sets.length} compatible sets remain: {x.sets.slice(0, 6).map(setLabel).join(' • ')}{x.sets.length > 6 ? ' • …' : ''}</Text></View>)}</View>}
       {!!responses.length && <View style={styles.responseBox}><Text style={styles.responseTitle}>RESPONSE CHECK</Text>{responses.map((r, i) => <View key={`${setKey(r.ally)}-${i}`} style={styles.responseRow}><View style={{ flex: 1 }}><Text style={styles.responseName}>{r.ally.species}</Text><Text style={styles.responseDetail}>{r.relation} it • {damageText(r.hitBack)} back</Text><Text style={styles.responseDetail}>Incoming: {damageText(r.incoming)}</Text></View><Text style={[styles.classification, r.safeSwitch ? styles.safe : null]}>{r.classification}</Text></View>)}</View>}
-      {currentTeam.length > 0 && <View style={styles.section}><Text style={styles.sectionTitle}>WHAT THIS MEANS</Text><Text style={styles.meaning}>The ranking favors responses that can take the opponent's hit, act first when possible, and apply meaningful return pressure. Damage is shown as a range because Gen III damage includes a random 85–100% factor. citeturn0search0turn0search6</Text></View>}
+      {currentTeam.length > 0 && <View style={styles.section}><Text style={styles.sectionTitle}>WHAT THIS MEANS</Text><Text style={styles.meaning}>The response ranking favors Pokémon that can withstand the likely hit, act first when possible, and apply meaningful return pressure. Damage is shown as a range because Gen III uses a random damage modifier.</Text></View>}
       <Text style={styles.note}>{candidateCount} surviving set candidates are shown from the current clue screen. Candidate frequency is not a probability.</Text>
     </>}
   </View>;
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   speciesText:{fontSize:10.5,color:'#b3c9c2',lineHeight:16,marginTop:2},
   responseBox:{backgroundColor:'#20382f',borderRadius:9,padding:8,marginTop:9,borderWidth:1,borderColor:'#44685a'},
   responseTitle:{fontSize:9,fontWeight:'900',letterSpacing:.8,color:'#b7d9cb'},
-  responseRow:{flexDirection:'row',gap:8,paddingVertical:6,borderBottomWidth:1,borderBottomColor:'#345047'},
+  responseRow:{flexDirection:'row',paddingVertical:6,borderBottomWidth:1,borderBottomColor:'#345047'},
   responseName:{fontSize:12,fontWeight:'900',color:'#f0f7f3'},
   responseDetail:{fontSize:10,color:'#b3c9c2',lineHeight:15},
   classification:{alignSelf:'center',maxWidth:120,fontSize:9,fontWeight:'900',textAlign:'right',color:'#e1c18e'},
