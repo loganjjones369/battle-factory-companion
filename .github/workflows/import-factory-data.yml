@@ -17,14 +17,14 @@ jobs:
 
       - name: Download canonical Factory set data
         run: |
-          curl -L --fail --retry 3 -o /tmp/allpkmn.csv https://raw.githubusercontent.com/DaveGlorbus/BattleFactoryBuddy/main/BattleFactoryBuddy/InputData/allpkmn.csv
-          curl -L --fail --retry 3 -o /tmp/group1.html https://bulbapedia.bulbagarden.net/wiki/Battle_Frontier_(Generation_III)/Pok%C3%A9mon_(Group_1)
-          curl -L --fail --retry 3 -o /tmp/group2.html https://bulbapedia.bulbagarden.net/wiki/Battle_Frontier_(Generation_III)/Pok%C3%A9mon_(Group_2)
-          curl -L --fail --retry 3 -o /tmp/pokemon.csv https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon.csv
-          curl -L --fail --retry 3 -o /tmp/pokemon_stats.csv https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon_stats.csv
-          curl -L --fail --retry 3 -o /tmp/pokemon_types.csv https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon_types.csv
-          curl -L --fail --retry 3 -o /tmp/pokemon_abilities.csv https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon_abilities.csv
-          curl -L --fail --retry 3 -o /tmp/abilities.csv https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/abilities.csv
+          curl -L --fail --retry 3 -o /tmp/allpkmn.csv 'https://raw.githubusercontent.com/DaveGlorbus/BattleFactoryBuddy/main/BattleFactoryBuddy/InputData/allpkmn.csv'
+          curl -L --fail --retry 3 -o /tmp/group1.html 'https://bulbapedia.bulbagarden.net/wiki/Battle_Frontier_(Generation_III)/Pok%C3%A9mon_(Group_1)'
+          curl -L --fail --retry 3 -o /tmp/group2.html 'https://bulbapedia.bulbagarden.net/wiki/Battle_Frontier_(Generation_III)/Pok%C3%A9mon_(Group_2)'
+          curl -L --fail --retry 3 -o /tmp/pokemon.csv 'https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon.csv'
+          curl -L --fail --retry 3 -o /tmp/pokemon_stats.csv 'https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon_stats.csv'
+          curl -L --fail --retry 3 -o /tmp/pokemon_types.csv 'https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon_types.csv'
+          curl -L --fail --retry 3 -o /tmp/pokemon_abilities.csv 'https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon_abilities.csv'
+          curl -L --fail --retry 3 -o /tmp/abilities.csv 'https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/abilities.csv'
           python3 -m pip install --disable-pip-version-check --quiet pandas lxml beautifulsoup4
 
       - name: Build local JavaScript dataset
@@ -40,22 +40,18 @@ jobs:
           names = {}
           with open('/tmp/pokemon.csv', newline='', encoding='utf-8') as f:
               for row in csv.DictReader(f):
-                  if row['is_default'] == '1' and int(row['id']) <= 386:
-                      names[norm(row['identifier'])] = int(row['id'])
-
+                  if row['is_default'] == '1' and int(row['id']) <= 386: names[norm(row['identifier'])] = int(row['id'])
           stats = defaultdict(dict)
           with open('/tmp/pokemon_stats.csv', newline='', encoding='utf-8') as f:
               for row in csv.DictReader(f):
                   pid = int(row['pokemon_id'])
                   if pid <= 386: stats[pid][int(row['stat_id'])] = int(row['base_stat'])
-
           types = defaultdict(list)
           with open('/tmp/pokemon_types.csv', newline='', encoding='utf-8') as f:
               for row in csv.DictReader(f):
                   pid = int(row['pokemon_id'])
                   if pid <= 386: types[pid].append((int(row['slot']), row['type']))
           for pid in types: types[pid] = [x.replace('-', ' ').title() for _, x in sorted(types[pid])]
-
           ability_names = {}
           with open('/tmp/abilities.csv', newline='', encoding='utf-8') as f:
               for row in csv.DictReader(f): ability_names[int(row['id'])] = row['identifier'].replace('-', ' ').title()
@@ -65,7 +61,6 @@ jobs:
                   pid = int(row['pokemon_id'])
                   if pid <= 386 and row.get('is_hidden', '0') == '0': abilities_by_pid[pid].append((int(row['slot']), ability_names.get(int(row['ability_id']), '')))
           for pid in abilities_by_pid: abilities_by_pid[pid] = [x for _, x in sorted(abilities_by_pid[pid]) if x]
-
           aliases = {'mrmime':'mr-mime','nidoranf':'nidoran-f','nidoranm':'nidoran-m','hooh':'ho-oh'}
           def find_species_id(display):
               key = norm(display)
@@ -73,7 +68,6 @@ jobs:
               alias = aliases.get(key)
               if alias and norm(alias) in names: return names[norm(alias)]
               raise SystemExit(f'Could not map Factory species to Gen III dex data: {display}')
-
           def species_abilities(species): return ' / '.join(abilities_by_pid.get(find_species_id(species), []))
           sets_by_species = defaultdict(list)
 
@@ -89,12 +83,7 @@ jobs:
                   except ValueError: pass
                   try: source_id = int(source_id)
                   except ValueError: pass
-                  sets_by_species[species].append({
-                      'id': set_no, 'species': species, 'item': item, 'nature': nature, 'ability': ability,
-                      'evs': dict(zip(['hp','atk','def','spa','spd','spe'], ev_parts[:6])), 'moves': [m1,m2,m3,m4],
-                      'style': style_text.split(), 'round': round_marker, 'pool': f'g3-{round_marker}', 'baseSpeed': int(base_speed),
-                      'sourceId': source_id, 'styleDataComplete': True,
-                  })
+                  sets_by_species[species].append({'id': set_no, 'species': species, 'item': item, 'nature': nature, 'ability': ability, 'evs': dict(zip(['hp','atk','def','spa','spd','spe'], ev_parts[:6])), 'moves': [m1,m2,m3,m4], 'style': style_text.split(), 'round': round_marker, 'pool': f'g3-{round_marker}', 'baseSpeed': int(base_speed), 'sourceId': source_id, 'styleDataComplete': True})
 
           def extract_group(html_path, group_number):
               soup = BeautifulSoup(Path(html_path).read_text(encoding='utf-8'), 'lxml')
@@ -113,34 +102,19 @@ jobs:
               source_counter = 100000 if group_number == 1 else 200000
               for species, variants in grouped.items():
                   for index, (item, moves, nature, evs) in enumerate(variants, 1):
-                      if group_number == 1:
-                          pool, round_value, set_no = 'l50-1', 'L1', 1
-                      else:
-                          pool, round_value, set_no = ('l50-2', 'L2', 1) if index == 1 else ('l50-3', 'L3', index)
+                      if group_number == 1: pool, round_value, set_no = 'l50-1', 'L1', 1
+                      else: pool, round_value, set_no = ('l50-2', 'L2', 1) if index == 1 else ('l50-3', 'L3', index)
                       pid = find_species_id(species)
-                      sets_by_species[species].append({
-                          'id': set_no, 'species': species, 'item': item, 'nature': nature, 'ability': species_abilities(species),
-                          'evs': dict(zip(['hp','atk','def','spa','spd','spe'], evs)), 'moves': moves, 'style': [],
-                          'round': round_value, 'pool': pool, 'baseSpeed': int(stats[pid][6]), 'sourceId': source_counter, 'styleDataComplete': False,
-                      })
+                      sets_by_species[species].append({'id': set_no, 'species': species, 'item': item, 'nature': nature, 'ability': species_abilities(species), 'evs': dict(zip(['hp','atk','def','spa','spd','spe'], evs)), 'moves': moves, 'style': [], 'round': round_value, 'pool': pool, 'baseSpeed': int(stats[pid][6]), 'sourceId': source_counter, 'styleDataComplete': False})
                       source_counter += 1
-
           extract_group('/tmp/group1.html', 1)
           extract_group('/tmp/group2.html', 2)
 
           pokemon = {}
           for species, sets in sets_by_species.items():
-              pid = find_species_id(species)
-              base = stats[pid]
-              pokemon[species] = {
-                  'id': pid, 'types': types.get(pid, []),
-                  'baseStats': dict(zip(['hp','atk','def','spa','spd','spe'], [base[1],base[2],base[3],base[4],base[5],base[6]])),
-                  'sets': sets,
-              }
-
-          total_sets = sum(len(v) for v in pokemon.values())
-          group3_sets = sum(1 for v in pokemon.values() for s in v['sets'] if str(s.get('pool','')).startswith('g3-'))
-          early_sets = total_sets - group3_sets
+              pid = find_species_id(species); base = stats[pid]
+              pokemon[species] = {'id': pid, 'types': types.get(pid, []), 'baseStats': dict(zip(['hp','atk','def','spa','spd','spe'], [base[1],base[2],base[3],base[4],base[5],base[6]])), 'sets': sets}
+          total_sets = sum(len(v) for v in pokemon.values()); group3_sets = sum(1 for v in pokemon.values() for s in v['sets'] if str(s.get('pool','')).startswith('g3-')); early_sets = total_sets - group3_sets
           js = '''// Generated from BattleFactoryBuddy's canonical Group 3 data plus Bulbapedia's Group 1/2 tables.\n// Do not edit manually; the import workflow regenerates this file.\n\nexport const DATASET_META = { source: 'BattleFactoryBuddy/allpkmn.csv + Bulbapedia Gen III Group 1/2', generated: 'github-actions', speciesCount: %d, setCount: %d, group3SetCount: %d, earlyLevel50SetCount: %d, earlyStyleDataComplete: false };\nexport const FACTORY_RULES = { rentalIVsByRound: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 } };\nexport const POKEMON = %s;\nexport function normalizePokemonName(value) { const cleaned = String(value || '').trim().toLowerCase(); return Object.keys(POKEMON).find((name) => name.toLowerCase() === cleaned) || null; }\nexport function getPokemon(value) { const name = normalizePokemonName(value); return name ? { name, ...POKEMON[name] } : null; }\nexport function getSets(value) { return getPokemon(value)?.sets || []; }\n''' % (len(pokemon), total_sets, group3_sets, early_sets, json.dumps(pokemon, ensure_ascii=False, separators=(',', ':')))
           Path('data/factoryData.js').write_text(js, encoding='utf-8')
           PY
