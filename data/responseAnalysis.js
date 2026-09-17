@@ -1,23 +1,25 @@
 import { bestDamagingMoves, calculateDamage, getEffectiveSpeed, getStats } from './damageCalc';
+import { getPokemon } from './factoryData';
 
-function asPokemon(speciesOrPokemon) {
-  if (!speciesOrPokemon) return null;
-  if (typeof speciesOrPokemon === 'string') return null;
-  return speciesOrPokemon;
+function resolvePokemon(value) {
+  if (!value) return null;
+  if (value.types && value.baseStats) return value;
+  if (value.species) return getPokemon(value.species);
+  if (value.name) return getPokemon(value.name);
+  return null;
 }
 
-function resolveSet(pokemon, set) {
-  if (!pokemon) return set || null;
-  if (set && typeof set === 'object') return set;
-  return pokemon;
+function resolveSet(value, explicitSet) {
+  if (explicitSet) return explicitSet;
+  if (value?.setId != null || value?.sourceId != null || value?.evs || value?.moves) return value;
+  return null;
 }
 
 function bestHit(attacker, attackerSet, defender, defenderSet, level, round, options = {}) {
   if (!attacker || !defender) return null;
   let best = null;
   const set = resolveSet(attacker, attackerSet);
-  const movesSource = set || attacker;
-  for (const moveName of bestDamagingMoves(movesSource)) {
+  for (const moveName of bestDamagingMoves(set || attacker)) {
     const result = calculateDamage({
       attacker,
       attackerSet: set,
@@ -47,14 +49,16 @@ function speedRelation(allySpeed, opponentSpeed) {
 }
 
 export function analyzeResponse(opponent, ally, level = 100, round = 1, options = {}) {
-  if (!opponent || !ally) return null;
-  const opponentSet = options.opponentSet || opponent;
-  const allySet = options.allySet || ally;
-  const opponentStats = getStats(opponent, opponentSet, level, round);
-  const allyStats = getStats(ally, allySet, level, round);
+  const opponentPokemon = resolvePokemon(opponent);
+  const allyPokemon = resolvePokemon(ally);
+  if (!opponentPokemon || !allyPokemon) return null;
+  const opponentSet = resolveSet(opponent, options.opponentSet);
+  const allySet = resolveSet(ally, options.allySet);
+  const opponentStats = getStats(opponentPokemon, opponentSet, level, round);
+  const allyStats = getStats(allyPokemon, allySet, level, round);
   const opponentSpeed = getEffectiveSpeed(opponentStats, options.opponentStatus || 'healthy');
   const allySpeed = getEffectiveSpeed(allyStats, options.allyStatus || 'healthy');
-  const hitBack = bestHit(ally, allySet, opponent, opponentSet, level, round, {
+  const hitBack = bestHit(allyPokemon, allySet, opponentPokemon, opponentSet, level, round, {
     ...options,
     attackerStatus: options.allyStatus || 'healthy',
     defenderStatus: options.opponentStatus || 'healthy',
@@ -63,7 +67,7 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
     attackerStages: options.allyStages,
     defenderStages: options.opponentStages,
   });
-  const incoming = bestHit(opponent, opponentSet, ally, allySet, level, round, {
+  const incoming = bestHit(opponentPokemon, opponentSet, allyPokemon, allySet, level, round, {
     ...options,
     attackerStatus: options.opponentStatus || 'healthy',
     defenderStatus: options.allyStatus || 'healthy',
@@ -90,27 +94,7 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   else if (relation === 'speed ties') classification = 'Speed tie';
   else if (damageOut >= 50) classification = 'Strong pressure, but exposed';
   else classification = 'Limited pressure';
-  return {
-    ally,
-    opponent,
-    allySet,
-    opponentSet,
-    allySpeed,
-    opponentSpeed,
-    relation,
-    hitBack,
-    incoming,
-    damageOut,
-    damageIn,
-    guaranteedTwoHKO,
-    guaranteedOHKO,
-    possibleOHKO,
-    dangerousIncoming,
-    safeSwitch,
-    classification,
-    incomingMove: incoming?.moveName || null,
-    returnMove: hitBack?.moveName || null,
-  };
+  return { ally: allyPokemon, opponent: opponentPokemon, allySet, opponentSet, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, guaranteedTwoHKO, guaranteedOHKO, possibleOHKO, dangerousIncoming, safeSwitch, classification, incomingMove: incoming?.moveName || null, returnMove: hitBack?.moveName || null };
 }
 
 export function rankResponses(opponent, team = [], level = 100, round = 1, options = {}) {
@@ -122,22 +106,14 @@ export function rankResponses(opponent, team = [], level = 100, round = 1, optio
 
 export function analyzeSwitchIn(candidate, team = [], level = 100, round = 1, options = {}) {
   if (!candidate || !team.length) return [];
-  const candidatePokemon = asPokemon(candidate) || candidate;
-  const candidateSet = options.candidateSet || (candidate.setId != null ? candidate : null);
-  return team.map((ally) => analyzeResponse(candidatePokemon, ally?.pokemon || ally, level, round, {
-    ...options,
-    opponentSet: candidateSet || options.opponentSet,
-    allySet: ally?.set || options.allySet,
-  })).filter(Boolean);
+  const candidatePokemon = resolvePokemon(candidate);
+  const candidateSet = resolveSet(candidate, options.candidateSet);
+  if (!candidatePokemon) return [];
+  return team.map((ally) => analyzeResponse(candidatePokemon, ally, level, round, { ...options, opponentSet: candidateSet, allySet: resolveSet(ally, options.allySet) })).filter(Boolean);
 }
 
 export function analyzeCandidateSwitchIns(candidates = [], team = [], level = 100, round = 1, options = {}) {
-  const rows = [];
-  for (const candidate of candidates) {
-    const checks = analyzeSwitchIn(candidate, team, level, round, options);
-    if (checks.length) rows.push({ candidate, checks });
-  }
-  return rows;
+  return candidates.map((candidate) => ({ candidate, checks: analyzeSwitchIn(candidate, team, level, round, options) })).filter((row) => row.checks.length);
 }
 
 export function summarizeCandidateSwitchIns(rows = []) {
@@ -154,15 +130,6 @@ export function summarizeCandidateSwitchIns(rows = []) {
     const worst = entries.reduce((best, x) => !best || x.check.damageIn > best.check.damageIn ? x : best, null);
     const safest = entries.reduce((best, x) => !best || x.check.damageIn < best.check.damageIn ? x : best, null);
     const safeCount = entries.filter((x) => x.check.safeSwitch).length;
-    return {
-      species,
-      candidateCount: entries.length,
-      minPercent: mins.length ? Math.min(...mins) : 0,
-      maxPercent: maxs.length ? Math.max(...maxs) : 0,
-      safeCount,
-      safeShare: entries.length ? safeCount / entries.length : 0,
-      worst,
-      safest,
-    };
+    return { species, candidateCount: entries.length, minPercent: mins.length ? Math.min(...mins) : 0, maxPercent: maxs.length ? Math.max(...maxs) : 0, safeCount, safeShare: entries.length ? safeCount / entries.length : 0, worst, safest };
   });
 }
