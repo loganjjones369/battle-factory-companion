@@ -5,7 +5,7 @@ import { analyzeFactoryCandidates } from '../data/candidateEngine';
 const norm = (v) => String(v || '').trim().toLowerCase();
 
 function setLabel(set) {
-  return `${set.species || set.name || 'Unknown'} ${set.setId ?? set.sourceId ?? ''}`.trim();
+  return `${set.species || set.name || 'Unknown'} ${set.setId ?? set.sourceId ?? set.id ?? ''}`.trim();
 }
 
 function moveNames(set) {
@@ -20,52 +20,29 @@ export default function CandidateAnalysisPanel({
   battle = 1,
   revealed = {},
   noland = false,
+  maxResults = 20,
 }) {
   const [result, setResult] = useState(null);
-  const [expandedSpecies, setExpandedSpecies] = useState(null);
+  const [expandedSet, setExpandedSet] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const draftNames = useMemo(() => draft.map((p) => p?.species || p?.name).filter(Boolean), [draft]);
 
   const runAnalysis = () => {
     setBusy(true);
-    // Candidate enumeration is intentionally user-triggered. The exact Factory
-    // search can be expensive and should never make the draft screen sluggish.
     setTimeout(() => {
       try {
-        const analysis = analyzeFactoryCandidates({
-          draft,
-          blockedSpecies,
-          scientist,
-          levelMode,
-          battle,
-          revealed,
-          noland,
-        });
-        setResult(analysis);
-        setExpandedSpecies(null);
+        setResult(analyzeFactoryCandidates({ draft, blockedSpecies, scientist, levelMode, battle, revealed, noland }));
+        setExpandedSet(null);
       } finally {
         setBusy(false);
       }
     }, 0);
   };
 
-  const speciesRows = useMemo(() => {
-    if (!result?.matchingTeams) return [];
-    const map = new Map();
-    result.matchingTeams.forEach((team) => {
-      team.forEach((set) => {
-        const species = set?.species || set?.name;
-        const key = norm(species);
-        if (!key) return;
-        if (!map.has(key)) map.set(key, { species, sets: new Map() });
-        const row = map.get(key);
-        const id = set?.setId ?? set?.sourceId ?? set?.id;
-        row.sets.set(String(id ?? setLabel(set)), set);
-      });
-    });
-    return [...map.values()].sort((a, b) => String(a.species).localeCompare(String(b.species)));
-  }, [result]);
+  const rankedSets = result?.rankedSets || [];
+  const visibleSets = rankedSets.slice(0, maxResults);
+  const remainingCount = Math.max(0, rankedSets.length - visibleSets.length);
 
   return (
     <View style={styles.card}>
@@ -74,7 +51,7 @@ export default function CandidateAnalysisPanel({
           <Text style={styles.kicker}>FACTORY INTELLIGENCE</Text>
           <Text style={styles.title}>What can I see next?</Text>
           <Text style={styles.subtitle}>
-            Exact remaining opponent sets after the current restrictions and clues.
+            Highest-priority surviving sets first. Low-frequency possibilities stay out of the way.
           </Text>
         </View>
         <View style={styles.roundBadge}>
@@ -96,48 +73,47 @@ export default function CandidateAnalysisPanel({
             <Text style={styles.warning}>{result.reason || 'This Factory pool is not supported by the current dataset.'}</Text>
           ) : (
             <>
-              <View style={styles.statRow}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{result.matchingTeams?.length ?? 0}</Text>
-                  <Text style={styles.statLabel}>LEGAL TEAMS</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{speciesRows.length}</Text>
-                  <Text style={styles.statLabel}>POSSIBLE SPECIES</Text>
-                </View>
+              <View style={styles.summaryBox}>
+                <Text style={styles.summaryTitle}>MOST LIKELY SETS</Text>
+                <Text style={styles.summaryText}>
+                  Showing the highest-frequency candidates first rather than flooding you with every low-frequency possibility.
+                </Text>
               </View>
 
-              <Text style={styles.sectionTitle}>Possible Pokémon</Text>
               <ScrollView style={styles.list} nestedScrollEnabled>
-                {speciesRows.map((row) => {
-                  const open = expandedSpecies === norm(row.species);
-                  const sets = [...row.sets.values()];
+                {visibleSets.map((entry, index) => {
+                  const set = entry.set;
+                  const key = `${setLabel(set)}-${index}`;
+                  const open = expandedSet === key;
+                  const percent = Math.max(0, entry.frequency * 100);
                   return (
-                    <View key={norm(row.species)} style={styles.speciesBlock}>
-                      <Pressable
-                        style={styles.speciesRow}
-                        onPress={() => setExpandedSpecies(open ? null : norm(row.species))}
-                      >
+                    <View key={key} style={styles.setBlock}>
+                      <Pressable style={styles.setRow} onPress={() => setExpandedSet(open ? null : key)}>
+                        <View style={styles.rankBadge}>
+                          <Text style={styles.rankText}>{index + 1}</Text>
+                        </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.speciesName}>{row.species}</Text>
-                          <Text style={styles.setCount}>{sets.length} possible set{sets.length === 1 ? '' : 's'}</Text>
+                          <Text style={styles.setName}>{setLabel(set)}</Text>
+                          <Text style={styles.frequency}>{percent.toFixed(1)}% of surviving candidate teams</Text>
                         </View>
                         <Text style={styles.chevron}>{open ? '▲' : '▼'}</Text>
                       </Pressable>
-                      {open && sets.map((set, index) => (
-                        <View key={`${setLabel(set)}-${index}`} style={styles.setCard}>
-                          <Text style={styles.setName}>{setLabel(set)}</Text>
+                      {open && (
+                        <View style={styles.detailCard}>
                           {!!set.item && <Text style={styles.detail}>Item: {set.item}</Text>}
                           {!!set.nature && <Text style={styles.detail}>Nature: {set.nature}</Text>}
                           {!!set.ability && <Text style={styles.detail}>Ability: {set.ability}</Text>}
                           {!!moveNames(set).length && <Text style={styles.detail}>Moves: {moveNames(set).join(' • ')}</Text>}
                         </View>
-                      ))}
+                      )}
                     </View>
                   );
                 })}
-                {!speciesRows.length && <Text style={styles.empty}>No legal teams remain under the current information.</Text>}
+                {!visibleSets.length && <Text style={styles.empty}>No surviving candidate sets match the current information.</Text>}
+                {!!remainingCount && <Text style={styles.more}>+ {remainingCount} lower-frequency possibilities hidden</Text>}
               </ScrollView>
+
+              {!!result.rankingNote && <Text style={styles.note}>{result.rankingNote}</Text>}
             </>
           )}
         </View>
@@ -165,20 +141,21 @@ const styles = StyleSheet.create({
   contextText: { color: '#5b625c', fontSize: 11, marginTop: 8 },
   resultBox: { marginTop: 10, borderTopWidth: 1, borderTopColor: '#aeb5ad', paddingTop: 10 },
   warning: { backgroundColor: '#fff2cc', borderRadius: 9, padding: 10, color: '#5c4b1e', fontSize: 12, lineHeight: 17 },
-  statRow: { flexDirection: 'row', gap: 8 },
-  statBox: { flex: 1, backgroundColor: '#d5ddd1', borderRadius: 10, padding: 9 },
-  statNumber: { fontSize: 22, fontWeight: '900', color: '#263027' },
-  statLabel: { fontSize: 9, fontWeight: '900', color: '#5a665b', marginTop: 2 },
-  sectionTitle: { fontSize: 14, fontWeight: '900', color: '#263027', marginTop: 12, marginBottom: 5 },
-  list: { maxHeight: 390 },
-  speciesBlock: { borderBottomWidth: 1, borderBottomColor: '#c0c6bf' },
-  speciesRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
-  speciesName: { fontSize: 15, fontWeight: '900', color: '#2c362e' },
-  setCount: { fontSize: 11, color: '#657066', marginTop: 2 },
-  chevron: { fontSize: 12, color: '#526153', paddingHorizontal: 5 },
-  setCard: { backgroundColor: '#f5f5ef', borderRadius: 9, padding: 9, marginBottom: 7, borderLeftWidth: 3, borderLeftColor: '#71826f' },
-  setName: { fontSize: 12, fontWeight: '900', color: '#303a32' },
-  detail: { fontSize: 11, color: '#555e57', marginTop: 3, lineHeight: 15 },
+  summaryBox: { backgroundColor: '#d5ddd1', borderRadius: 10, padding: 10, marginBottom: 8 },
+  summaryTitle: { fontSize: 11, fontWeight: '900', color: '#344137', letterSpacing: 1 },
+  summaryText: { fontSize: 11, color: '#566158', marginTop: 3, lineHeight: 15 },
+  list: { maxHeight: 430 },
+  setBlock: { borderBottomWidth: 1, borderBottomColor: '#c0c6bf' },
+  setRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9 },
+  rankBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#cbd7c6', borderWidth: 1, borderColor: '#71826f', alignItems: 'center', justifyContent: 'center', marginRight: 9 },
+  rankText: { fontSize: 11, fontWeight: '900', color: '#334036' },
+  setName: { fontSize: 14, fontWeight: '900', color: '#2c362e' },
+  frequency: { fontSize: 10, color: '#657066', marginTop: 2 },
+  chevron: { fontSize: 11, color: '#526153', paddingHorizontal: 5 },
+  detailCard: { backgroundColor: '#f5f5ef', borderRadius: 9, padding: 9, marginBottom: 7, marginLeft: 37, borderLeftWidth: 3, borderLeftColor: '#71826f' },
+  detail: { fontSize: 11, color: '#555e57', marginTop: 2, lineHeight: 15 },
   empty: { color: '#626a63', fontSize: 12, paddingVertical: 12 },
+  more: { color: '#526153', fontSize: 11, fontWeight: '800', paddingVertical: 10 },
+  note: { color: '#697169', fontSize: 9, lineHeight: 13, marginTop: 8 },
   blocked: { color: '#667067', fontSize: 10, marginTop: 8, lineHeight: 14 },
 });
