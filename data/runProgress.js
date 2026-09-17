@@ -3,17 +3,29 @@ import { recordBattleHistory, getHistoricalObservations } from './battleHistory'
 import { getCurrentScientist } from './scientistSession';
 
 let ACTIVE_RUN_CONTEXT = {
-  currentTeam: [], previousOpponent: [], battle: 1, swaps: 0, battleHistory: [], historicalObservations: [], knockedOut: { team: [], opponent: [] }, scientist: {},
+  currentTeam: [], previousOpponent: [], battle: 1, swaps: 0, battleHistory: [], historicalObservations: [], knockedOut: { team: [], opponent: [] }, scientist: {}, revealed: {}, noland: false,
 };
 
 function syncActiveContext(state = {}) {
   ACTIVE_RUN_CONTEXT = {
     currentTeam: state.currentTeam || [], previousOpponent: state.previousOpponent || [], battle: Number(state.battle) || 1, swaps: Number(state.swaps) || 0,
-    battleHistory: state.battleHistory || [], historicalObservations: getHistoricalObservations(state.battleHistory || []), knockedOut: state.knockedOut || { team: [], opponent: [] }, scientist: state.scientist || {},
+    battleHistory: state.battleHistory || [], historicalObservations: getHistoricalObservations(state.battleHistory || []), knockedOut: state.knockedOut || { team: [], opponent: [] }, scientist: state.scientist || {}, revealed: state.revealed || {}, noland: Boolean(state.noland),
   };
 }
 
 export function getActiveRunContext() { return ACTIVE_RUN_CONTEXT; }
+
+export function updateRunScientist(state, scientist = {}) {
+  const next = { ...state, scientist: { ...(state.scientist || {}), ...(scientist || {}) } };
+  syncActiveContext(next);
+  return next;
+}
+
+export function updateRunRevealed(state, revealed = {}) {
+  const next = { ...state, revealed: { ...(state.revealed || {}), ...(revealed || {}) } };
+  syncActiveContext(next);
+  return next;
+}
 
 export function createRun(options = {}) {
   const scientist = Object.keys(options.scientist || {}).length ? options.scientist : getCurrentScientist();
@@ -38,6 +50,7 @@ export function completeBattle(state, outcome = {}) {
   nextState.battleHistory = history;
   nextState.historicalObservations = getHistoricalObservations(history);
   nextState.revealed = { ...(nextState.revealed || {}), observations: nextState.historicalObservations };
+  nextState.scientist = { ...(state.scientist || {}) };
   syncActiveContext(nextState);
   const milestone = getBattleMilestone(completedBattle);
   return { state: nextState, celebration: { type: milestone ? 'round' : 'battle', completedBattle, nextBattle: nextState.battle, durationMs: milestone ? 1800 : 950, intensity: milestone ? 'major' : 'normal' } };
@@ -47,6 +60,6 @@ export function getRunSummary(state = {}) {
   return {
     battle: Number(state.battle) || 1, round: Number(state.round) || 1, swaps: Number(state.swaps) || 0, swapElevation: Number(state.swapElevation) || 0,
     currentTeam: state.currentTeam || [], previousOpponent: state.previousOpponent || [], draft: state.draft || [], draftSlots: state.draftSlots || [], scientist: state.scientist || {},
-    blockedSpecies: state.blockedSpecies || [], battleHistory: state.battleHistory || [], historicalObservations: state.historicalObservations || [], knockedOut: state.knockedOut || { team: [], opponent: [] },
+    blockedSpecies: state.blockedSpecies || [], battleHistory: state.battleHistory || [], historicalObservations: state.historicalObservations || [], knockedOut: state.knockedOut || { team: [], opponent: [] }, revealed: state.revealed || {}, noland: Boolean(state.noland),
   };
 }
