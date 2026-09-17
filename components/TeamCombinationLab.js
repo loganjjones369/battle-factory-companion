@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { getDraftSetPools } from '../data/factoryPools';
 import { calculateDamage, getStats, getEffectiveSpeed, bestDamagingMoves } from '../data/damageCalc';
 import { optionsFor } from './AbilitySelector';
+import DraftMatchupMatrix from './DraftMatchupMatrix';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 const key = (p) => `${norm(p?.species)}#${p?.setId ?? ''}`;
@@ -93,7 +94,7 @@ function evaluateCombination(combo, draft, optionsBySlot, level, round) {
       let targetPressure = false;
       let targetSpeed = false;
       let targetHard = false;
-      chosenSets.forEach((attacker, attackerIndex) => {
+      chosenSets.forEach((attacker) => {
         const result = bestPressure(attacker, target, level, round);
         const faster = speedOf(attacker, level, round) > speedOf(target, level, round);
         if (result?.percentMax >= 50 || faster) targetPressure = true;
@@ -175,49 +176,52 @@ export default function TeamCombinationLab({ draft = [], levelMode = 'Open Level
   const rows = result.rows || [];
 
   return (
-    <View style={st.card}>
-      <View style={st.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={st.label}>TEAM COMBINATION LAB</Text>
-          <Text style={st.title}>Compare every possible three-Pokémon draft</Text>
-        </View>
-        <Text style={st.badge}>{rows.length}</Text>
-      </View>
-      <Text style={st.help}>This is a coverage scan, not a magic prediction. It checks every legal three-species combination against the three Pokémon left behind, using the Factory set pools for your current round and elevation.</Text>
-      {!result.supported ? <Text style={st.empty}>{result.reason}</Text> : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 4 }}>
-          <View style={{ minWidth: 520, flex: 1 }}>
-            {rows.map((row, index) => {
-              const label = row.combo.map((entry) => `${entry.p.species} ${entry.p.setId}`).join(' • ');
-              const openRow = open === index;
-              return (
-                <View key={label} style={st.row}>
-                  <TouchableOpacity onPress={() => setOpen(openRow ? null : index)} style={st.rowButton}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={st.rank}>#{index + 1}  {label}</Text>
-                      <Text style={st.meta}>{row.variantCount} set combinations • {Math.round(row.pressureCoverage * 100)}% pressure coverage • {Math.round(row.speedCoverage * 100)}% speed coverage</Text>
-                    </View>
-                    <Text style={st.chevron}>{openRow ? '▲' : '▼'}</Text>
-                  </TouchableOpacity>
-                  {openRow && <View style={st.details}>
-                    <Text style={st.detailTitle}>WHY THIS COMBINATION MATTERS</Text>
-                    <Text style={st.detail}>Hard pressure coverage: {Math.round(row.hardCoverage * 100)}% of tested set combinations.</Text>
-                    <Text style={st.detail}>Defensive gap flags: {row.defensiveGaps}</Text>
-                    {row.targetSummaries.map((target) => (
-                      <View key={`${target.species}-${target.index}`} style={st.target}>
-                        <Text style={st.targetName}>Against {target.species}</Text>
-                        <Text style={st.targetMeta}>{target.pressureSets}/{row.variantCount} set combinations create pressure • {target.speedSets}/{row.variantCount} include a faster answer • {target.hardSets}/{row.variantCount} include a 2HKO-or-better answer.</Text>
-                        {target.examples.map((example) => <Text key={example} style={st.example}>• {example}</Text>)}
-                      </View>
-                    ))}
-                  </View>}
-                </View>
-              );
-            })}
+    <>
+      <DraftMatchupMatrix draft={draft} level={levelMode} battle={battle} />
+      <View style={st.card}>
+        <View style={st.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={st.label}>TEAM COMBINATION LAB</Text>
+            <Text style={st.title}>Compare every possible three-Pokémon draft</Text>
           </View>
-        </ScrollView>
-      )}
-    </View>
+          <Text style={st.badge}>{rows.length}</Text>
+        </View>
+        <Text style={st.help}>This is a coverage scan, not a magic prediction. It checks every legal three-species combination against the three Pokémon left behind, using the Factory set pools for your current round and elevation.</Text>
+        {!result.supported ? <Text style={st.empty}>{result.reason}</Text> : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 4 }}>
+            <View style={{ minWidth: 520, flex: 1 }}>
+              {rows.map((row, index) => {
+                const label = row.combo.map((entry) => `${entry.p.species} ${entry.p.setId}`).join(' • ');
+                const openRow = open === index;
+                return (
+                  <View key={label} style={st.row}>
+                    <TouchableOpacity onPress={() => setOpen(openRow ? null : index)} style={st.rowButton}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={st.rank}>#{index + 1}  {label}</Text>
+                        <Text style={st.meta}>{row.variantCount} set combinations • {Math.round(row.pressureCoverage * 100)}% pressure coverage • {Math.round(row.speedCoverage * 100)}% speed coverage</Text>
+                      </View>
+                      <Text style={st.chevron}>{openRow ? '▲' : '▼'}</Text>
+                    </TouchableOpacity>
+                    {openRow && <View style={st.details}>
+                      <Text style={st.detailTitle}>WHY THIS COMBINATION MATTERS</Text>
+                      <Text style={st.detail}>Hard pressure coverage: {Math.round(row.hardCoverage * 100)}% of tested set combinations.</Text>
+                      <Text style={st.detail}>Defensive gap flags: {row.defensiveGaps}</Text>
+                      {row.targetSummaries.map((target) => (
+                        <View key={`${target.species}-${target.index}`} style={st.target}>
+                          <Text style={st.targetName}>Against {target.species}</Text>
+                          <Text style={st.targetMeta}>{target.pressureSets}/{row.variantCount} set combinations create pressure • {target.speedSets}/{row.variantCount} include a faster answer • {target.hardSets}/{row.variantCount} include a 2HKO-or-better answer.</Text>
+                          {target.examples.map((example) => <Text key={example} style={st.example}>• {example}</Text>)}
+                        </View>
+                      ))}
+                    </View>}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+        )}
+      </View>
+    </>
   );
 }
 
