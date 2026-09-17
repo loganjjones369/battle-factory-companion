@@ -1,6 +1,7 @@
 import { calculateTeamStyle, calculateTeamType, getScientistStyleLabel } from './scientistAnalysis';
 
 const norm = (value) => String(value || '').trim().toLowerCase();
+const itemKey = (value) => norm(value).replace(/[^a-z0-9]/g, '');
 const setKey = (set = {}) => `${norm(set.species)}#${set.id ?? set.setId ?? set.sourceId ?? ''}`;
 
 function markersFor(set = {}) {
@@ -31,7 +32,7 @@ function legalTeamWithSet(set, team) {
   if (!Array.isArray(team) || team.length !== 3) return false;
   if (!team.some((candidate) => setKey(candidate) === setKey(set))) return false;
   if (new Set(team.map((x) => norm(x?.species))).size !== 3) return false;
-  const items = team.map((x) => norm(x?.item).replace(/[^a-z0-9]/g, '')).filter(Boolean);
+  const items = team.map((x) => itemKey(x?.item)).filter(Boolean);
   return new Set(items).size === items.length;
 }
 
@@ -44,8 +45,27 @@ function teamContribution(team, targetStyle, scientist) {
   return { targetCount, finalStyle, finalType, styleFits, typeFits, fitsScientist: styleFits && typeFits };
 }
 
-function compatibleTeamEvidence(set, scientist = {}, candidateTeams = []) {
-  const teams = candidateTeams.filter((team) => legalTeamWithSet(set, team));
+function deriveTeamsContainingSet(set, candidatePool = []) {
+  const candidates = candidatePool
+    .map((entry) => entry?.set || entry)
+    .filter((candidate) => candidate?.species && setKey(candidate) !== setKey(set));
+  const teams = [];
+  for (let i = 0; i < candidates.length - 1; i += 1) {
+    const a = candidates[i];
+    if (norm(a.species) === norm(set.species)) continue;
+    for (let j = i + 1; j < candidates.length; j += 1) {
+      const b = candidates[j];
+      if (norm(b.species) === norm(set.species) || norm(a.species) === norm(b.species)) continue;
+      if (itemKey(a.item) && itemKey(a.item) === itemKey(set.item)) continue;
+      if (itemKey(b.item) && (itemKey(b.item) === itemKey(set.item) || itemKey(b.item) === itemKey(a.item))) continue;
+      teams.push([set, a, b]);
+    }
+  }
+  return teams;
+}
+
+function compatibleTeamEvidence(set, scientist = {}, candidateTeams = [], candidatePool = []) {
+  const teams = candidateTeams.length ? candidateTeams.filter((team) => legalTeamWithSet(set, team)) : deriveTeamsContainingSet(set, candidatePool);
   const fittingTeams = teams.filter((team) => teamContribution(team, Number(scientist.style), scientist).fitsScientist);
   const partnerSignatures = new Set(fittingTeams.map((team) => team.filter((x) => setKey(x) !== setKey(set)).map(setKey).sort().join('|')));
   return { candidateTeamCount: teams.length, fittingTeamCount: fittingTeams.length, partnerPairCount: partnerSignatures.size, fittingTeams };
@@ -54,7 +74,7 @@ function compatibleTeamEvidence(set, scientist = {}, candidateTeams = []) {
 export function explainSetAgainstScientist(set, scientist = {}, candidatePool = [], candidateTeams = []) {
   const style = Number(scientist.style);
   const contribution = getStyleContribution(set, style);
-  const teamEvidence = compatibleTeamEvidence(set, scientist, candidateTeams);
+  const teamEvidence = compatibleTeamEvidence(set, scientist, candidateTeams, candidatePool);
   const survivedCandidatePool = candidatePool.some((candidate) => setKey(candidate?.set || candidate) === setKey(set));
   const type = scientist.type;
   const typeMatch = !type || (set.types || []).some((candidateType) => norm(candidateType) === norm(type));
@@ -70,10 +90,10 @@ export function explainSetAgainstScientist(set, scientist = {}, candidatePool = 
       text = `This set supplies ${contribution.target?.count || 0}/${contribution.target?.required || 0} moves for “${getScientistStyleLabel(style)}”. ${teamEvidence.partnerPairCount} compatible partner pair${teamEvidence.partnerPairCount === 1 ? '' : 's'} produce a complete team that fits the Scientist clue.`;
     } else if (survivedCandidatePool) {
       status = 'surviving-team';
-      text = `This set supplies ${contribution.target?.count || 0}/${contribution.target?.required || 0} moves for “${getScientistStyleLabel(style)}”. It survives the current complete-team Scientist filter, so other members of its legal team(s) must supply the remaining contribution or otherwise produce the required final phrase.`;
-    } else if (candidateTeams.length > 0) {
+      text = `This set supplies ${contribution.target?.count || 0}/${contribution.target?.required || 0} moves for “${getScientistStyleLabel(style)}”. It survives the current complete-team Scientist filter, so other members of its legal team(s) supply the remaining evidence.`;
+    } else if (teamEvidence.candidateTeamCount > 0) {
       status = 'incompatible';
-      text = `This set supplies ${contribution.target?.count || 0}/${contribution.target?.required || 0} moves for “${getScientistStyleLabel(style)}”, but none of the surviving legal teams containing this set produce the requested Scientist clue.`;
+      text = `This set supplies ${contribution.target?.count || 0}/${contribution.target?.required || 0} moves for “${getScientistStyleLabel(style)}”, but none of the legal teams containing it produce the requested Scientist clue.`;
     } else {
       status = 'unknown';
       text = `This set supplies ${contribution.target?.count || 0}/${contribution.target?.required || 0} moves for “${getScientistStyleLabel(style)}”. Team-level evidence is not available yet.`;
