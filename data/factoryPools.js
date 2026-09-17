@@ -2,64 +2,14 @@ import { POKEMON } from './factoryData';
 import { getSwapElevation } from './factoryRules';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
+const poolKey = (set) => String(set?.pool || (set?.round != null ? `g3-${set.round}` : ''));
 
-export function getPlayerDraftBaseBucket(levelMode = 'Open Level', battle = 1) {
-  const b = Math.max(1, Number(battle) || 1);
-  if (levelMode === 'Open Level') return b <= 4 ? `g3-${b}` : 'g3-6';
-  if (b <= 7) return `l50-${Math.min(3, b === 1 ? 1 : b === 2 ? 2 : 3)}`;
-  return 'g3-5';
-}
-
-export function getPlayerDraftUpgradeBucket(levelMode = 'Open Level', battle = 1) {
-  const b = Math.max(1, Number(battle) || 1);
-  if (levelMode === 'Open Level') return b < 4 ? `g3-${b + 1}` : 'g3-6';
-  if (b <= 6) return b === 1 ? 'l50-2' : b === 2 ? 'l50-3' : 'g3-1';
-  if (b === 7) return 'g3-2';
-  return 'g3-5';
-}
-
+export function getPlayerDraftBaseBucket(levelMode = 'Open Level', battle = 1) { const b = Math.max(1, Number(battle) || 1); if (levelMode === 'Open Level') return b <= 4 ? `g3-${b}` : 'g3-6'; if (b <= 7) return `l50-${Math.min(3, b === 1 ? 1 : b === 2 ? 2 : 3)}`; return 'g3-5'; }
+export function getPlayerDraftUpgradeBucket(levelMode = 'Open Level', battle = 1) { const b = Math.max(1, Number(battle) || 1); if (levelMode === 'Open Level') return b < 4 ? `g3-${b + 1}` : 'g3-6'; if (b <= 6) return b === 1 ? 'l50-2' : b === 2 ? 'l50-3' : 'g3-1'; if (b === 7) return 'g3-2'; return 'g3-5'; }
 export function getDraftElevation(swaps = 0) { return Math.min(5, getSwapElevation(swaps)); }
 function allSets() { return Object.values(POKEMON).flatMap((pokemon) => pokemon.sets); }
 function uniqueSpecies(sets) { return [...new Set(sets.map((set) => norm(set.species)))].length; }
-
-export function getDraftSetPools({ levelMode = 'Open Level', battle = 1, swaps = 0, blockedSpecies = [] } = {}) {
-  const baseBucket = getPlayerDraftBaseBucket(levelMode, battle);
-  const upgradeBucket = getPlayerDraftUpgradeBucket(levelMode, battle);
-  const elevation = getDraftElevation(swaps);
-  const blocked = new Set(blockedSpecies.map(norm));
-  const sets = allSets().filter((set) => !blocked.has(norm(set.species)));
-  const regularPool = sets.filter((set) => String(set.pool || '') === baseBucket);
-  const upgradedPool = sets.filter((set) => String(set.pool || '') === upgradeBucket);
-  const supported = regularPool.length > 0;
-  return {
-    supported,
-    reason: supported ? null : `No imported Factory sets are available for pool ${baseBucket}.`,
-    elevation,
-    baseBucket,
-    upgradeBucket,
-    regularPool,
-    upgradedPool,
-    regularSpeciesCount: uniqueSpecies(regularPool),
-    upgradedSpeciesCount: uniqueSpecies(upgradedPool),
-  };
-}
-
-export function getDraftIV(levelMode = 'Open Level', battle = 1, elevated = false) {
-  const round = Math.max(1, Math.ceil((Number(battle) || 1) / 7));
-  const effectiveRound = elevated ? round + 1 : round;
-  const ivByRound = { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 };
-  return ivByRound[Math.min(7, effectiveRound)] || 31;
-}
-
-export function getDraftSlotInfo({ levelMode = 'Open Level', battle = 1, swaps = 0, slotIndex = 0, blockedSpecies = [] } = {}) {
-  const pool = getDraftSetPools({ levelMode, battle, swaps, blockedSpecies });
-  const elevated = Number(slotIndex) >= 0 && Number(slotIndex) < pool.elevation;
-  return { slotIndex: Number(slotIndex) || 0, isElevated: elevated, poolBucket: elevated ? pool.upgradeBucket : pool.baseBucket, iv: getDraftIV(levelMode, battle, elevated), elevationCount: pool.elevation, baseBucket: pool.baseBucket, upgradeBucket: pool.upgradeBucket, supported: pool.supported };
-}
-
-export function describeDraftPool({ levelMode = 'Open Level', battle = 1, swaps = 0 } = {}) {
-  const pool = getDraftSetPools({ levelMode, battle, swaps });
-  if (!pool.supported) return pool.reason;
-  if (!pool.elevation) return `All 6 draft slots use pool ${pool.baseBucket}.`;
-  return `${pool.elevation} of the 6 draft slots are elevated into pool ${pool.upgradeBucket}; the remaining ${6 - pool.elevation} use pool ${pool.baseBucket}.`;
-}
+export function getDraftSetPools({ levelMode = 'Open Level', battle = 1, swaps = 0, blockedSpecies = [] } = {}) { const baseBucket = getPlayerDraftBaseBucket(levelMode, battle); const upgradeBucket = getPlayerDraftUpgradeBucket(levelMode, battle); const elevation = getDraftElevation(swaps); const blocked = new Set(blockedSpecies.map(norm)); const sets = allSets().filter((set) => !blocked.has(norm(set.species))); const regularPool = sets.filter((set) => poolKey(set) === baseBucket); const upgradedPool = sets.filter((set) => poolKey(set) === upgradeBucket); const supported = regularPool.length > 0; return { supported, reason: supported ? null : `No imported Factory sets are available for pool ${baseBucket}.`, elevation, baseBucket, upgradeBucket, regularPool, upgradedPool, regularSpeciesCount: uniqueSpecies(regularPool), upgradedSpeciesCount: uniqueSpecies(upgradedPool) }; }
+export function getDraftIV(levelMode = 'Open Level', battle = 1, elevated = false) { const round = Math.max(1, Math.ceil((Number(battle) || 1) / 7)); const effectiveRound = elevated ? round + 1 : round; const ivByRound = { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 }; return ivByRound[Math.min(7, effectiveRound)] || 31; }
+export function getDraftSlotInfo({ levelMode = 'Open Level', battle = 1, swaps = 0, slotIndex = 0, blockedSpecies = [] } = {}) { const pool = getDraftSetPools({ levelMode, battle, swaps, blockedSpecies }); const elevated = Number(slotIndex) >= 0 && Number(slotIndex) < pool.elevation; return { slotIndex: Number(slotIndex) || 0, isElevated: elevated, poolBucket: elevated ? pool.upgradeBucket : pool.baseBucket, iv: getDraftIV(levelMode, battle, elevated), elevationCount: pool.elevation, baseBucket: pool.baseBucket, upgradeBucket: pool.upgradeBucket, supported: pool.supported }; }
+export function describeDraftPool({ levelMode = 'Open Level', battle = 1, swaps = 0 } = {}) { const pool = getDraftSetPools({ levelMode, battle, swaps }); if (!pool.supported) return pool.reason; if (!pool.elevation) return `All 6 draft slots use pool ${pool.baseBucket}.`; return `${pool.elevation} of the 6 draft slots are elevated into pool ${pool.upgradeBucket}; the remaining ${6 - pool.elevation} use pool ${pool.baseBucket}.`; }
