@@ -2,11 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { analyzeFactoryCandidates } from '../data/candidateEngine';
 import { calculateDamage, bestDamagingMoves, getStats } from '../data/damageCalc';
+import AssistantAnalysis from './AssistantAnalysis';
 
 function norm(v) { return String(v || '').trim().toLowerCase(); }
 function itemKey(v) { return norm(v).replace(/[^a-z0-9]/g, ''); }
-function setLabel(set) { return `${set.species || set.name || 'Unknown'} ${set.setId ?? set.sourceId ?? set.id ?? ''}`.trim(); }
-function moveNames(set) { return (set.moves || []).map((move) => typeof move === 'string' ? move : move?.name).filter(Boolean); }
+function setLabel(set) { return `${set?.species || set?.name || 'Unknown'} ${set?.setId ?? set?.sourceId ?? set?.id ?? ''}`.trim(); }
+function moveNames(set) { return (set?.moves || []).map((move) => typeof move === 'string' ? move : move?.name).filter(Boolean); }
 
 function clueMatches(set, observations = []) {
   const observation = observations.find((o) => norm(o?.species) === norm(set?.species));
@@ -59,6 +60,7 @@ export default function CandidateAnalysisPanel({
   const [result, setResult] = useState(null);
   const [expandedSet, setExpandedSet] = useState(null);
   const [showEliminated, setShowEliminated] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const analysisTeam = currentTeam.length ? currentTeam : team;
   const draftNames = useMemo(() => draft.map((p) => p?.species || p?.name).filter(Boolean), [draft]);
@@ -122,13 +124,27 @@ export default function CandidateAnalysisPanel({
         </View>
       )}
 
+      {result && result.supported && rankedSets.length > 0 && (
+        <Pressable style={styles.assistantButton} onPress={() => setAssistantOpen(true)}>
+          <View style={styles.scientistMini}>
+            <Text style={styles.scientistEmoji}>🤓</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.assistantKicker}>YOUR LAB ASSISTANT</Text>
+            <Text style={styles.assistantTitle}>ASK THE SCIENTIST</Text>
+            <Text style={styles.assistantSub}>Let me explain what worries me and why.</Text>
+          </View>
+          <Text style={styles.assistantArrow}>›</Text>
+        </Pressable>
+      )}
+
       {result && (
         <View style={styles.resultBox}>
           {!result.supported ? <Text style={styles.warning}>{result.reason || 'This Factory pool is not supported by the current dataset.'}</Text> : (
             <>
               <View style={styles.summaryBox}>
                 <Text style={styles.summaryTitle}>WHAT TO WORRY ABOUT NEXT</Text>
-                <Text style={styles.summaryText}>The candidate list is still a frequency ranking, not an in-game probability. Threat labels use the exact current team when it is known, and only moves currently supported by the damage calculator.</Text>
+                <Text style={styles.summaryText}>The candidate list is a frequency ranking, not an in-game probability. Threat labels use the exact current team when it is known, and only moves currently supported by the damage calculator.</Text>
               </View>
 
               <ScrollView style={styles.list} nestedScrollEnabled>
@@ -193,6 +209,16 @@ export default function CandidateAnalysisPanel({
       )}
 
       {!!blockedSpecies.length && <Text style={styles.blocked}>Blocked by Factory rules: {blockedSpecies.join(' • ')}</Text>}
+
+      <AssistantAnalysis
+        visible={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        rankedSets={rankedSets}
+        threatMap={threatMap}
+        analysisTeam={analysisTeam}
+        observations={observations}
+        eliminatedCount={eliminated.length}
+      />
     </View>
   );
 }
@@ -212,6 +238,13 @@ const styles = StyleSheet.create({
   observationBox: { backgroundColor: '#dbe3d7', borderRadius: 9, padding: 9, marginTop: 8 },
   observationTitle: { color: '#536453', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   observationText: { color: '#3f4b42', fontSize: 10, fontWeight: '800', marginTop: 3 },
+  assistantButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#d2dfcf', borderWidth: 2, borderColor: '#425344', borderRadius: 12, padding: 8, marginTop: 10 },
+  scientistMini: { width: 48, height: 48, borderRadius: 9, backgroundColor: '#f2ecd5', borderWidth: 2, borderColor: '#425344', alignItems: 'center', justifyContent: 'center', marginRight: 9 },
+  scientistEmoji: { fontSize: 30 },
+  assistantKicker: { color: '#657365', fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+  assistantTitle: { color: '#263027', fontSize: 14, fontWeight: '900', marginTop: 1 },
+  assistantSub: { color: '#526053', fontSize: 10, marginTop: 2 },
+  assistantArrow: { color: '#425344', fontSize: 28, fontWeight: '700', paddingHorizontal: 5 },
   resultBox: { marginTop: 10, borderTopWidth: 1, borderTopColor: '#aeb5ad', paddingTop: 10 },
   warning: { backgroundColor: '#fff2cc', borderRadius: 9, padding: 10, color: '#5c4b1e', fontSize: 12, lineHeight: 17 },
   summaryBox: { backgroundColor: '#d5ddd1', borderRadius: 10, padding: 10, marginBottom: 8 },
