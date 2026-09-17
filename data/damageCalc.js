@@ -78,8 +78,6 @@ export function calculateStat(base, ev, iv, level, nature, stat, isHP = false) {
 }
 
 export function getStats(pokemon, set, level, round) {
-  // Exact set IV wins over a generic round-derived IV. This matters for draft
-  // upgrades and for later swaps whose identity is carried with the set.
   const iv = Number(set?.factoryIV ?? pokemon?.factoryIV ?? getFactoryIV(round));
   return {
     hp: calculateStat(pokemon.baseStats.hp, set.evs.hp || 0, iv, level, set.nature, 'hp', true),
@@ -89,6 +87,14 @@ export function getStats(pokemon, set, level, round) {
     spd: calculateStat(pokemon.baseStats.spd, set.evs.spd || 0, iv, level, set.nature, 'spd'),
     spe: calculateStat(pokemon.baseStats.spe, set.evs.spe || 0, iv, level, set.nature, 'spe'),
   };
+}
+
+// Gen III paralysis halves the effective Speed stat in battle. Keep the raw
+// calculated stat intact so the UI can distinguish the normal stat from the
+// battle-effective value; burn/poison/sleep do not alter Speed.
+export function getEffectiveSpeed(stats, status = 'healthy') {
+  const raw = Number(stats?.spe) || 0;
+  return status === 'paralyzed' ? Math.floor(raw / 4) : raw;
 }
 
 export function typeEffectiveness(moveType, defenderTypes) {
