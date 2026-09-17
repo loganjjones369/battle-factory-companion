@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import RunFlowV3 from './RunFlowV3';
 import ScientistCluePanel from './components/ScientistCluePanel';
+import ThreatDashboard from './components/ThreatDashboard';
 import { getCurrentScientist, setCurrentScientist } from './data/scientistSession';
 
 export default function App() {
@@ -10,6 +11,7 @@ export default function App() {
   return <View style={styles.app}>
     <View style={styles.scientistDock}>
       <ScientistCluePanel scientist={scientist} onChange={updateScientist} />
+      <ThreatDashboard />
     </View>
     <View style={styles.flow}>
       <RunFlowV3 />
