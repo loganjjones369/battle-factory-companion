@@ -5,7 +5,9 @@ const norm = (v) => String(v || '').trim().toLowerCase();
 const itemKey = (v) => norm(v).replace(/[^a-z0-9]/g, '');
 
 export function getDraftBlockedSpecies(draft = []) {
-  return draft.map((x) => typeof x === 'string' ? x : x?.name).filter(Boolean);
+  return draft
+    .map((x) => typeof x === 'string' ? x : (x?.species || x?.name))
+    .filter(Boolean);
 }
 
 export function getOpponentRoundBucket(levelMode = 'Open Level', battle = 1) {
@@ -67,7 +69,8 @@ export function analyzeFactoryCandidates({
 } = {}) {
   const battleNumber = battle == null ? Math.max(1, Number(round) || 1) : Math.max(1, Number(battle) || 1);
   const targetBucket = getOpponentRoundBucket(levelMode, battleNumber);
-  const blocked = new Set((noland ? [] : (blockedSpecies.length ? blockedSpecies : getDraftBlockedSpecies(draft))).map(norm));
+  const explicitBlocked = Array.isArray(blockedSpecies) && blockedSpecies.length > 0;
+  const blocked = new Set((noland ? [] : (explicitBlocked ? blockedSpecies : getDraftBlockedSpecies(draft))).map(norm));
   const observations = observedList(revealed);
   const observedSpecies = new Set(observations.map((o) => norm(o.species)).filter(Boolean));
 
@@ -105,7 +108,7 @@ export function analyzeFactoryCandidates({
     for (let j = i + 1; j < pools.length - 1; j += 1) {
       for (let k = j + 1; k < pools.length; k += 1) {
         const speciesTeam = [pools[i], pools[j], pools[k]];
-        const names = new Set(speciesTeam.map((p) => norm(p.name)));
+        const names = new Set(speciesTeam.map((p) => norm(p.name || p.species)));
         if ([...observedSpecies].some((name) => !names.has(name))) continue;
         const [aSets, bSets, cSets] = speciesTeam.map((p) => p.sets);
         for (const a of aSets) for (const b of bSets) {
@@ -124,12 +127,12 @@ export function analyzeFactoryCandidates({
     }
   }
 
-  const allSpecies = Object.values(POKEMON).filter((pokemon) => !blocked.has(norm(pokemon.name)));
+  const allSpecies = Object.values(POKEMON).filter((pokemon) => !blocked.has(norm(pokemon.name || pokemon.species)));
   const results = allSpecies.map((pokemon) => {
     const poolSets = pokemon.sets.filter((set) => String(set.round) === String(targetBucket));
-    const possible = possibleBySpecies[norm(pokemon.name)] || [];
+    const possible = possibleBySpecies[norm(pokemon.name || pokemon.species)] || [];
     const eliminated = poolSets.filter((set) => !possibleIds.has(`${set.species}-${set.id}`)).map((set) => {
-      const observationsForSpecies = observations.filter((o) => norm(o.species) === norm(pokemon.name));
+      const observationsForSpecies = observations.filter((o) => norm(o.species) === norm(pokemon.name || pokemon.species));
       if (observationsForSpecies.some((o) => !setMatchesObservation(set, o))) return { set, reason: 'Observed item/move mismatch' };
       if (observations.some((o) => itemKey(o.item) && itemKey(o.item) === itemKey(set.item) && norm(o.species) !== norm(set.species))) {
         return { set, reason: `Item Clause — ${set.item} already observed on a teammate` };
