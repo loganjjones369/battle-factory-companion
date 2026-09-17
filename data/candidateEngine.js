@@ -5,100 +5,31 @@ const norm = (v) => String(v || '').trim().toLowerCase();
 const itemKey = (v) => norm(v).replace(/[^a-z0-9]/g, '');
 const ANALYSIS_CACHE = new Map();
 const CACHE_LIMIT = 12;
+const poolKey = (set) => String(set?.pool || (set?.round != null ? `g3-${set.round}` : ''));
 
 export function getDraftBlockedSpecies(draft = []) { return draft.map((x) => typeof x === 'string' ? x : (x?.species || x?.name)).filter(Boolean); }
-
-export function getOpponentRoundBucket(levelMode = 'Open Level', battle = 1) {
-  const b = Math.max(1, Number(battle) || 1); const round = Math.ceil(b / 7); const effectiveRound = b % 7 === 0 ? round + 1 : round;
-  if (levelMode === 'Open Level') return effectiveRound >= 5 ? 'g3-6' : `g3-${effectiveRound}`;
-  if (effectiveRound === 1) return 'l50-1';
-  if (effectiveRound === 2) return 'l50-2';
-  if (effectiveRound === 3) return 'l50-3';
-  if (effectiveRound <= 7) return `g3-${effectiveRound - 3}`;
-  return 'g3-5';
-}
+export function getOpponentRoundBucket(levelMode = 'Open Level', battle = 1) { const b = Math.max(1, Number(battle) || 1); const round = Math.ceil(b / 7); const effectiveRound = b % 7 === 0 ? round + 1 : round; if (levelMode === 'Open Level') return effectiveRound >= 5 ? 'g3-6' : `g3-${effectiveRound}`; if (effectiveRound === 1) return 'l50-1'; if (effectiveRound === 2) return 'l50-2'; if (effectiveRound === 3) return 'l50-3'; if (effectiveRound <= 7) return `g3-${effectiveRound - 3}`; return 'g3-5'; }
 function observedList(revealed = {}) { if (Array.isArray(revealed.observations)) return revealed.observations; if (revealed.species) return [{ species: revealed.species, item: revealed.item, moves: revealed.moves || [] }]; return []; }
 function moveNames(set) { return (set?.moves || []).map((m) => typeof m === 'string' ? m : m?.name).filter(Boolean); }
 function setKey(set) { return `${norm(set.species)}#${set.id ?? set.sourceId ?? set.setId ?? ''}`; }
 function setMatchesObservation(set, observation) { if (!observation?.species || norm(set.species) !== norm(observation.species)) return false; if (observation.item && itemKey(set.item) !== itemKey(observation.item)) return false; const moves = moveNames(set).map(norm); return (observation.moves || []).filter(Boolean).map(norm).every((move) => moves.includes(move)); }
 function teamMatchesClue(team, scientist, allowStyle = true) { if (scientist.type && norm(calculateTeamType(team)) !== norm(scientist.type)) return false; if (allowStyle && scientist.style !== undefined && scientist.style !== null && Number(scientist.style) >= 0 && calculateTeamStyle(team) !== Number(scientist.style)) return false; return true; }
-function legalTeam(a, b, c) { if (new Set([a.species, b.species, c.species].map(norm)).size !== 3) return false; const items = [a.item, b.item, c.item].map(itemKey).filter(Boolean); return new Set(items).size === items.length; }
 function cacheKey({ draft, blockedSpecies, scientist, levelMode, battleNumber, revealed, noland, currentTeam, previousOpponent }) { const sets = (xs) => (xs || []).map((x) => setKey(x)).sort().join(','); const obs = observedList(revealed).map((o) => `${norm(o.species)}|${itemKey(o.item)}|${(o.moves || []).map(norm).sort().join('/')}`).sort().join(';'); return [levelMode, battleNumber, JSON.stringify(scientist || {}), (blockedSpecies || []).map(norm).sort().join(','), obs, noland ? 'N' : 'O', sets(currentTeam), sets(previousOpponent), sets(draft)].join('||'); }
 function remember(key, value) { if (ANALYSIS_CACHE.has(key)) ANALYSIS_CACHE.delete(key); ANALYSIS_CACHE.set(key, value); while (ANALYSIS_CACHE.size > CACHE_LIMIT) ANALYSIS_CACHE.delete(ANALYSIS_CACHE.keys().next().value); return value; }
 
 export function analyzeFactoryCandidates({ draft = [], blockedSpecies, scientist = {}, levelMode = 'Open Level', round = 1, battle = null, revealed = {}, noland = false, currentTeam = [], previousOpponent = [] } = {}) {
-  const battleNumber = battle == null ? Math.max(1, Number(round) || 1) : Math.max(1, Number(battle) || 1);
-  const targetBucket = getOpponentRoundBucket(levelMode, battleNumber);
-  const explicitBlocked = Array.isArray(blockedSpecies) ? blockedSpecies : getDraftBlockedSpecies(draft);
-  const hasTeamHistory = currentTeam.length > 0 || previousOpponent.length > 0;
-  const factoryBlocked = battleNumber <= 1 || !hasTeamHistory ? explicitBlocked : [...getDraftBlockedSpecies(currentTeam), ...getDraftBlockedSpecies(previousOpponent)];
-  const blocked = new Set((noland ? [] : factoryBlocked).map(norm));
-  const observations = observedList(revealed);
-  const key = cacheKey({ draft, blockedSpecies: [...blocked], scientist, levelMode, battleNumber, revealed, noland, currentTeam, previousOpponent });
-  const cached = ANALYSIS_CACHE.get(key); if (cached) return cached;
-
+  const battleNumber = battle == null ? Math.max(1, Number(round) || 1) : Math.max(1, Number(battle) || 1); const targetBucket = getOpponentRoundBucket(levelMode, battleNumber); const explicitBlocked = Array.isArray(blockedSpecies) ? blockedSpecies : getDraftBlockedSpecies(draft); const hasTeamHistory = currentTeam.length > 0 || previousOpponent.length > 0; const factoryBlocked = battleNumber <= 1 || !hasTeamHistory ? explicitBlocked : [...getDraftBlockedSpecies(currentTeam), ...getDraftBlockedSpecies(previousOpponent)]; const blocked = new Set((noland ? [] : factoryBlocked).map(norm)); const observations = observedList(revealed); const key = cacheKey({ draft, blockedSpecies: [...blocked], scientist, levelMode, battleNumber, revealed, noland, currentTeam, previousOpponent }); const cached = ANALYSIS_CACHE.get(key); if (cached) return cached;
   const observationBySpecies = new Map(); observations.forEach((o) => { const species = norm(o.species); if (species) observationBySpecies.set(species, o); });
-  const pools = Object.values(POKEMON).map((pokemon) => {
-    const observation = observationBySpecies.get(norm(pokemon.name));
-    const sets = pokemon.sets.filter((set) => String(set.pool || '') === String(targetBucket) && !blocked.has(norm(set.species)) && (!observation || setMatchesObservation(set, observation)));
-    return { ...pokemon, sets };
-  }).filter((p) => p.sets.length);
+  const pools = Object.values(POKEMON).map((pokemon) => { const observation = observationBySpecies.get(norm(pokemon.name)); const sets = pokemon.sets.filter((set) => poolKey(set) === String(targetBucket) && !blocked.has(norm(set.species)) && (!observation || setMatchesObservation(set, observation))); return { ...pokemon, sets }; }).filter((p) => p.sets.length);
   if (!pools.length) return remember(key, { matchingTeams: [], rankedSets: [], possibleSpecies: [], eliminatedSets: [], blockedSpecies: [...blocked], roundBucket: targetBucket, observations, exact: true, supported: false, battle: battleNumber, reason: `No imported Factory sets are available for pool ${targetBucket}.` });
-
   const styleDataAvailable = pools.every((pokemon) => pokemon.sets.every((set) => set.styleDataComplete !== false));
-  const matchingTeams = [];
-  const setOccurrences = new Map(); const legalTeamOccurrences = new Map(); const compatibleStyleOccurrences = new Map();
+  const matchingTeams = [], setOccurrences = new Map(), legalTeamOccurrences = new Map(), compatibleStyleOccurrences = new Map();
   const mark = (map, set, extra = {}) => { const k = setKey(set); const old = map.get(k); if (old) { old.count += 1; return; } map.set(k, { set, count: 1, ...extra }); };
   const requiredSpecies = new Set(observationBySpecies.keys());
-
-  for (let i = 0; i < pools.length - 2; i += 1) for (let j = i + 1; j < pools.length - 1; j += 1) for (let k = j + 1; k < pools.length; k += 1) {
-    const speciesTeam = [pools[i], pools[j], pools[k]];
-    if ([...requiredSpecies].some((name) => !speciesTeam.some((p) => norm(p.name) === name))) continue;
-    for (const a of speciesTeam[0].sets) for (const b of speciesTeam[1].sets) {
-      if (itemKey(a.item) && itemKey(a.item) === itemKey(b.item)) continue;
-      for (const c of speciesTeam[2].sets) {
-        if (itemKey(c.item) && (itemKey(c.item) === itemKey(a.item) || itemKey(c.item) === itemKey(b.item))) continue;
-        const team = [a, b, c];
-        team.forEach((set) => mark(legalTeamOccurrences, set, { styles: new Set() }));
-        const teamStyle = styleDataAvailable ? calculateTeamStyle(team) : null;
-        const teamType = calculateTeamType(team);
-        team.forEach((set) => { const entry = legalTeamOccurrences.get(setKey(set)); if (teamStyle !== null) entry.styles.add(teamStyle); entry.types = entry.types || new Set(); entry.types.add(teamType); });
-        if (!teamMatchesClue(team, scientist, styleDataAvailable)) continue;
-        matchingTeams.push(team);
-        team.forEach((set) => mark(setOccurrences, set));
-        team.forEach((set) => mark(compatibleStyleOccurrences, set, { styles: new Set(), types: new Set() }));
-        team.forEach((set) => { const entry = compatibleStyleOccurrences.get(setKey(set)); if (teamStyle !== null) entry.styles.add(teamStyle); entry.types.add(teamType); });
-      }
-    }
-  }
-
-  const rankedSets = [...setOccurrences.values()].sort((a, b) => b.count - a.count || String(a.set.species).localeCompare(String(b.set.species))).map((entry) => ({ ...entry, frequency: matchingTeams.length ? entry.count / matchingTeams.length : 0 }));
-  const possibleBySpecies = {}; rankedSets.forEach((entry) => { const k = norm(entry.set.species); if (!possibleBySpecies[k]) possibleBySpecies[k] = []; possibleBySpecies[k].push(entry.set); });
-  const possibleSpecies = Object.values(POKEMON).filter((p) => possibleBySpecies[norm(p.name)]?.length).map((p) => ({ pokemon: p, possible: possibleBySpecies[norm(p.name)] })).sort((a, b) => b.possible.length - a.possible.length || String(a.pokemon.name).localeCompare(String(b.pokemon.name)));
-
-  const survivingKeys = new Set(rankedSets.map((x) => setKey(x.set))); const eliminatedSets = [];
-  Object.values(POKEMON).forEach((pokemon) => pokemon.sets.filter((set) => String(set.pool || '') === String(targetBucket)).forEach((set) => {
-    if (survivingKeys.has(setKey(set))) return;
-    const reasons = [];
-    if (blocked.has(norm(set.species))) reasons.push('Blocked species by Factory rule');
-    const obs = observationBySpecies.get(norm(set.species));
-    if (obs?.item && itemKey(obs.item) !== itemKey(set.item)) reasons.push(`Held item mismatch: saw ${obs.item}`);
-    if (obs?.moves?.length) { const setMoves = moveNames(set).map(norm); const missing = obs.moves.find((m) => !setMoves.includes(norm(m))); if (missing) reasons.push(`Move clue mismatch: ${missing}`); }
-    if (!blocked.has(norm(set.species)) && (!obs || setMatchesObservation(set, obs))) {
-      const legalEvidence = legalTeamOccurrences.get(setKey(set)); const compatibleEvidence = compatibleStyleOccurrences.get(setKey(set));
-      if (!legalEvidence || legalEvidence.count === 0) reasons.push('No legal three-Pokémon team can contain this set under the current Species/Item rules');
-      else if (!compatibleEvidence || compatibleEvidence.count === 0) {
-        if (scientist.type) { const typeList = [...(legalEvidence.types || [])].filter(Boolean); reasons.push(`Scientist type clue mismatch: no legal team containing this set produces ${scientist.type}.${typeList.length ? ` Legal teams resolve to ${typeList.join(', ')} instead.` : ''}`); }
-        if (scientist.style !== undefined && scientist.style !== null && !styleDataAvailable) reasons.push('Scientist style clue not applied: early Level 50 set style markers are not present in the imported source table yet');
-        else if (scientist.style !== undefined && scientist.style !== null) { const styleList = [...(legalEvidence.styles || [])].sort((a, b) => Number(a) - Number(b)); reasons.push(`Scientist clue mismatch: no legal team containing this set produces “${getScientistStyleLabel(Number(scientist.style))}”.${styleList.length ? ` Legal teams resolve to styles ${styleList.join(', ')} instead.` : ''}`); }
-      }
-    }
-    if (!reasons.length) reasons.push('Eliminated by the combined Factory constraints');
-    eliminatedSets.push({ set, reason: reasons[0], reasons, evidence: { legalTeamCount: legalTeamOccurrences.get(setKey(set))?.count || 0, compatibleTeamCount: compatibleStyleOccurrences.get(setKey(set))?.count || 0, compatibleStyles: [...(compatibleStyleOccurrences.get(setKey(set))?.styles || [])], compatibleTypes: [...(compatibleStyleOccurrences.get(setKey(set))?.types || [])], legalStyles: [...(legalTeamOccurrences.get(setKey(set))?.styles || [])], legalTypes: [...(legalTeamOccurrences.get(setKey(set))?.types || [])] } });
-  }));
+  for (let i = 0; i < pools.length - 2; i += 1) for (let j = i + 1; j < pools.length - 1; j += 1) for (let k = j + 1; k < pools.length; k += 1) { const speciesTeam = [pools[i], pools[j], pools[k]]; if ([...requiredSpecies].some((name) => !speciesTeam.some((p) => norm(p.name) === name))) continue; for (const a of speciesTeam[0].sets) for (const b of speciesTeam[1].sets) { if (itemKey(a.item) && itemKey(a.item) === itemKey(b.item)) continue; for (const c of speciesTeam[2].sets) { if (itemKey(c.item) && (itemKey(c.item) === itemKey(a.item) || itemKey(c.item) === itemKey(b.item))) continue; const team = [a, b, c]; team.forEach((set) => mark(legalTeamOccurrences, set, { styles: new Set() })); const teamStyle = styleDataAvailable ? calculateTeamStyle(team) : null; const teamType = calculateTeamType(team); team.forEach((set) => { const entry = legalTeamOccurrences.get(setKey(set)); if (teamStyle !== null) entry.styles.add(teamStyle); entry.types = entry.types || new Set(); entry.types.add(teamType); }); if (!teamMatchesClue(team, scientist, styleDataAvailable)) continue; matchingTeams.push(team); team.forEach((set) => mark(setOccurrences, set)); team.forEach((set) => mark(compatibleStyleOccurrences, set, { styles: new Set(), types: new Set() })); team.forEach((set) => { const entry = compatibleStyleOccurrences.get(setKey(set)); if (teamStyle !== null) entry.styles.add(teamStyle); entry.types.add(teamType); }); } } }
+  const rankedSets = [...setOccurrences.values()].sort((a, b) => b.count - a.count || String(a.set.species).localeCompare(String(b.set.species))).map((entry) => ({ ...entry, frequency: matchingTeams.length ? entry.count / matchingTeams.length : 0 })); const possibleBySpecies = {}; rankedSets.forEach((entry) => { const k = norm(entry.set.species); if (!possibleBySpecies[k]) possibleBySpecies[k] = []; possibleBySpecies[k].push(entry.set); }); const possibleSpecies = Object.values(POKEMON).filter((p) => possibleBySpecies[norm(p.name)]?.length).map((p) => ({ pokemon: p, possible: possibleBySpecies[norm(p.name)] })).sort((a, b) => b.possible.length - a.possible.length || String(a.pokemon.name).localeCompare(String(b.pokemon.name)));
+  const survivingKeys = new Set(rankedSets.map((x) => setKey(x.set))); const eliminatedSets = []; Object.values(POKEMON).forEach((pokemon) => pokemon.sets.filter((set) => poolKey(set) === String(targetBucket)).forEach((set) => { if (survivingKeys.has(setKey(set))) return; const reasons = []; if (blocked.has(norm(set.species))) reasons.push('Blocked species by Factory rule'); const obs = observationBySpecies.get(norm(set.species)); if (obs?.item && itemKey(obs.item) !== itemKey(set.item)) reasons.push(`Held item mismatch: saw ${obs.item}`); if (obs?.moves?.length) { const setMoves = moveNames(set).map(norm); const missing = obs.moves.find((m) => !setMoves.includes(norm(m))); if (missing) reasons.push(`Move clue mismatch: ${missing}`); } if (!blocked.has(norm(set.species)) && (!obs || setMatchesObservation(set, obs))) { const legalEvidence = legalTeamOccurrences.get(setKey(set)); const compatibleEvidence = compatibleStyleOccurrences.get(setKey(set)); if (!legalEvidence || legalEvidence.count === 0) reasons.push('No legal three-Pokémon team can contain this set under the current Species/Item rules'); else if (!compatibleEvidence || compatibleEvidence.count === 0) { if (scientist.type) { const typeList = [...(legalEvidence.types || [])].filter(Boolean); reasons.push(`Scientist type clue mismatch: no legal team containing this set produces ${scientist.type}.${typeList.length ? ` Legal teams resolve to ${typeList.join(', ')} instead.` : ''}`); } if (scientist.style !== undefined && scientist.style !== null && !styleDataAvailable) reasons.push('Scientist style clue not applied: early Level 50 set style markers are not present in the imported source table yet'); else if (scientist.style !== undefined && scientist.style !== null) { const styleList = [...(legalEvidence.styles || [])].sort((a, b) => Number(a) - Number(b)); reasons.push(`Scientist clue mismatch: no legal team containing this set produces “${getScientistStyleLabel(Number(scientist.style))}”.${styleList.length ? ` Legal teams resolve to styles ${styleList.join(', ')} instead.` : ''}`); } } } if (!reasons.length) reasons.push('Eliminated by the combined Factory constraints'); eliminatedSets.push({ set, reason: reasons[0], reasons, evidence: { legalTeamCount: legalTeamOccurrences.get(setKey(set))?.count || 0, compatibleTeamCount: compatibleStyleOccurrences.get(setKey(set))?.count || 0, compatibleStyles: [...(compatibleStyleOccurrences.get(setKey(set))?.styles || [])], compatibleTypes: [...(compatibleStyleOccurrences.get(setKey(set))?.types || [])], legalStyles: [...(legalTeamOccurrences.get(setKey(set))?.styles || [])], legalTypes: [...(legalTeamOccurrences.get(setKey(set))?.types || [])] } }); }));
   return remember(key, { matchingTeams, rankedSets, possibleSpecies, eliminatedSets, blockedSpecies: [...blocked], roundBucket: targetBucket, observations, exact: true, supported: true, styleDataAvailable, battle: battleNumber, rankingNote: 'Ranked by frequency among surviving legal teams. This is candidate frequency, not guaranteed in-game probability because Factory generation uses rejection sampling rather than uniform selection from all legal teams.' });
 }
 
-export function getPossibleSets({ species, blockedSpecies = [], occupiedItems = [], revealed = {}, roundBucket } = {}) {
-  const pokemon = getPokemon(species); if (!pokemon) return { pokemon: null, possible: [], eliminated: [] }; const blocked = new Set(blockedSpecies.map(norm)); const occupied = new Set(occupiedItems.map(itemKey)); const observed = observedList(revealed).find((o) => norm(o.species) === norm(pokemon.name)); const pool = roundBucket == null ? pokemon.sets : pokemon.sets.filter((set) => String(set.pool || set.round) === String(roundBucket)); const possible = pool.filter((set) => !blocked.has(norm(pokemon.name)) && !occupied.has(itemKey(set.item)) && (!observed || setMatchesObservation(set, observed))); return { pokemon, possible, eliminated: pool.filter((set) => !possible.includes(set)).map((set) => ({ set, reason: blocked.has(norm(pokemon.name)) ? 'Blocked species' : 'Item, move, round, or team-constraint mismatch' })) };
-}
+export function getPossibleSets({ species, blockedSpecies = [], occupiedItems = [], revealed = {}, roundBucket } = {}) { const pokemon = getPokemon(species); if (!pokemon) return { pokemon: null, possible: [], eliminated: [] }; const blocked = new Set(blockedSpecies.map(norm)); const occupied = new Set(occupiedItems.map(itemKey)); const observed = observedList(revealed).find((o) => norm(o.species) === norm(pokemon.name)); const pool = roundBucket == null ? pokemon.sets : pokemon.sets.filter((set) => poolKey(set) === String(roundBucket)); const possible = pool.filter((set) => !blocked.has(norm(pokemon.name)) && !occupied.has(itemKey(set.item)) && (!observed || setMatchesObservation(set, observed))); return { pokemon, possible, eliminated: pool.filter((set) => !possible.includes(set)).map((set) => ({ set, reason: blocked.has(norm(pokemon.name)) ? 'Blocked species' : 'Item, move, round, or team-constraint mismatch' })) }; }
