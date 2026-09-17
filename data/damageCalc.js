@@ -45,10 +45,15 @@ export function getFactoryIV(round) { const r = Math.max(1, Math.min(7, Number(r
 export function calculateStat(base, ev, iv, level, nature, stat, isHP = false) { const value = isHP ? Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + level + 10 : Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + 5; return isHP ? value : Math.floor(value * natureMultiplier(nature, stat)); }
 export function getStats(pokemon, set, level, round) { const iv = Number(set?.factoryIV ?? pokemon?.factoryIV ?? getFactoryIV(round)); return { hp: calculateStat(pokemon.baseStats.hp, set.evs.hp || 0, iv, level, set.nature, 'hp', true), atk: calculateStat(pokemon.baseStats.atk, set.evs.atk || 0, iv, level, set.nature, 'atk'), def: calculateStat(pokemon.baseStats.def, set.evs.def || 0, iv, level, set.nature, 'def'), spa: calculateStat(pokemon.baseStats.spa, set.evs.spa || 0, iv, level, set.nature, 'spa'), spd: calculateStat(pokemon.baseStats.spd, set.evs.spd || 0, iv, level, set.nature, 'spd'), spe: calculateStat(pokemon.baseStats.spe, set.evs.spe || 0, iv, level, set.nature, 'spe') }; }
 
+// Gen III stat-stage multipliers: -6..-1 use 2/(2-stage); +1..+6 use (2+stage)/2.
+export function getStatStageMultiplier(stage = 0) { const s = Math.max(-6, Math.min(6, Number(stage) || 0)); return s >= 0 ? (2 + s) / 2 : 2 / (2 - s); }
+export function applyStatStage(stat, stage = 0) { return Math.floor(Number(stat || 0) * getStatStageMultiplier(stage)); }
+export function applyStatStages(stats, stages = {}) { return { ...stats, atk: applyStatStage(stats.atk, stages.atk), def: applyStatStage(stats.def, stages.def), spa: applyStatStage(stats.spa, stages.spa), spd: applyStatStage(stats.spd, stages.spd), spe: applyStatStage(stats.spe, stages.spe) }; }
+export const DEFAULT_STAT_STAGES = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+
 // Gen III paralysis reduces the effective Speed stat to 1/4 in battle.
 export function getEffectiveSpeed(stats, status = 'healthy') { const raw = Number(stats?.spe) || 0; return status === 'paralyzed' ? Math.floor(raw / 4) : raw; }
 export function typeEffectiveness(moveType, defenderTypes) { return defenderTypes.reduce((multiplier, type) => multiplier * (TYPE_CHART[moveType]?.[type] ?? 1), 1); }
-
 export function getWeatherDamageMultiplier(moveType, weather = 'none') { if (weather === 'sun') { if (moveType === 'Fire') return 1.5; if (moveType === 'Water') return 0.5; } if (weather === 'rain') { if (moveType === 'Water') return 1.5; if (moveType === 'Fire') return 0.5; } return 1; }
 
 const RECOVERY_MOVES = new Set(['Moonlight', 'Synthesis', 'Morning Sun']);
@@ -57,14 +62,14 @@ export function getRecoveryAmount(moveName, maxHP, weather = 'none') { const fra
 
 function movePower(move, attackerHP, maxHP) { if (move.variable === 'reversal') { const fraction = attackerHP / maxHP; if (fraction >= 0.7) return 20; if (fraction >= 0.55) return 40; if (fraction >= 0.4) return 50; if (fraction >= 0.25) return 70; if (fraction >= 0.1) return 100; return 200; } return move.power; }
 
-export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP }) {
+export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP, attackerStages = DEFAULT_STAT_STAGES, defenderStages = DEFAULT_STAT_STAGES }) {
   const move = MOVE_DATA[moveName];
   if (!move) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, unsupported: true };
-  const atkStats = getStats(attacker, attackerSet, level, round); const defStats = getStats(defender, defenderSet, level, round); const maxAttackerHP = atkStats.hp; const currentHP = attackerHP == null ? maxAttackerHP : Math.max(1, Math.min(maxAttackerHP, attackerHP)); const attackStat = move.category === 'physical' ? atkStats.atk : atkStats.spa; const defenseStat = move.category === 'physical' ? defStats.def : defStats.spd; const power = movePower(move, currentHP, maxAttackerHP); let base = Math.floor(Math.floor(Math.floor((2 * level) / 5 + 2) * power * attackStat / defenseStat) / 50) + 2;
+  const rawAtkStats = getStats(attacker, attackerSet, level, round); const rawDefStats = getStats(defender, defenderSet, level, round); const atkStats = applyStatStages(rawAtkStats, attackerStages); const defStats = applyStatStages(rawDefStats, defenderStages); const maxAttackerHP = rawAtkStats.hp; const currentHP = attackerHP == null ? maxAttackerHP : Math.max(1, Math.min(maxAttackerHP, attackerHP)); const attackStat = move.category === 'physical' ? atkStats.atk : atkStats.spa; const defenseStat = move.category === 'physical' ? defStats.def : defStats.spd; const power = movePower(move, currentHP, maxAttackerHP); let base = Math.floor(Math.floor(Math.floor((2 * level) / 5 + 2) * power * attackStat / defenseStat) / 50) + 2;
   if (attackerStatus === 'burned' && move.category === 'physical') base = Math.floor(base / 2);
   base = Math.floor(base * getWeatherDamageMultiplier(move.type, weather));
-  const stab = attacker.types.includes(move.type) ? 1.5 : 1; const effectiveness = typeEffectiveness(move.type, defender.types); if (effectiveness === 0) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, ko: null };
-  const min = Math.floor(Math.floor(base * stab * effectiveness) * 217 / 255); const max = Math.floor(Math.floor(base * stab * effectiveness) * 255 / 255); const hp = defStats.hp;
-  return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, effectiveness, ko: Math.ceil(hp / Math.max(1, min)), hp, attackerStats: atkStats, defenderStats: defStats };
+  const stab = attacker.types.includes(move.type) ? 1.5 : 1; const effectiveness = typeEffectiveness(move.type, defender.types); if (effectiveness === 0) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, ko: null, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
+  const min = Math.floor(Math.floor(base * stab * effectiveness) * 217 / 255); const max = Math.floor(Math.floor(base * stab * effectiveness) * 255 / 255); const hp = rawDefStats.hp;
+  return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, effectiveness, ko: Math.ceil(hp / Math.max(1, min)), hp, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
 }
 export function bestDamagingMoves(set) { return (set?.moves || []).filter((move) => MOVE_DATA[move]); }
