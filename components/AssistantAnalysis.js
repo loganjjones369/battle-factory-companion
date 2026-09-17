@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getScientistStyleLabel } from '../data/scientistAnalysis';
 
 function setLabel(set) { return `${set?.species || set?.name || 'Unknown'} ${set?.setId ?? set?.sourceId ?? set?.id ?? ''}`.trim(); }
@@ -38,22 +38,79 @@ export default function AssistantAnalysis({ visible, onClose, rankedSets = [], t
   const styleLabel = styleNumber != null ? getScientistStyleLabel(styleNumber) : null;
   const scientistPhrase = scientist?.phrase || scientist?.text || scientist?.styleText || (styleLabel ? `The favourite battle style appears to be ${styleLabel}.` : 'The Scientist is still gathering clues.');
 
+  const [thinking, setThinking] = useState(false);
+  const [thoughtDone, setThoughtDone] = useState(false);
+  const fade = useRef(new Animated.Value(0)).current;
+  const portraitY = useRef(new Animated.Value(0)).current;
+  const glasses = useRef(new Animated.Value(0)).current;
+  const ideaScale = useRef(new Animated.Value(0.75)).current;
+
+  useEffect(() => {
+    if (!visible) return undefined;
+    setThinking(true);
+    setThoughtDone(false);
+    fade.setValue(0);
+    portraitY.setValue(0);
+    glasses.setValue(0);
+    ideaScale.setValue(0.75);
+
+    const timer = setTimeout(() => {
+      setThinking(false);
+      setThoughtDone(true);
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(portraitY, { toValue: -3, duration: 100, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.spring(portraitY, { toValue: 0, friction: 5, tension: 130, useNativeDriver: true }),
+        ]),
+        Animated.sequence([
+          Animated.timing(glasses, { toValue: 1, duration: 130, useNativeDriver: true }),
+          Animated.timing(glasses, { toValue: 0, duration: 180, useNativeDriver: true }),
+        ]),
+        Animated.spring(ideaScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+      ]);
+    }, 780);
+
+    Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    return () => clearTimeout(timer);
+  }, [visible]);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.modal}>
+        <Animated.View style={[styles.modal, { opacity: fade }]}>
           <View style={styles.header}>
-            <View style={styles.scientistAvatar}><Text style={styles.avatarText}>🤓</Text><View style={styles.glassesShine} /></View>
+            <Animated.View style={[styles.scientistAvatar, { transform: [{ translateY: portraitY }] }]}>
+              <Text style={styles.avatarText}>🤓</Text>
+              <Animated.View style={[styles.glassesPush, { transform: [{ translateX: glasses.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }] }]} />
+              <View style={styles.glassesShine} />
+            </Animated.View>
             <View style={styles.headerCopy}><Text style={styles.kicker}>THE FACTORY SCIENTIST</Text><Text style={styles.title}>LAB ASSISTANT</Text><Text style={styles.subtitle}>Your little research partner</Text></View>
             <Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Back to calculator"><Text style={styles.closeText}>×</Text></Pressable>
           </View>
+
           <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+            {thinking ? (
+              <View style={styles.thoughtPanel}>
+                <View style={styles.thoughtBubble}><Text style={styles.thoughtDots}>…</Text><Text style={styles.thoughtText}>Hmm… let me think.</Text></View>
+                <Text style={styles.thoughtHint}>The Scientist is checking the clues…</Text>
+                <View style={styles.thinkingRow}><View style={styles.pixelDot} /><View style={styles.pixelDot} /><View style={styles.pixelDot} /></View>
+              </View>
+            ) : (
+              <Animated.View style={{ transform: [{ scale: ideaScale }] }}>
+                <View style={styles.ideaBanner}>
+                  <View style={styles.ideaIcon}><Text style={styles.ideaIconText}>!</Text></View>
+                  <View style={{ flex: 1 }}><Text style={styles.ideaKicker}>*PUSHES UP GLASSES*</Text><Text style={styles.ideaText}>☝️ I’VE GOT IT!</Text></View>
+                  <Text style={styles.ideaSpark}>✦</Text>
+                </View>
+              </Animated.View>
+            )}
+
             <View style={styles.scientistNote}>
               <View style={styles.noteTop}><Text style={styles.noteLabel}>SCIENTIST CLUE</Text><Text style={styles.noteSpark}>✦</Text></View>
               <Text style={styles.actualPhrase}>“{scientistPhrase}”</Text>
               <Text style={styles.noteHint}>I’ll use the same clue you were given — I’m just helping you make sense of it.</Text>
             </View>
-            <View style={styles.speechBubble}><View style={styles.bubbleTail} /><Text style={styles.speechLabel}>THE SCIENTIST SAYS…</Text><Text style={styles.headline}>{briefing.headline}</Text></View>
+            <View style={styles.speechBubble}><View style={styles.bubbleTail} /><Text style={styles.speechLabel}>{thoughtDone ? 'THE SCIENTIST SAYS…' : 'THE SCIENTIST IS THINKING…'}</Text><Text style={styles.headline}>{briefing.headline}</Text></View>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>WHY I'M CONCERNED</Text>
               {briefing.reasons.map((reason, index) => <View key={index} style={styles.reasonRow}><Text style={styles.reasonIcon}>!</Text><Text style={styles.reason}>{reason}</Text></View>)}
@@ -67,7 +124,7 @@ export default function AssistantAnalysis({ visible, onClose, rankedSets = [], t
             <Text style={styles.footer}>I'm on your side, but I won't pretend the Factory is predictable. I'll explain the evidence so you can make the call.</Text>
           </ScrollView>
           <Pressable style={styles.backButton} onPress={onClose}><Text style={styles.backText}>← BACK TO CALCULATOR</Text></Pressable>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -79,9 +136,18 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#314b38', borderBottomWidth: 3, borderBottomColor: '#1e2e23' },
   scientistAvatar: { width: 58, height: 58, borderRadius: 10, backgroundColor: '#f0ead3', borderWidth: 3, borderColor: '#26372a', alignItems: 'center', justifyContent: 'center', marginRight: 10, overflow: 'hidden' },
   avatarText: { fontSize: 35 }, glassesShine: { position: 'absolute', width: 5, height: 5, borderRadius: 3, backgroundColor: '#fff', top: 14, left: 19, opacity: 0.7 },
+  glassesPush: { position: 'absolute', width: 13, height: 4, borderRadius: 2, backgroundColor: '#26372a', top: 30, left: 16, opacity: 0.75 },
   headerCopy: { flex: 1 }, kicker: { color: '#b9cdb8', fontSize: 9, fontWeight: '900', letterSpacing: 1.2 }, title: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 }, subtitle: { color: '#dbe6d8', fontSize: 10, marginTop: 2, fontWeight: '800' },
   closeButton: { width: 38, height: 38, borderRadius: 10, backgroundColor: '#e5e5d9', borderWidth: 2, borderColor: '#25342a', alignItems: 'center', justifyContent: 'center' }, closeText: { fontSize: 26, lineHeight: 28, fontWeight: '900', color: '#304036' },
   scroll: { flex: 1 }, content: { padding: 12, paddingBottom: 20 },
+  thoughtPanel: { minHeight: 126, alignItems: 'center', justifyContent: 'center', marginBottom: 10, backgroundColor: '#d4ddcf', borderWidth: 2, borderColor: '#5a6958', borderRadius: 14, padding: 12 },
+  thoughtBubble: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fffdf1', borderWidth: 2, borderColor: '#566356', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9 },
+  thoughtDots: { fontSize: 22, fontWeight: '900', color: '#687468', marginRight: 6, marginTop: -4 }, thoughtText: { color: '#374238', fontSize: 14, fontWeight: '900' },
+  thoughtHint: { color: '#647063', fontSize: 10, fontWeight: '700', marginTop: 8 },
+  thinkingRow: { flexDirection: 'row', marginTop: 7, gap: 4 }, pixelDot: { width: 4, height: 4, backgroundColor: '#687668' },
+  ideaBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff2c6', borderWidth: 2, borderColor: '#75663f', borderRadius: 13, padding: 10, marginBottom: 10 },
+  ideaIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#314b38', alignItems: 'center', justifyContent: 'center', marginRight: 9 }, ideaIconText: { color: '#fff', fontSize: 23, fontWeight: '900' },
+  ideaKicker: { color: '#6d6344', fontSize: 8, fontWeight: '900', letterSpacing: 1 }, ideaText: { color: '#2e3b31', fontSize: 16, fontWeight: '900', marginTop: 1 }, ideaSpark: { color: '#8a7747', fontSize: 24 },
   scientistNote: { backgroundColor: '#cfdacb', borderWidth: 2, borderColor: '#586957', borderRadius: 12, padding: 11, marginBottom: 10 }, noteTop: { flexDirection: 'row', justifyContent: 'space-between' }, noteLabel: { color: '#4d5d4d', fontSize: 9, fontWeight: '900', letterSpacing: 1 }, noteSpark: { color: '#65755f' }, actualPhrase: { color: '#29352d', fontSize: 15, lineHeight: 21, fontWeight: '900', marginTop: 5 }, noteHint: { color: '#637064', fontSize: 9, lineHeight: 13, marginTop: 5 },
   speechBubble: { backgroundColor: '#fffdf1', borderWidth: 2, borderColor: '#4b594d', borderRadius: 14, padding: 13, marginBottom: 10, position: 'relative' }, bubbleTail: { position: 'absolute', width: 14, height: 14, backgroundColor: '#fffdf1', borderLeftWidth: 2, borderBottomWidth: 2, borderColor: '#4b594d', left: 20, bottom: -8, transform: [{ rotate: '-45deg' }] }, speechLabel: { color: '#687469', fontSize: 9, fontWeight: '900', letterSpacing: 1 }, headline: { color: '#263027', fontSize: 17, fontWeight: '900', lineHeight: 23, marginTop: 5 },
   section: { backgroundColor: '#d9e1d5', borderRadius: 12, padding: 11, marginTop: 8 }, sectionTitle: { color: '#425144', fontSize: 10, fontWeight: '900', letterSpacing: 1 }, reasonRow: { flexDirection: 'row', marginTop: 9 }, reasonIcon: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#806333', color: '#fff', textAlign: 'center', lineHeight: 22, fontWeight: '900', marginRight: 8 }, reason: { flex: 1, color: '#485349', fontSize: 12, lineHeight: 17, fontWeight: '700' },
