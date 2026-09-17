@@ -1,9 +1,25 @@
 import { bestDamagingMoves, calculateDamage, getEffectiveSpeed, getStats } from './damageCalc';
 
-function bestHit(attacker, defender, level, round) {
+function bestHit(attacker, defender, level, round, options = {}) {
   let best = null;
   for (const moveName of bestDamagingMoves(attacker)) {
-    const result = calculateDamage({ attacker, attackerSet: attacker, defender, defenderSet: defender, level, round, moveName });
+    const result = calculateDamage({
+      attacker,
+      attackerSet: attacker,
+      defender,
+      defenderSet: defender,
+      level,
+      round,
+      moveName,
+      weather: options.weather || 'none',
+      attackerStatus: options.attackerStatus || 'healthy',
+      defenderStatus: options.defenderStatus || 'healthy',
+      attackerStages: options.attackerStages,
+      defenderStages: options.defenderStages,
+      attackerAbility: options.attackerAbility,
+      defenderAbility: options.defenderAbility,
+      attackerHP: options.attackerHP,
+    });
     if (!result.unsupported && (!best || result.percentMax > best.percentMax)) best = { ...result, moveName };
   }
   return best;
@@ -15,12 +31,28 @@ function speedRelation(allySpeed, opponentSpeed) {
   return 'speed ties';
 }
 
-export function analyzeResponse(opponent, ally, level, round) {
+export function analyzeResponse(opponent, ally, level, round, options = {}) {
   if (!opponent || !ally) return null;
-  const opponentSpeed = getEffectiveSpeed(getStats(opponent, opponent, level, round), 'healthy');
-  const allySpeed = getEffectiveSpeed(getStats(ally, ally, level, round), 'healthy');
-  const hitBack = bestHit(ally, opponent, level, round);
-  const incoming = bestHit(opponent, ally, level, round);
+  const opponentSpeed = getEffectiveSpeed(getStats(opponent, opponent, level, round), options.opponentStatus || 'healthy');
+  const allySpeed = getEffectiveSpeed(getStats(ally, ally, level, round), options.allyStatus || 'healthy');
+  const hitBack = bestHit(ally, opponent, level, round, {
+    ...options,
+    attackerStatus: options.allyStatus || 'healthy',
+    defenderStatus: options.opponentStatus || 'healthy',
+    attackerAbility: options.allyAbility,
+    defenderAbility: options.opponentAbility,
+    attackerStages: options.allyStages,
+    defenderStages: options.opponentStages,
+  });
+  const incoming = bestHit(opponent, ally, level, round, {
+    ...options,
+    attackerStatus: options.opponentStatus || 'healthy',
+    defenderStatus: options.allyStatus || 'healthy',
+    attackerAbility: options.opponentAbility,
+    defenderAbility: options.allyAbility,
+    attackerStages: options.opponentStages,
+    defenderStages: options.allyStages,
+  });
   const relation = speedRelation(allySpeed, opponentSpeed);
   const damageOut = hitBack?.percentMax ?? 0;
   const damageIn = incoming?.percentMax ?? 0;
@@ -28,7 +60,7 @@ export function analyzeResponse(opponent, ally, level, round) {
   const guaranteedOHKO = hitBack ? hitBack.percentMin >= 100 : false;
   const possibleOHKO = hitBack ? hitBack.percentMax >= 100 : false;
   const dangerousIncoming = incoming ? incoming.percentMin >= 50 : false;
-  const safeSwitch = damageIn < 50 && !dangerousIncoming;
+  const safeSwitch = damageIn < 50;
   let classification = 'Neutral';
   if (guaranteedOHKO && relation === 'outspeeds') classification = 'OHKO + outspeeds';
   else if (possibleOHKO && relation === 'outspeeds') classification = 'Possible OHKO + outspeeds';
@@ -39,12 +71,35 @@ export function analyzeResponse(opponent, ally, level, round) {
   else if (relation === 'speed ties') classification = 'Speed tie';
   else if (damageOut >= 50) classification = 'Strong pressure, but exposed';
   else classification = 'Limited pressure';
-  return { ally, opponent, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, guaranteedTwoHKO, guaranteedOHKO, possibleOHKO, dangerousIncoming, safeSwitch, classification };
+  return {
+    ally,
+    opponent,
+    allySpeed,
+    opponentSpeed,
+    relation,
+    hitBack,
+    incoming,
+    damageOut,
+    damageIn,
+    guaranteedTwoHKO,
+    guaranteedOHKO,
+    possibleOHKO,
+    dangerousIncoming,
+    safeSwitch,
+    classification,
+    incomingMove: incoming?.moveName || null,
+    returnMove: hitBack?.moveName || null,
+  };
 }
 
-export function rankResponses(opponent, team = [], level = 100, round = 1) {
-  return team.map((ally) => analyzeResponse(opponent, ally, level, round)).filter(Boolean).sort((a, b) => {
+export function rankResponses(opponent, team = [], level = 100, round = 1, options = {}) {
+  return team.map((ally) => analyzeResponse(opponent, ally, level, round, options)).filter(Boolean).sort((a, b) => {
     const score = (x) => (x.guaranteedOHKO ? 100 : 0) + (x.possibleOHKO ? 35 : 0) + (x.guaranteedTwoHKO ? 25 : 0) + (x.relation === 'outspeeds' ? 15 : x.relation === 'speed ties' ? 5 : 0) + (x.safeSwitch ? 20 : 0) + Math.min(20, x.damageOut / 5) - Math.min(30, x.damageIn / 3);
     return score(b) - score(a);
   });
+}
+
+export function analyzeSwitchIn(candidate, team = [], level = 100, round = 1, options = {}) {
+  if (!candidate || !team.length) return [];
+  return team.map((ally) => analyzeResponse(candidate, ally, level, round, options)).filter(Boolean);
 }
