@@ -1,7 +1,29 @@
 import { advanceAfterBattle, createInitialBattleState, getBattleMilestone } from './battleState';
 
+// Session context lets analysis panels stay synchronized with the active run
+// without making the UI pass the same team/history props through every layer.
+let ACTIVE_RUN_CONTEXT = {
+  currentTeam: [],
+  previousOpponent: [],
+  battle: 1,
+  swaps: 0,
+};
+
+function syncActiveContext(state = {}) {
+  ACTIVE_RUN_CONTEXT = {
+    currentTeam: state.currentTeam || [],
+    previousOpponent: state.previousOpponent || [],
+    battle: Number(state.battle) || 1,
+    swaps: Number(state.swaps) || 0,
+  };
+}
+
+export function getActiveRunContext() {
+  return ACTIVE_RUN_CONTEXT;
+}
+
 export function createRun(options = {}) {
-  return createInitialBattleState({
+  const state = createInitialBattleState({
     level: options.level || '50',
     battle: options.battle || 1,
     round: options.round,
@@ -14,6 +36,8 @@ export function createRun(options = {}) {
     noland: options.noland || false,
     revealed: options.revealed || {},
   });
+  syncActiveContext(state);
+  return state;
 }
 
 export function completeBattle(state, outcome = {}) {
@@ -28,6 +52,7 @@ export function completeBattle(state, outcome = {}) {
 
   if (nextState.progressionError) return { state: nextState, celebration: null };
 
+  syncActiveContext(nextState);
   const milestone = getBattleMilestone(completedBattle);
   return {
     state: nextState,
