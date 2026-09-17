@@ -103,3 +103,40 @@ export function analyzeSwitchIn(candidate, team = [], level = 100, round = 1, op
   if (!candidate || !team.length) return [];
   return team.map((ally) => analyzeResponse(candidate, ally, level, round, options)).filter(Boolean);
 }
+
+export function analyzeCandidateSwitchIns(candidates = [], team = [], level = 100, round = 1, options = {}) {
+  const rows = [];
+  for (const candidate of candidates) {
+    const checks = analyzeSwitchIn(candidate, team, level, round, options);
+    if (!checks.length) continue;
+    rows.push({ candidate, checks });
+  }
+  return rows;
+}
+
+export function summarizeCandidateSwitchIns(rows = []) {
+  const byAlly = new Map();
+  rows.forEach(({ candidate, checks }) => checks.forEach((check) => {
+    const key = check.ally?.species || 'Unknown';
+    if (!byAlly.has(key)) byAlly.set(key, []);
+    byAlly.get(key).push({ candidate, check });
+  }));
+  return [...byAlly.entries()].map(([species, entries]) => {
+    const incoming = entries.map((x) => x.check.incoming).filter(Boolean);
+    const mins = incoming.map((x) => x.percentMin);
+    const maxs = incoming.map((x) => x.percentMax);
+    const worst = entries.reduce((best, x) => !best || x.check.damageIn > best.check.damageIn ? x : best, null);
+    const safest = entries.reduce((best, x) => !best || x.check.damageIn < best.check.damageIn ? x : best, null);
+    const safeCount = entries.filter((x) => x.check.safeSwitch).length;
+    return {
+      species,
+      candidateCount: entries.length,
+      minPercent: mins.length ? Math.min(...mins) : 0,
+      maxPercent: maxs.length ? Math.max(...maxs) : 0,
+      safeCount,
+      safeShare: entries.length ? safeCount / entries.length : 0,
+      worst,
+      safest,
+    };
+  });
+}
