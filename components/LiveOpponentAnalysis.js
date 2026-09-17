@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { analyzeFactoryCandidates } from '../data/candidateEngine';
 import { rankResponses } from '../data/responseAnalysis';
+import { analyzeUncertainty, describeUncertainty } from '../data/uncertaintyAnalysis';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 const setKey = (set) => `${norm(set?.species)}#${set?.id ?? set?.setId ?? set?.sourceId ?? ''}`;
@@ -11,8 +12,15 @@ function damageText(hit) {
   return hit ? `${hit.moveName} ${hit.percentMin.toFixed(1)}–${hit.percentMax.toFixed(1)}%` : 'no mapped damage';
 }
 
+function uncertaintyColor(state) {
+  if (state === 'clear') return styles.safe;
+  if (state === 'high') return styles.high;
+  return styles.moderate;
+}
+
 export default function LiveOpponentAnalysis({ draft = [], scientist = {}, levelMode = 'Open Level', battle = 1, blockedSpecies = [], observations = [], currentTeam = [], previousOpponent = [], noland = false }) {
   const result = useMemo(() => analyzeFactoryCandidates({ draft, blockedSpecies, scientist, levelMode, battle, revealed: { observations }, currentTeam, previousOpponent, noland }), [draft, blockedSpecies, scientist, levelMode, battle, observations, currentTeam, previousOpponent, noland]);
+  const uncertainty = useMemo(() => analyzeUncertainty(result, observations), [result, observations]);
   const observedSpecies = [...new Set(observations.map((o) => norm(o.species)).filter(Boolean))];
   const observedSets = observedSpecies.map((species) => {
     const unique = new Map();
@@ -31,8 +39,23 @@ export default function LiveOpponentAnalysis({ draft = [], scientist = {}, level
   return <View style={styles.card}>
     <View style={styles.header}><View style={{ flex: 1 }}><Text style={styles.kicker}>LIVE RESEARCH</Text><Text style={styles.title}>Opponent possibilities updated</Text></View><Text style={styles.badge}>{result.supported ? candidateCount : '—'}</Text></View>
     {!result.supported ? <Text style={styles.warning}>{result.reason}</Text> : <>
+      <View style={styles.uncertaintyBox}>
+        <View style={styles.uncertaintyHeader}><Text style={styles.uncertaintyTitle}>UNCERTAINTY CHECK</Text><Text style={[styles.uncertaintyState, uncertaintyColor(uncertainty.state)]}>{uncertainty.state.toUpperCase()}</Text></View>
+        <Text style={styles.uncertaintyText}>{describeUncertainty(uncertainty)}</Text>
+        <View style={styles.metricRow}><Text style={styles.metric}><Text style={styles.metricNumber}>{uncertainty.candidateSetCount}</Text> surviving sets</Text><Text style={styles.metric}><Text style={styles.metricNumber}>{uncertainty.distinctTeamCount}</Text> team combinations</Text></View>
+      </View>
+
       {!!exact.length && <View style={styles.exactBox}><Text style={styles.exactTitle}>SET IDENTIFIED FROM CURRENT CLUES</Text>{exact.map((x) => <Text key={x.species} style={styles.exactText}>✓ {setLabel(x.sets[0])} — the current recorded clues leave one compatible set.</Text>)}</View>}
-      {!!unresolved.length && <View style={styles.section}><Text style={styles.sectionTitle}>STILL ALIVE</Text>{unresolved.map((x) => <View key={x.species} style={styles.speciesRow}><Text style={styles.speciesName}>{x.species}</Text><Text style={styles.speciesText}>{x.sets.length} compatible sets remain: {x.sets.slice(0, 6).map(setLabel).join(' • ')}{x.sets.length > 6 ? ' • …' : ''}</Text></View>)}</View>}
+
+      {!!unresolved.length && <View style={styles.section}><Text style={styles.sectionTitle}>WHAT IS STILL UNCERTAIN?</Text>{unresolved.map((x) => {
+        const detail = uncertainty.species.find((entry) => norm(entry.species) === norm(x.species));
+        return <View key={x.species} style={styles.speciesRow}>
+          <View style={styles.speciesHeader}><Text style={styles.speciesName}>{x.species}</Text><Text style={styles.countBadge}>{x.sets.length} sets</Text></View>
+          <Text style={styles.speciesText}>{x.sets.slice(0, 6).map(setLabel).join(' • ')}{x.sets.length > 6 ? ' • …' : ''}</Text>
+          {!!detail?.resolvingClues?.length && <View style={styles.clueBox}><Text style={styles.clueTitle}>CLUES THAT WOULD NARROW IT</Text>{detail.resolvingClues.slice(0, 3).map((clue) => <Text key={`${clue.kind}-${clue.value}`} style={styles.clueText}>• If you see {clue.kind === 'move' ? `the move ${clue.value}` : `the item ${clue.value}`}: {clue.remaining} of these {x.sets.length} sets still fit.</Text>)}</View>}
+        </View>;
+      })}</View>}
+
       {!!responses.length && <View style={styles.responseBox}><Text style={styles.responseTitle}>RESPONSE CHECK</Text>{responses.map((r, i) => <View key={`${setKey(r.ally)}-${i}`} style={styles.responseRow}><View style={{ flex: 1 }}><Text style={styles.responseName}>{r.ally.species}</Text><Text style={styles.responseDetail}>{r.relation} it • {damageText(r.hitBack)} back</Text><Text style={styles.responseDetail}>Incoming: {damageText(r.incoming)}</Text></View><Text style={[styles.classification, r.safeSwitch ? styles.safe : null]}>{r.classification}</Text></View>)}</View>}
       {currentTeam.length > 0 && <View style={styles.section}><Text style={styles.sectionTitle}>WHAT THIS MEANS</Text><Text style={styles.meaning}>The response ranking favors Pokémon that can withstand the likely hit, act first when possible, and apply meaningful return pressure. Damage is shown as a range because Gen III uses a random damage modifier.</Text></View>}
       <Text style={styles.note}>{candidateCount} surviving set candidates are shown from the current clue screen. Candidate frequency is not a probability.</Text>
@@ -47,21 +70,36 @@ const styles = StyleSheet.create({
   title:{fontSize:16,fontWeight:'900',color:'#eef6f2',marginTop:2},
   badge:{minWidth:30,paddingHorizontal:7,paddingVertical:5,borderRadius:10,backgroundColor:'#1d3c33',color:'#bfe4d7',textAlign:'center',fontWeight:'900'},
   warning:{color:'#e5b6a5',fontSize:11,lineHeight:16,marginTop:8},
+  uncertaintyBox:{backgroundColor:'#182e29',borderRadius:10,padding:8,marginTop:9,borderWidth:1,borderColor:'#35564c'},
+  uncertaintyHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  uncertaintyTitle:{fontSize:9,fontWeight:'900',letterSpacing:.9,color:'#b7d9cb'},
+  uncertaintyState:{fontSize:9,fontWeight:'900',letterSpacing:.7},
+  safe:{color:'#9fe2c8'},
+  moderate:{color:'#e1c18e'},
+  high:{color:'#e5a08f'},
+  uncertaintyText:{fontSize:10.5,color:'#d1e1dc',lineHeight:16,marginTop:4},
+  metricRow:{flexDirection:'row',gap:12,marginTop:7},
+  metric:{fontSize:9.5,color:'#91aaa2'},
+  metricNumber:{fontWeight:'900',color:'#e9f4f0'},
   exactBox:{backgroundColor:'#1c3b32',borderRadius:9,padding:8,marginTop:9},
   exactTitle:{fontSize:9,fontWeight:'900',letterSpacing:.8,color:'#9fe2c8'},
   exactText:{fontSize:11,fontWeight:'800',color:'#edf7f2',marginTop:4,lineHeight:16},
   section:{marginTop:9,paddingTop:8,borderTopWidth:1,borderTopColor:'#25443b'},
   sectionTitle:{fontSize:9,fontWeight:'900',letterSpacing:1,color:'#82a79b'},
-  speciesRow:{marginTop:6},
+  speciesRow:{marginTop:7},
+  speciesHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   speciesName:{fontSize:12,fontWeight:'900',color:'#edf6f2'},
+  countBadge:{fontSize:9,fontWeight:'900',color:'#b8d3ca',backgroundColor:'#29453d',paddingHorizontal:6,paddingVertical:3,borderRadius:7},
   speciesText:{fontSize:10.5,color:'#b3c9c2',lineHeight:16,marginTop:2},
+  clueBox:{marginTop:5,padding:6,borderRadius:7,backgroundColor:'#152a25'},
+  clueTitle:{fontSize:8.5,fontWeight:'900',letterSpacing:.7,color:'#8db4a7'},
+  clueText:{fontSize:9.5,color:'#bcd0ca',lineHeight:15,marginTop:2},
   responseBox:{backgroundColor:'#20382f',borderRadius:9,padding:8,marginTop:9,borderWidth:1,borderColor:'#44685a'},
   responseTitle:{fontSize:9,fontWeight:'900',letterSpacing:.8,color:'#b7d9cb'},
   responseRow:{flexDirection:'row',paddingVertical:6,borderBottomWidth:1,borderBottomColor:'#345047'},
   responseName:{fontSize:12,fontWeight:'900',color:'#f0f7f3'},
   responseDetail:{fontSize:10,color:'#b3c9c2',lineHeight:15},
   classification:{alignSelf:'center',maxWidth:120,fontSize:9,fontWeight:'900',textAlign:'right',color:'#e1c18e'},
-  safe:{color:'#9fe2c8'},
   meaning:{fontSize:10.5,color:'#b9cec7',lineHeight:16,marginTop:5},
   note:{fontSize:9.5,color:'#78958d',lineHeight:14,marginTop:9},
 });
