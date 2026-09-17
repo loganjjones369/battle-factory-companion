@@ -16,11 +16,10 @@ export function abilitySpeedMultiplier(ability, weather = 'none') {
   return 1;
 }
 
-export function abilityDamageEffect({ moveType, effectiveness, category, attackerAbility, defenderAbility }) {
+export function abilityDamageEffect({ moveType, effectiveness, category, attackerAbility, defenderAbility, attackerStatus = 'healthy' }) {
   const atk = normalizeAbility(attackerAbility);
   const def = normalizeAbility(defenderAbility);
 
-  // Gen III defensive immunities.
   if (def === 'levitate' && moveType === 'Ground') return { immune: true, multiplier: 0, reason: 'Levitate' };
   if (def === 'flash fire' && moveType === 'Fire') return { immune: true, multiplier: 0, reason: 'Flash Fire' };
   if (def === 'water absorb' && moveType === 'Water') return { immune: true, multiplier: 0, reason: 'Water Absorb' };
@@ -30,9 +29,7 @@ export function abilityDamageEffect({ moveType, effectiveness, category, attacke
   let multiplier = 1;
   const reasons = [];
   if (def === 'thick fat' && (moveType === 'Fire' || moveType === 'Ice')) { multiplier *= 0.5; reasons.push('Thick Fat'); }
-  // Gen III Guts raises Attack by 50% while statused; this is applied by the wrapper as a damage multiplier.
-  if (atk === 'guts') { multiplier *= 1.5; reasons.push('Guts'); }
-  // Huge Power / Pure Power double physical Attack in Gen III.
+  if (atk === 'guts' && attackerStatus !== 'healthy') { multiplier *= 1.5; reasons.push('Guts'); }
   if (category === 'physical' && (atk === 'huge power' || atk === 'pure power')) { multiplier *= 2; reasons.push('Huge/Pure Power'); }
   return { immune: false, multiplier, reason: reasons.join(' • ') };
 }
