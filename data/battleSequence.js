@@ -1,5 +1,3 @@
-import { normSpecies } from './setIdentity';
-
 const clean = (value) => String(value || '').trim();
 const speciesOf = (value) => clean(value?.species || value?.name || value);
 
@@ -59,6 +57,7 @@ export function buildBattleSequence({ team = [], opponent = [], knockedOut = {},
   const activeOpponent = Number.isInteger(activeOpponentIndex) && !knockedOut.opponent?.includes(activeOpponentIndex) ? opponent[activeOpponentIndex] : null;
   return {
     ...status,
+    knockedOut,
     activeTeamIndex,
     activeOpponentIndex,
     activeTeam,
