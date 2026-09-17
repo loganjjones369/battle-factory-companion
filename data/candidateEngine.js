@@ -26,7 +26,8 @@ export function analyzeFactoryCandidates({ draft = [], blockedSpecies, scientist
   const battleNumber = battle == null ? Math.max(1, Number(round) || 1) : Math.max(1, Number(battle) || 1);
   const targetBucket = getOpponentRoundBucket(levelMode, battleNumber);
   const explicitBlocked = Array.isArray(blockedSpecies) ? blockedSpecies : getDraftBlockedSpecies(draft);
-  const factoryBlocked = battleNumber <= 1 ? explicitBlocked : [...getDraftBlockedSpecies(currentTeam), ...getDraftBlockedSpecies(previousOpponent)];
+  const hasTeamHistory = currentTeam.length > 0 || previousOpponent.length > 0;
+  const factoryBlocked = battleNumber <= 1 || !hasTeamHistory ? explicitBlocked : [...getDraftBlockedSpecies(currentTeam), ...getDraftBlockedSpecies(previousOpponent)];
   const blocked = new Set((noland ? [] : factoryBlocked).map(norm));
   const observations = observedList(revealed); const observedSpecies = new Set(observations.map((o) => norm(o.species)).filter(Boolean));
   if (!targetBucket) return { matchingTeams: [], rankedSets: [], possibleSpecies: [], eliminatedSets: [], blockedSpecies: [...blocked], roundBucket: null, observations, exact: true, supported: false, battle: battleNumber, reason: 'This battle uses a low/mid-tier Level 50 Factory pool that is not included in the 436-set Group-3 dataset yet.' };
