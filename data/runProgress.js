@@ -1,4 +1,5 @@
 import { advanceAfterBattle, createInitialBattleState, getBattleMilestone } from './battleState';
+import { recordBattleHistory, getHistoricalObservations } from './battleHistory';
 
 // Session context lets analysis panels stay synchronized with the active run
 // without making the UI pass the same team/history props through every layer.
@@ -7,6 +8,8 @@ let ACTIVE_RUN_CONTEXT = {
   previousOpponent: [],
   battle: 1,
   swaps: 0,
+  battleHistory: [],
+  historicalObservations: [],
 };
 
 function syncActiveContext(state = {}) {
@@ -15,6 +18,8 @@ function syncActiveContext(state = {}) {
     previousOpponent: state.previousOpponent || [],
     battle: Number(state.battle) || 1,
     swaps: Number(state.swaps) || 0,
+    battleHistory: state.battleHistory || [],
+    historicalObservations: getHistoricalObservations(state.battleHistory || []),
   };
 }
 
@@ -36,6 +41,8 @@ export function createRun(options = {}) {
     noland: options.noland || false,
     revealed: options.revealed || {},
   });
+  state.battleHistory = options.battleHistory || [];
+  state.historicalObservations = getHistoricalObservations(state.battleHistory);
   syncActiveContext(state);
   return state;
 }
@@ -44,6 +51,12 @@ export function completeBattle(state, outcome = {}) {
   if (!outcome.won) return { state, celebration: null };
 
   const completedBattle = Number(state.battle) || 1;
+  const history = recordBattleHistory(
+    state.battleHistory || [],
+    completedBattle,
+    outcome.defeatedOpponent || [],
+    outcome.observations || []
+  );
   const nextState = advanceAfterBattle(state, {
     nextCurrentTeam: outcome.nextCurrentTeam || state.currentTeam || [],
     defeatedOpponent: outcome.defeatedOpponent || [],
@@ -52,6 +65,12 @@ export function completeBattle(state, outcome = {}) {
 
   if (nextState.progressionError) return { state: nextState, celebration: null };
 
+  nextState.battleHistory = history;
+  nextState.historicalObservations = getHistoricalObservations(history);
+  nextState.revealed = {
+    ...(nextState.revealed || {}),
+    observations: nextState.historicalObservations,
+  };
   syncActiveContext(nextState);
   const milestone = getBattleMilestone(completedBattle);
   return {
@@ -77,5 +96,7 @@ export function getRunSummary(state = {}) {
     draft: state.draft || [],
     draftSlots: state.draftSlots || [],
     blockedSpecies: state.blockedSpecies || [],
+    battleHistory: state.battleHistory || [],
+    historicalObservations: state.historicalObservations || [],
   };
 }
