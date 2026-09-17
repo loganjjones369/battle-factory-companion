@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { analyzeFactoryCandidates } from '../data/candidateEngine';
 import { rankResponses } from '../data/responseAnalysis';
 import { analyzeUncertainty, describeUncertainty } from '../data/uncertaintyAnalysis';
+import LikelyOpponentMenu from './LikelyOpponentMenu';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 const setKey = (set) => `${norm(set?.species)}#${set?.id ?? set?.setId ?? set?.sourceId ?? ''}`;
@@ -38,6 +39,7 @@ export default function LiveOpponentAnalysis({ draft = [], scientist = {}, level
   if (!observations.length) return null;
   return <View style={styles.card}>
     <View style={styles.header}><View style={{ flex: 1 }}><Text style={styles.kicker}>LIVE RESEARCH</Text><Text style={styles.title}>Opponent possibilities updated</Text></View><Text style={styles.badge}>{result.supported ? candidateCount : '—'}</Text></View>
+    {result.supported && <LikelyOpponentMenu draft={draft} scientist={scientist} levelMode={levelMode} battle={battle} blockedSpecies={blockedSpecies} observations={observations} currentTeam={currentTeam} previousOpponent={previousOpponent} noland={noland} />}
     {!result.supported ? <Text style={styles.warning}>{result.reason}</Text> : <>
       <View style={styles.uncertaintyBox}>
         <View style={styles.uncertaintyHeader}><Text style={styles.uncertaintyTitle}>UNCERTAINTY CHECK</Text><Text style={[styles.uncertaintyState, uncertaintyColor(uncertainty.state)]}>{uncertainty.state.toUpperCase()}</Text></View>
