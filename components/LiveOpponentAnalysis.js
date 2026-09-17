@@ -45,6 +45,8 @@ export default function LiveOpponentAnalysis({ draft = [], scientist = {}, level
         <View style={styles.metricRow}><Text style={styles.metric}><Text style={styles.metricNumber}>{uncertainty.candidateSetCount}</Text> surviving sets</Text><Text style={styles.metric}><Text style={styles.metricNumber}>{uncertainty.distinctTeamCount}</Text> team combinations</Text></View>
       </View>
 
+      {!!uncertainty.bestNextClues?.length && <View style={styles.nextClueBox}><Text style={styles.nextClueTitle}>BEST NEXT CLUES TO WATCH FOR</Text><Text style={styles.nextClueSub}>These are the current clues that split the surviving observed sets most sharply.</Text>{uncertainty.bestNextClues.slice(0, 5).map((clue, index) => <View key={`${clue.kind}-${clue.value}`} style={styles.nextClueRow}><Text style={styles.nextClueRank}>{index + 1}</Text><Text style={styles.nextClueText}>If you see {clue.kind === 'move' ? `the move ${clue.value}` : `the item ${clue.value}`}, {clue.remaining} candidate set{clue.remaining === 1 ? '' : 's'} remain{clue.remaining === 1 ? 's' : ''} among {clue.species.join(' / ')}.</Text></View>)}</View>}
+
       {!!exact.length && <View style={styles.exactBox}><Text style={styles.exactTitle}>SET IDENTIFIED FROM CURRENT CLUES</Text>{exact.map((x) => <Text key={x.species} style={styles.exactText}>✓ {setLabel(x.sets[0])} — the current recorded clues leave one compatible set.</Text>)}</View>}
 
       {!!unresolved.length && <View style={styles.section}><Text style={styles.sectionTitle}>WHAT IS STILL UNCERTAIN?</Text>{unresolved.map((x) => {
@@ -81,6 +83,12 @@ const styles = StyleSheet.create({
   metricRow:{flexDirection:'row',gap:12,marginTop:7},
   metric:{fontSize:9.5,color:'#91aaa2'},
   metricNumber:{fontWeight:'900',color:'#e9f4f0'},
+  nextClueBox:{backgroundColor:'#243b34',borderRadius:10,padding:8,marginTop:9,borderWidth:1,borderColor:'#476458'},
+  nextClueTitle:{fontSize:9,fontWeight:'900',letterSpacing:.9,color:'#bfe4d7'},
+  nextClueSub:{fontSize:9.5,color:'#9ebbb2',lineHeight:14,marginTop:3},
+  nextClueRow:{flexDirection:'row',paddingVertical:5,borderBottomWidth:1,borderBottomColor:'#355047'},
+  nextClueRank:{width:18,height:18,borderRadius:9,backgroundColor:'#315047',color:'#dff3eb',fontSize:9,fontWeight:'900',textAlign:'center',paddingTop:3,marginRight:6},
+  nextClueText:{flex:1,fontSize:10,color:'#d3e3de',lineHeight:15},
   exactBox:{backgroundColor:'#1c3b32',borderRadius:9,padding:8,marginTop:9},
   exactTitle:{fontSize:9,fontWeight:'900',letterSpacing:.8,color:'#9fe2c8'},
   exactText:{fontSize:11,fontWeight:'800',color:'#edf7f2',marginTop:4,lineHeight:16},
