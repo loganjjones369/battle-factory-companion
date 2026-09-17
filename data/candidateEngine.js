@@ -1,5 +1,5 @@
 import { POKEMON, getPokemon } from './factoryData';
-import { calculateTeamStyle, calculateTeamType } from './scientistAnalysis';
+import { calculateTeamStyle, calculateTeamType, getScientistStyleLabel } from './scientistAnalysis';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 const itemKey = (v) => norm(v).replace(/[^a-z0-9]/g, '');
@@ -19,7 +19,6 @@ function observedList(revealed = {}) { if (Array.isArray(revealed.observations))
 function moveNames(set) { return (set?.moves || []).map((m) => typeof m === 'string' ? m : m?.name).filter(Boolean); }
 function setKey(set) { return `${norm(set.species)}#${set.id ?? set.sourceId ?? set.setId ?? ''}`; }
 function setMatchesObservation(set, observation) { if (!observation?.species || norm(set.species) !== norm(observation.species)) return false; if (observation.item && itemKey(set.item) !== itemKey(observation.item)) return false; const moves = moveNames(set).map(norm); return (observation.moves || []).filter(Boolean).map(norm).every((move) => moves.includes(move)); }
-function teamMatchesObservations(team, revealed) { return observedList(revealed).every((o) => team.some((set) => setMatchesObservation(set, o))); }
 function teamMatchesClue(team, scientist) { if (scientist.type && norm(calculateTeamType(team)) !== norm(scientist.type)) return false; if (scientist.style !== undefined && scientist.style !== null && Number(scientist.style) >= 0 && calculateTeamStyle(team) !== Number(scientist.style)) return false; return true; }
 function legalTeam(a, b, c) { if (new Set([a.species, b.species, c.species].map(norm)).size !== 3) return false; const items = [a.item, b.item, c.item].map(itemKey).filter(Boolean); return new Set(items).size === items.length; }
 function cacheKey({ draft, blockedSpecies, scientist, levelMode, battleNumber, revealed, noland, currentTeam, previousOpponent }) {
@@ -55,8 +54,15 @@ export function analyzeFactoryCandidates({ draft = [], blockedSpecies, scientist
     const sets = pokemon.sets.filter((set) => String(set.round) === String(targetBucket) && !blocked.has(norm(set.species)) && (!observation || setMatchesObservation(set, observation)));
     return { ...pokemon, sets };
   }).filter((p) => p.sets.length);
-  const matchingTeams = []; const setOccurrences = new Map();
-  const mark = (set) => { const k = setKey(set); const old = setOccurrences.get(k); if (old) old.count += 1; else setOccurrences.set(k, { set, count: 1 }); };
+  const matchingTeams = [];
+  const setOccurrences = new Map();
+  const legalTeamOccurrences = new Map();
+  const compatibleStyleOccurrences = new Map();
+  const mark = (map, set, extra = {}) => {
+    const k = setKey(set); const old = map.get(k);
+    if (old) { old.count += 1; return; }
+    map.set(k, { set, count: 1, ...extra });
+  };
   const requiredSpecies = new Set(observationBySpecies.keys());
 
   for (let i = 0; i < pools.length - 2; i += 1) {
@@ -70,9 +76,24 @@ export function analyzeFactoryCandidates({ draft = [], blockedSpecies, scientist
             for (const c of speciesTeam[2].sets) {
               if (itemKey(c.item) && (itemKey(c.item) === itemKey(a.item) || itemKey(c.item) === itemKey(b.item))) continue;
               const team = [a, b, c];
+              team.forEach((set) => mark(legalTeamOccurrences, set, { styles: new Set() }));
+              const teamStyle = calculateTeamStyle(team);
+              const teamType = calculateTeamType(team);
+              team.forEach((set) => {
+                const entry = legalTeamOccurrences.get(setKey(set));
+                entry.styles.add(teamStyle);
+                entry.types = entry.types || new Set();
+                entry.types.add(teamType);
+              });
               if (!teamMatchesClue(team, scientist)) continue;
               matchingTeams.push(team);
-              team.forEach(mark);
+              team.forEach((set) => mark(setOccurrences, set));
+              team.forEach((set) => mark(compatibleStyleOccurrences, set, { styles: new Set(), types: new Set() }));
+              team.forEach((set) => {
+                const entry = compatibleStyleOccurrences.get(setKey(set));
+                entry.styles.add(teamStyle);
+                entry.types.add(teamType);
+              });
             }
           }
         }
@@ -84,13 +105,53 @@ export function analyzeFactoryCandidates({ draft = [], blockedSpecies, scientist
   const possibleBySpecies = {}; rankedSets.forEach((entry) => { const k = norm(entry.set.species); if (!possibleBySpecies[k]) possibleBySpecies[k] = []; possibleBySpecies[k].push(entry.set); });
   const possibleSpecies = Object.values(POKEMON).filter((p) => possibleBySpecies[norm(p.name)]?.length).map((p) => ({ pokemon: p, possible: possibleBySpecies[norm(p.name)] })).sort((a, b) => (b.possible.length - a.possible.length) || String(a.pokemon.name).localeCompare(String(b.pokemon.name)));
 
-  const survivingKeys = new Set(rankedSets.map((x) => setKey(x.set))); const eliminatedSets = [];
+  const survivingKeys = new Set(rankedSets.map((x) => setKey(x.set)));
+  const eliminatedSets = [];
   Object.values(POKEMON).forEach((pokemon) => pokemon.sets.filter((set) => String(set.round) === String(targetBucket)).forEach((set) => {
     if (survivingKeys.has(setKey(set))) return;
-    let reason = 'Eliminated by the combined team constraints';
-    if (blocked.has(norm(set.species))) reason = 'Blocked species';
-    else { const obs = observationBySpecies.get(norm(set.species)); if (obs?.item && itemKey(obs.item) !== itemKey(set.item)) reason = `Held item mismatch: saw ${obs.item}`; else { const missing = obs?.moves?.find((m) => !moveNames(set).map(norm).includes(norm(m))); if (missing) reason = `Move clue mismatch: ${missing}`; else if (!teamMatchesClue([set], scientist)) reason = 'Does not fit the Scientist clue when combined with a legal team'; } }
-    eliminatedSets.push({ set, reason });
+    const reasons = [];
+    if (blocked.has(norm(set.species))) reasons.push('Blocked species by Factory rule');
+    const obs = observationBySpecies.get(norm(set.species));
+    if (obs?.item && itemKey(obs.item) !== itemKey(set.item)) reasons.push(`Held item mismatch: saw ${obs.item}`);
+    if (obs?.moves?.length) {
+      const setMoves = moveNames(set).map(norm);
+      const missing = obs.moves.find((m) => !setMoves.includes(norm(m)));
+      if (missing) reasons.push(`Move clue mismatch: ${missing}`);
+    }
+    if (!blocked.has(norm(set.species)) && (!obs || setMatchesObservation(set, obs))) {
+      const legalEvidence = legalTeamOccurrences.get(setKey(set));
+      const compatibleEvidence = compatibleStyleOccurrences.get(setKey(set));
+      if (!legalEvidence || legalEvidence.count === 0) {
+        reasons.push('No legal three-Pokémon team can contain this set under the current Species/Item rules');
+      } else if (!compatibleEvidence || compatibleEvidence.count === 0) {
+        const targetStyle = Number(scientist.style);
+        const targetLabel = getScientistStyleLabel(targetStyle);
+        const styleList = [...(legalEvidence.styles || [])].sort((a, b) => Number(a) - Number(b));
+        const typeList = [...(legalEvidence.types || [])].filter(Boolean);
+        if (scientist.style !== undefined && scientist.style !== null) {
+          const stylesText = styleList.length ? ` Legal teams containing it resolve to Scientist styles ${styleList.join(', ')} instead.` : '';
+          reasons.push(`Scientist clue mismatch: no legal team containing this set produces “${targetLabel}”.${stylesText}`);
+        }
+        if (scientist.type) {
+          const typesText = typeList.length ? ` Legal teams containing it resolve to team types ${typeList.join(', ')} instead.` : '';
+          reasons.push(`Scientist type clue mismatch: no legal team containing this set produces ${scientist.type}.${typesText}`);
+        }
+      }
+    }
+    if (!reasons.length) reasons.push('Eliminated by the combined Factory constraints');
+    eliminatedSets.push({
+      set,
+      reason: reasons[0],
+      reasons,
+      evidence: {
+        legalTeamCount: legalTeamOccurrences.get(setKey(set))?.count || 0,
+        compatibleTeamCount: compatibleStyleOccurrences.get(setKey(set))?.count || 0,
+        compatibleStyles: [...(compatibleStyleOccurrences.get(setKey(set))?.styles || [])],
+        compatibleTypes: [...(compatibleStyleOccurrences.get(setKey(set))?.types || [])],
+        legalStyles: [...(legalTeamOccurrences.get(setKey(set))?.styles || [])],
+        legalTypes: [...(legalTeamOccurrences.get(setKey(set))?.types || [])],
+      },
+    });
   }));
   return remember(key, { matchingTeams, rankedSets, possibleSpecies, eliminatedSets, blockedSpecies: [...blocked], roundBucket: targetBucket, observations, exact: true, supported: true, battle: battleNumber, rankingNote: 'Ranked by frequency among surviving legal teams. This is candidate frequency, not guaranteed in-game probability because Factory generation uses rejection sampling rather than uniform selection from all legal teams.' });
 }
