@@ -51,6 +51,21 @@ function bestResolvingClues(sets = [], limit = 4) {
     .slice(0, limit);
 }
 
+function bestGlobalClues(speciesEntries = [], limit = 5) {
+  const groups = new Map();
+  speciesEntries.filter((entry) => entry.observed && entry.setCount > 1).forEach((entry) => {
+    entry.resolvingClues.forEach((clue) => {
+      const key = `${clue.kind}:${norm(clue.value)}`;
+      if (!groups.has(key)) groups.set(key, { ...clue, species: [] });
+      const group = groups.get(key);
+      if (!group.species.includes(entry.species)) group.species.push(entry.species);
+    });
+  });
+  return [...groups.values()]
+    .sort((a, b) => (a.remaining - b.remaining) || (b.species.length - a.species.length) || String(a.value).localeCompare(String(b.value)))
+    .slice(0, limit);
+}
+
 export function analyzeUncertainty(result = {}, observations = []) {
   const rankedSets = result.rankedSets || [];
   const matchingTeams = result.matchingTeams || [];
@@ -82,6 +97,7 @@ export function analyzeUncertainty(result = {}, observations = []) {
   const unresolvedSetCount = unresolved.reduce((sum, entry) => sum + entry.setCount, 0);
   const signatures = new Set(matchingTeams.map((team) => team.map(setKey).sort().join('|')));
   const unseenSpecies = species.filter((entry) => !entry.observed).map((entry) => entry.species);
+  const bestNextClues = bestGlobalClues(species);
 
   let state = 'clear';
   if (rankedSets.length === 0) state = 'none';
@@ -98,6 +114,7 @@ export function analyzeUncertainty(result = {}, observations = []) {
     unresolvedSetCount,
     unseenSpecies,
     species,
+    bestNextClues,
     note: 'Uncertainty describes the surviving legal possibilities. It is not an in-game probability estimate.',
   };
 }
