@@ -1,0 +1,114 @@
+import React, { useMemo, useState } from 'react';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { analyzeFactoryCandidates } from '../data/candidateEngine';
+import { getStats } from '../data/damageCalc';
+
+const SPRITES = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
+const norm = (v) => String(v || '').trim().toLowerCase();
+const setKey = (set) => `${norm(set?.species)}#${set?.id ?? set?.setId ?? set?.sourceId ?? ''}`;
+const moveNames = (set) => (set?.moves || []).map((m) => typeof m === 'string' ? m : m?.name).filter(Boolean);
+
+function spriteId(set) { return set?.nationalDexId || set?.dexId || set?.pokemonId || set?.id && null; }
+function percent(value) { return `${Math.max(0, Math.min(100, value)).toFixed(value >= 10 ? 0 : 1)}%`; }
+
+export default function LikelyOpponentMenu({ draft = [], scientist = {}, levelMode = 'Open Level', battle = 1, blockedSpecies = [], observations = [], currentTeam = [], previousOpponent = [], noland = false }) {
+  const [expanded, setExpanded] = useState(false);
+  const [selectedSet, setSelectedSet] = useState(null);
+  const result = useMemo(() => analyzeFactoryCandidates({ draft, scientist, levelMode, battle, blockedSpecies, revealed: { observations }, currentTeam, previousOpponent, noland }), [draft, scientist, levelMode, battle, blockedSpecies, observations, currentTeam, previousOpponent, noland]);
+
+  const likely = useMemo(() => {
+    const entries = result.rankedSets || [];
+    const total = entries.reduce((sum, entry) => sum + (Number(entry.frequency) || 0), 0) || 1;
+    const bySpecies = new Map();
+    entries.forEach((entry) => {
+      const set = entry.set;
+      const species = set?.species;
+      if (!species) return;
+      const key = norm(species);
+      if (!bySpecies.has(key)) bySpecies.set(key, { species, sets: [], weight: 0 });
+      const group = bySpecies.get(key);
+      group.sets.push(entry);
+      group.weight += Number(entry.frequency) || 0;
+    });
+    return [...bySpecies.values()]
+      .sort((a, b) => b.weight - a.weight)
+      .map((group) => ({ ...group, share: (group.weight / total) * 100, sets: group.sets.sort((a, b) => (Number(b.frequency) || 0) - (Number(a.frequency) || 0)) }));
+  }, [result.rankedSets]);
+
+  if (!observations.length || !result.supported || !likely.length) return null;
+  const top = likely.slice(0, 3);
+  const spriteFor = (group) => group.sets[0]?.set;
+  const detailSet = selectedSet?.set;
+  const detail = detailSet ? getStats(detailSet, detailSet, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7))) : null;
+
+  return <>
+    <View style={styles.card}>
+      <Pressable onPress={() => setExpanded((value) => !value)} style={styles.compact}>
+        <View style={styles.kickerBox}><Text style={styles.kicker}>LIKELY NEXT</Text><Text style={styles.sub}>tap to expand</Text></View>
+        <View style={styles.topRow}>{top.map((group) => <View key={norm(group.species)} style={styles.topPokemon}><View style={styles.spriteCircle}><Image source={{ uri: `${SPRITES}${spriteFor(group)?.id || spriteFor(group)?.nationalDexId || 0}.png` }} style={styles.sprite} /></View><Text numberOfLines={1} style={styles.name}>{group.species}</Text></View>)}</View>
+        <Text style={styles.chevron}>{expanded ? '▲' : '▼'}</Text>
+      </Pressable>
+      {expanded && <View style={styles.expanded}>
+        <Text style={styles.title}>MOST LIKELY REMAINING</Text>
+        <Text style={styles.note}>Percent is the share of surviving set frequency used by the analysis, not a guaranteed in-game probability.</Text>
+        <ScrollView style={styles.list} nestedScrollEnabled>
+          {likely.map((group) => <Pressable key={norm(group.species)} onPress={() => setSelectedSet(group.sets[0])} style={styles.row}>
+            <Image source={{ uri: `${SPRITES}${group.sets[0]?.set?.id || 0}.png` }} style={styles.listSprite} />
+            <View style={styles.info}><Text style={styles.species}>{group.species}</Text><View style={styles.setLine}>{group.sets.slice(0, 8).map((entry) => <Text key={setKey(entry.set)} style={styles.setNumber}>{entry.set.id}</Text>)}{group.sets.length > 8 && <Text style={styles.more}>+{group.sets.length - 8}</Text>}</View></View>
+            <Text style={styles.percent}>{percent(group.share)}</Text>
+          </Pressable>)}
+        </ScrollView>
+      </View>}
+    </View>
+
+    <Modal visible={!!selectedSet} transparent animationType="fade" onRequestClose={() => setSelectedSet(null)}>
+      <Pressable style={styles.modalBackdrop} onPress={() => setSelectedSet(null)}>
+        <Pressable style={styles.modal} onPress={() => {}}>
+          <View style={styles.modalHeader}><View style={{ flex: 1 }}><Text style={styles.kicker}>SET INSPECTOR</Text><Text style={styles.modalTitle}>{detailSet?.species} {detailSet?.id}</Text></View><Pressable onPress={() => setSelectedSet(null)} style={styles.close}><Text style={styles.closeText}>×</Text></Pressable></View>
+          <View style={styles.inspectRow}><Image source={{ uri: `${SPRITES}${detailSet?.id || 0}.png` }} style={styles.inspectSprite} /><View style={{ flex: 1 }}><Text style={styles.inspectMeta}>{detailSet?.item || 'Unknown item'}</Text><Text style={styles.inspectMeta}>{detailSet?.nature || 'Nature unknown'} • {detailSet?.ability || 'Ability unknown'}</Text>{detail ? <Text style={styles.inspectMeta}>HP {detail.hp} • Atk {detail.atk} • Def {detail.def} • SpA {detail.spa} • SpD {detail.spd} • Spe {detail.spe}</Text> : null}</View></View>
+          <Text style={styles.movesTitle}>MOVES</Text>{moveNames(detailSet).map((move) => <Text key={move} style={styles.move}>• {move}</Text>)}
+          <Pressable onPress={() => setSelectedSet(null)} style={styles.done}><Text style={styles.doneText}>BACK TO BATTLE</Text></Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  </>;
+}
+
+const styles = StyleSheet.create({
+  card:{backgroundColor:'#11251f',borderRadius:14,borderWidth:1,borderColor:'#35564b',marginTop:9,overflow:'hidden'},
+  compact:{minHeight:70,padding:8,flexDirection:'row',alignItems:'center'},
+  kickerBox:{width:78},
+  kicker:{fontSize:8.5,fontWeight:'900',letterSpacing:1,color:'#a9d5c5'},
+  sub:{fontSize:8,color:'#78978e',marginTop:2},
+  topRow:{flex:1,flexDirection:'row',justifyContent:'center',gap:13},
+  topPokemon:{alignItems:'center',width:66},
+  spriteCircle:{width:42,height:42,borderRadius:21,backgroundColor:'#203a32',alignItems:'center',justifyContent:'center'},
+  sprite:{width:42,height:42},
+  name:{fontSize:8.5,fontWeight:'800',color:'#dcece6',marginTop:2},
+  chevron:{width:18,textAlign:'right',fontSize:11,color:'#8db8a9'},
+  expanded:{paddingHorizontal:9,paddingBottom:9,borderTopWidth:1,borderTopColor:'#29473d'},
+  title:{fontSize:9,fontWeight:'900',letterSpacing:.9,color:'#b9ddcf',marginTop:8},
+  note:{fontSize:8.5,color:'#7f9e95',lineHeight:13,marginTop:3},
+  list:{maxHeight:310,marginTop:5},
+  row:{minHeight:54,flexDirection:'row',alignItems:'center',borderTopWidth:1,borderTopColor:'#29473d'},
+  listSprite:{width:46,height:46},
+  info:{flex:1},
+  species:{fontSize:12,fontWeight:'900',color:'#edf7f2'},
+  setLine:{flexDirection:'row',flexWrap:'wrap',gap:4,marginTop:3},
+  setNumber:{fontSize:8,fontWeight:'900',color:'#c9e4da',backgroundColor:'#29483e',paddingHorizontal:5,paddingVertical:2,borderRadius:5},
+  more:{fontSize:8,color:'#78978e',paddingTop:2},
+  percent:{width:42,textAlign:'right',fontSize:11,fontWeight:'900',color:'#a9d5c5'},
+  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.72)',justifyContent:'center',padding:16},
+  modal:{backgroundColor:'#122720',borderRadius:16,borderWidth:1,borderColor:'#47665b',padding:12,maxHeight:'82%'},
+  modalHeader:{flexDirection:'row',alignItems:'center'},
+  modalTitle:{fontSize:20,fontWeight:'900',color:'#f0f7f3',marginTop:2},
+  close:{width:34,height:34,borderRadius:17,backgroundColor:'#29463d',alignItems:'center',justifyContent:'center'},
+  closeText:{fontSize:24,color:'#d7ebe4',lineHeight:28},
+  inspectRow:{flexDirection:'row',alignItems:'center',marginTop:9,padding:8,borderRadius:10,backgroundColor:'#1d3930'},
+  inspectSprite:{width:82,height:82},
+  inspectMeta:{fontSize:10,color:'#bcd2ca',lineHeight:16},
+  movesTitle:{fontSize:9,fontWeight:'900',letterSpacing:.9,color:'#8fb5a8',marginTop:10},
+  move:{fontSize:11,color:'#e0eee9',marginTop:4},
+  done:{marginTop:13,backgroundColor:'#31564a',borderRadius:9,paddingVertical:10,alignItems:'center'},
+  doneText:{fontSize:10,fontWeight:'900',letterSpacing:.7,color:'#eff8f4'},
+});
