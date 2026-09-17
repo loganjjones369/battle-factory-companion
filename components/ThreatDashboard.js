@@ -3,8 +3,8 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { analyzeFactoryCandidates } from '../data/candidateEngine';
 import { calculateDamage, bestDamagingMoves, getStats } from '../data/damageCalc';
 import { getActiveRunContext } from '../data/runProgress';
+import ThreatRadar from './ThreatRadar';
 
-const norm = (v) => String(v || '').trim().toLowerCase();
 const label = (p) => `${p?.species || p?.name || 'Unknown'} ${p?.setId ?? p?.sourceId ?? p?.id ?? ''}`.trim();
 
 function assess(candidate, team, level, round) {
@@ -72,8 +72,9 @@ export default function ThreatDashboard() {
           <View style={{ flex: 1 }}><Text style={styles.name}>{label(t.set)}</Text><Text style={styles.reason}>⚠ {threatText({ ...t, teamSize: team.length })}</Text><Text style={styles.meta}>{Number(t.frequency || 0) * 100 >= 0 ? `${(Number(t.frequency || 0) * 100).toFixed(1)}% surviving frequency` : ''} • Speed {t.faster}/{team.length}</Text></View>
         </View>)}
       </ScrollView>
+      <ThreatRadar candidates={result?.rankedSets || []} team={team} level={level} round={round} max={8} />
       {!threats.length && <Text style={styles.empty}>No surviving threat candidates were found from the current evidence.</Text>}
-      <Text style={styles.note}>This is a threat list, not a probability or prediction. It uses the Factory candidates that remain consistent with the information you have entered.</Text>
+      <Text style={styles.note}>Threat ranking is an explicit matchup heuristic, not a probability or prediction. The detailed radar below shows the exact-set evidence behind each warning.</Text>
     </>}
   </View>;
 }
