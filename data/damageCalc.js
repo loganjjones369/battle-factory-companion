@@ -78,7 +78,9 @@ export function calculateStat(base, ev, iv, level, nature, stat, isHP = false) {
 }
 
 export function getStats(pokemon, set, level, round) {
-  const iv = getFactoryIV(round);
+  // Exact set IV wins over a generic round-derived IV. This matters for draft
+  // upgrades and for later swaps whose identity is carried with the set.
+  const iv = Number(set?.factoryIV ?? pokemon?.factoryIV ?? getFactoryIV(round));
   return {
     hp: calculateStat(pokemon.baseStats.hp, set.evs.hp || 0, iv, level, set.nature, 'hp', true),
     atk: calculateStat(pokemon.baseStats.atk, set.evs.atk || 0, iv, level, set.nature, 'atk'),
@@ -154,5 +156,5 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
 }
 
 export function bestDamagingMoves(set) {
-  return set.moves.filter((move) => MOVE_DATA[move]);
+  return (set?.moves || []).filter((move) => MOVE_DATA[move]);
 }
