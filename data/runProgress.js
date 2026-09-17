@@ -1,24 +1,26 @@
 import { advanceAfterBattle, createInitialBattleState, getBattleMilestone } from './battleState';
 import { recordBattleHistory, getHistoricalObservations } from './battleHistory';
+import { getCurrentScientist } from './scientistSession';
 
 let ACTIVE_RUN_CONTEXT = {
-  currentTeam: [], previousOpponent: [], battle: 1, swaps: 0, battleHistory: [], historicalObservations: [], knockedOut: { team: [], opponent: [] },
+  currentTeam: [], previousOpponent: [], battle: 1, swaps: 0, battleHistory: [], historicalObservations: [], knockedOut: { team: [], opponent: [] }, scientist: {},
 };
 
 function syncActiveContext(state = {}) {
   ACTIVE_RUN_CONTEXT = {
     currentTeam: state.currentTeam || [], previousOpponent: state.previousOpponent || [], battle: Number(state.battle) || 1, swaps: Number(state.swaps) || 0,
-    battleHistory: state.battleHistory || [], historicalObservations: getHistoricalObservations(state.battleHistory || []), knockedOut: state.knockedOut || { team: [], opponent: [] },
+    battleHistory: state.battleHistory || [], historicalObservations: getHistoricalObservations(state.battleHistory || []), knockedOut: state.knockedOut || { team: [], opponent: [] }, scientist: state.scientist || {},
   };
 }
 
 export function getActiveRunContext() { return ACTIVE_RUN_CONTEXT; }
 
 export function createRun(options = {}) {
+  const scientist = Object.keys(options.scientist || {}).length ? options.scientist : getCurrentScientist();
   const state = createInitialBattleState({
     level: options.level || '50', battle: options.battle || 1, round: options.round, swaps: options.swaps || 0,
     currentTeam: options.currentTeam || [], previousOpponent: options.previousOpponent || [], draft: options.draft || [],
-    draftSlots: options.draftSlots || undefined, scientist: options.scientist || {}, noland: options.noland || false,
+    draftSlots: options.draftSlots || undefined, scientist, noland: options.noland || false,
     revealed: options.revealed || {}, knockedOut: options.knockedOut || { team: [], opponent: [] },
   });
   state.battleHistory = options.battleHistory || [];
@@ -44,7 +46,7 @@ export function completeBattle(state, outcome = {}) {
 export function getRunSummary(state = {}) {
   return {
     battle: Number(state.battle) || 1, round: Number(state.round) || 1, swaps: Number(state.swaps) || 0, swapElevation: Number(state.swapElevation) || 0,
-    currentTeam: state.currentTeam || [], previousOpponent: state.previousOpponent || [], draft: state.draft || [], draftSlots: state.draftSlots || [],
+    currentTeam: state.currentTeam || [], previousOpponent: state.previousOpponent || [], draft: state.draft || [], draftSlots: state.draftSlots || [], scientist: state.scientist || {},
     blockedSpecies: state.blockedSpecies || [], battleHistory: state.battleHistory || [], historicalObservations: state.historicalObservations || [], knockedOut: state.knockedOut || { team: [], opponent: [] },
   };
 }
