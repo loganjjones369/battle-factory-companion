@@ -1,13 +1,28 @@
 import { bestDamagingMoves, calculateDamage, getEffectiveSpeed, getStats } from './damageCalc';
 
-function bestHit(attacker, defender, level, round, options = {}) {
+function asPokemon(speciesOrPokemon) {
+  if (!speciesOrPokemon) return null;
+  if (typeof speciesOrPokemon === 'string') return null;
+  return speciesOrPokemon;
+}
+
+function resolveSet(pokemon, set) {
+  if (!pokemon) return set || null;
+  if (set && typeof set === 'object') return set;
+  return pokemon;
+}
+
+function bestHit(attacker, attackerSet, defender, defenderSet, level, round, options = {}) {
+  if (!attacker || !defender) return null;
   let best = null;
-  for (const moveName of bestDamagingMoves(attacker)) {
+  const set = resolveSet(attacker, attackerSet);
+  const movesSource = set || attacker;
+  for (const moveName of bestDamagingMoves(movesSource)) {
     const result = calculateDamage({
       attacker,
-      attackerSet: attacker,
+      attackerSet: set,
       defender,
-      defenderSet: defender,
+      defenderSet: resolveSet(defender, defenderSet),
       level,
       round,
       moveName,
@@ -31,11 +46,15 @@ function speedRelation(allySpeed, opponentSpeed) {
   return 'speed ties';
 }
 
-export function analyzeResponse(opponent, ally, level, round, options = {}) {
+export function analyzeResponse(opponent, ally, level = 100, round = 1, options = {}) {
   if (!opponent || !ally) return null;
-  const opponentSpeed = getEffectiveSpeed(getStats(opponent, opponent, level, round), options.opponentStatus || 'healthy');
-  const allySpeed = getEffectiveSpeed(getStats(ally, ally, level, round), options.allyStatus || 'healthy');
-  const hitBack = bestHit(ally, opponent, level, round, {
+  const opponentSet = options.opponentSet || opponent;
+  const allySet = options.allySet || ally;
+  const opponentStats = getStats(opponent, opponentSet, level, round);
+  const allyStats = getStats(ally, allySet, level, round);
+  const opponentSpeed = getEffectiveSpeed(opponentStats, options.opponentStatus || 'healthy');
+  const allySpeed = getEffectiveSpeed(allyStats, options.allyStatus || 'healthy');
+  const hitBack = bestHit(ally, allySet, opponent, opponentSet, level, round, {
     ...options,
     attackerStatus: options.allyStatus || 'healthy',
     defenderStatus: options.opponentStatus || 'healthy',
@@ -44,7 +63,7 @@ export function analyzeResponse(opponent, ally, level, round, options = {}) {
     attackerStages: options.allyStages,
     defenderStages: options.opponentStages,
   });
-  const incoming = bestHit(opponent, ally, level, round, {
+  const incoming = bestHit(opponent, opponentSet, ally, allySet, level, round, {
     ...options,
     attackerStatus: options.opponentStatus || 'healthy',
     defenderStatus: options.allyStatus || 'healthy',
@@ -74,6 +93,8 @@ export function analyzeResponse(opponent, ally, level, round, options = {}) {
   return {
     ally,
     opponent,
+    allySet,
+    opponentSet,
     allySpeed,
     opponentSpeed,
     relation,
@@ -101,15 +122,20 @@ export function rankResponses(opponent, team = [], level = 100, round = 1, optio
 
 export function analyzeSwitchIn(candidate, team = [], level = 100, round = 1, options = {}) {
   if (!candidate || !team.length) return [];
-  return team.map((ally) => analyzeResponse(candidate, ally, level, round, options)).filter(Boolean);
+  const candidatePokemon = asPokemon(candidate) || candidate;
+  const candidateSet = options.candidateSet || (candidate.setId != null ? candidate : null);
+  return team.map((ally) => analyzeResponse(candidatePokemon, ally?.pokemon || ally, level, round, {
+    ...options,
+    opponentSet: candidateSet || options.opponentSet,
+    allySet: ally?.set || options.allySet,
+  })).filter(Boolean);
 }
 
 export function analyzeCandidateSwitchIns(candidates = [], team = [], level = 100, round = 1, options = {}) {
   const rows = [];
   for (const candidate of candidates) {
     const checks = analyzeSwitchIn(candidate, team, level, round, options);
-    if (!checks.length) continue;
-    rows.push({ candidate, checks });
+    if (checks.length) rows.push({ candidate, checks });
   }
   return rows;
 }
