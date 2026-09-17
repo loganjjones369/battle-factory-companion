@@ -35,27 +35,13 @@ function threatAgainstTeam(candidate, team = [], levelNumber = 50, round = 1) {
     const dStats = getStats(d, d, levelNumber, round);
     let best = null;
     for (const moveName of bestDamagingMoves(attacker)) {
-      const result = calculateDamage({
-        attacker,
-        attackerSet: attacker,
-        defender: d,
-        defenderSet: d,
-        level: levelNumber,
-        round,
-        moveName,
-      });
+      const result = calculateDamage({ attacker, attackerSet: attacker, defender: d, defenderSet: d, level: levelNumber, round, moveName });
       if (!result || result.percentMax == null) continue;
       if (!best || result.percentMax > best.percentMax) best = { ...result, moveName };
     }
     return { defender: d, aSpeed: attackerStats.spe, dSpeed: dStats.spe, best };
   }).filter(Boolean);
-  return {
-    details,
-    pressureCount: details.filter((x) => x.best?.percentMax >= 50).length,
-    koCount: details.filter((x) => x.best?.percentMin >= 100).length,
-    fasterCount: details.filter((x) => x.aSpeed > x.dSpeed).length,
-    teamSize: details.length,
-  };
+  return { details, pressureCount: details.filter((x) => x.best?.percentMax >= 50).length, koCount: details.filter((x) => x.best?.percentMin >= 100).length, fasterCount: details.filter((x) => x.aSpeed > x.dSpeed).length, teamSize: details.length };
 }
 
 function threatLabel(threat) {
@@ -66,6 +52,10 @@ function threatLabel(threat) {
   if (threat.fasterCount === threat.teamSize && threat.teamSize > 0) return `Faster than all ${threat.teamSize}`;
   if (threat.fasterCount > 0) return `Faster than ${threat.fasterCount}/${threat.teamSize}`;
   return 'No mapped damage pressure';
+}
+
+function scientistStatusLabel(status) {
+  return ({ contributor: 'DIRECT CONTRIBUTOR', 'needs-partners': 'NEEDS PARTNERS', 'surviving-team': 'TEAM-LEVEL SURVIVOR', incompatible: 'INCOMPATIBLE', unknown: 'NOT ENOUGH EVIDENCE' }[status] || 'SCIENTIST CHECK');
 }
 
 export default function CandidateAnalysisPanel({ draft = [], team = [], currentTeam = [], previousOpponent = [], blockedSpecies = [], scientist = {}, levelMode = 'Open Level', battle = 1, revealed = {}, noland = false, maxResults = 20 }) {
@@ -87,17 +77,7 @@ export default function CandidateAnalysisPanel({ draft = [], team = [], currentT
     setBusy(true);
     setTimeout(() => {
       try {
-        setResult(analyzeFactoryCandidates({
-          draft,
-          blockedSpecies,
-          scientist,
-          levelMode,
-          battle,
-          revealed,
-          noland,
-          currentTeam: analysisTeam,
-          previousOpponent: analysisPreviousOpponent,
-        }));
+        setResult(analyzeFactoryCandidates({ draft, blockedSpecies, scientist, levelMode, battle, revealed, noland, currentTeam: analysisTeam, previousOpponent: analysisPreviousOpponent }));
         setExpandedSet(null);
         setShowEliminated(false);
       } finally { setBusy(false); }
@@ -125,23 +105,12 @@ export default function CandidateAnalysisPanel({ draft = [], team = [], currentT
   const teamNames = analysisTeam.map((p) => setLabel(p)).filter(Boolean);
 
   return <View style={styles.card}>
-    <View style={styles.headerRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.kicker}>FACTORY INTELLIGENCE</Text>
-        <Text style={styles.title}>What can I see next?</Text>
-        <Text style={styles.subtitle}>Surviving sets are filtered first. Then the app checks which candidates can pressure your exact current team.</Text>
-      </View>
-      <View style={styles.roundBadge}><Text style={styles.roundText}>B{Number(battle) || 1}</Text></View>
-    </View>
-
+    <View style={styles.headerRow}><View style={{ flex: 1 }}><Text style={styles.kicker}>FACTORY INTELLIGENCE</Text><Text style={styles.title}>What can I see next?</Text><Text style={styles.subtitle}>Surviving sets are filtered first. Then the app checks which candidates can pressure your exact current team.</Text></View><View style={styles.roundBadge}><Text style={styles.roundText}>B{Number(battle) || 1}</Text></View></View>
     {!!teamNames.length && <View style={styles.liveBox}><Text style={styles.liveTitle}>LIVE RUN CONTEXT</Text><Text style={styles.liveText}>Your team: {teamNames.join(' • ')}</Text>{!!analysisPreviousOpponent.length && <Text style={styles.liveText}>Previous opponent: {analysisPreviousOpponent.map(setLabel).join(' • ')}</Text>}</View>}
-
     <Pressable style={styles.analyzeButton} onPress={runAnalysis} disabled={busy}><Text style={styles.analyzeText}>{busy ? 'ANALYZING…' : 'ANALYZE REMAINING SETS'}</Text></Pressable>
     <Text style={styles.contextText}>Draft: {draftNames.length ? draftNames.join(' • ') : 'not entered'}</Text>
     {observations.length > 0 && <View style={styles.observationBox}><Text style={styles.observationTitle}>KNOWN OPPONENT CLUES</Text>{observations.map((o, i) => <Text key={`${o.species}-${i}`} style={styles.observationText}>{o.species}{o.item ? ` • ${o.item}` : ''}{o.moves?.length ? ` • ${o.moves.join(', ')}` : ''}</Text>)}</View>}
-
     {result && result.supported && rankedSets.length > 0 && <Pressable style={styles.assistantButton} onPress={() => setAssistantOpen(true)}><View style={styles.scientistMini}><Text style={styles.scientistEmoji}>🤓</Text></View><View style={{ flex: 1 }}><Text style={styles.assistantKicker}>YOUR LAB ASSISTANT</Text><Text style={styles.assistantTitle}>ASK THE SCIENTIST</Text><Text style={styles.assistantSub}>Let me explain what worries me and why.</Text></View><Text style={styles.assistantArrow}>›</Text></Pressable>}
-
     {result && <View style={styles.resultBox}>{!result.supported ? <Text style={styles.warning}>{result.reason || 'This Factory pool is not supported by the current dataset.'}</Text> : <>
       <View style={styles.summaryBox}><Text style={styles.summaryTitle}>WHAT TO WORRY ABOUT NEXT</Text><Text style={styles.summaryText}>The ranking shows surviving candidate frequency, not an in-game probability. Threat labels use exact-set stats and supported Gen III moves.</Text></View>
       <ScrollView style={styles.list} nestedScrollEnabled>
@@ -153,9 +122,9 @@ export default function CandidateAnalysisPanel({ draft = [], team = [], currentT
           const matches = clueMatches(set, observations);
           const threatKey = `${norm(set.species)}#${set.id ?? set.sourceId ?? set.setId ?? ''}`;
           const threat = threatMap[threatKey];
-          const scientistInsight = explainSetAgainstScientist(set, scientist, result?.rankedSets?.map((entry) => entry.set) || []);
-          return <View key={key} style={styles.setBlock}><Pressable style={styles.setRow} onPress={() => setExpandedSet(open ? null : key)}><View style={styles.rankBadge}><Text style={styles.rankText}>{index + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.setName}>{setLabel(set)}</Text><Text style={styles.frequency}>{percent.toFixed(1)}% of surviving candidate teams</Text>{!!threatLabel(threat) && <Text style={styles.threatLine}>⚠ {threatLabel(threat)}</Text>}{!!matches.length && <Text style={styles.matchLine}>✓ {matches.join('  •  ')}</Text>}</View><Text style={styles.chevron}>{open ? '▲' : '▼'}</Text></Pressable>
-            {open && <View style={styles.detailCard}>{!!matches.length && <><Text style={styles.reasonTitle}>WHY THIS SET SURVIVED</Text><Text style={styles.reasonText}>{matches.join(' • ')}</Text></>}{!!scientistInsight?.text && <View style={styles.scientistInsight}><Text style={styles.scientistInsightTitle}>SCIENTIST CONTRIBUTION</Text><Text style={styles.scientistInsightText}>{scientistInsight.text}</Text></View>}{!!threat && <Text style={styles.detail}>{threatLabel(threat)}</Text>}{!!set.item && <Text style={styles.detail}>Item: {set.item}</Text>}{!!set.nature && <Text style={styles.detail}>Nature: {set.nature}</Text>}{!!set.ability && <Text style={styles.detail}>Ability: {set.ability}</Text>}{!!moveNames(set).length && <Text style={styles.detail}>Moves: {moveNames(set).join(' • ')}</Text>}</View>}
+          const scientistInsight = explainSetAgainstScientist(set, scientist, rankedSets.map((item) => item.set), result?.matchingTeams || []);
+          return <View key={key} style={styles.setBlock}><Pressable style={styles.setRow} onPress={() => setExpandedSet(open ? null : key)}><View style={styles.rankBadge}><Text style={styles.rankText}>{index + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.setName}>{setLabel(set)}</Text><Text style={styles.frequency}>{percent.toFixed(1)}% of surviving candidate teams</Text>{!!scientistInsight?.status && <Text style={styles.scientistStatus}>◈ {scientistStatusLabel(scientistInsight.status)}{scientistInsight.teamEvidence?.fittingTeamCount ? ` • ${scientistInsight.teamEvidence.fittingTeamCount} compatible team${scientistInsight.teamEvidence.fittingTeamCount === 1 ? '' : 's'}` : ''}</Text>}{!!threatLabel(threat) && <Text style={styles.threatLine}>⚠ {threatLabel(threat)}</Text>}{!!matches.length && <Text style={styles.matchLine}>✓ {matches.join('  •  ')}</Text>}</View><Text style={styles.chevron}>{open ? '▲' : '▼'}</Text></Pressable>
+            {open && <View style={styles.detailCard}>{!!matches.length && <><Text style={styles.reasonTitle}>WHY THIS SET SURVIVED</Text><Text style={styles.reasonText}>{matches.join(' • ')}</Text></>}{!!scientistInsight?.text && <View style={styles.scientistInsight}><Text style={styles.scientistInsightTitle}>{scientistStatusLabel(scientistInsight.status)}</Text><Text style={styles.scientistInsightText}>{scientistInsight.text}</Text>{scientistInsight.teamEvidence?.fittingTeamCount > 0 && <Text style={styles.scientistTeamCount}>✓ {scientistInsight.teamEvidence.fittingTeamCount} complete Scientist-compatible team{scientistInsight.teamEvidence.fittingTeamCount === 1 ? '' : 's'} contain this set.</Text>}</View>}{!!threat && <Text style={styles.detail}>{threatLabel(threat)}</Text>}{!!set.item && <Text style={styles.detail}>Item: {set.item}</Text>}{!!set.nature && <Text style={styles.detail}>Nature: {set.nature}</Text>}{!!set.ability && <Text style={styles.detail}>Ability: {set.ability}</Text>}{!!moveNames(set).length && <Text style={styles.detail}>Moves: {moveNames(set).join(' • ')}</Text>}</View>}
           </View>;
         })}
         {!visibleSets.length && <Text style={styles.empty}>No surviving candidate sets match the current information.</Text>}
@@ -172,11 +141,5 @@ export default function CandidateAnalysisPanel({ draft = [], team = [], currentT
 }
 
 const styles = StyleSheet.create({
-  card:{backgroundColor:'#e9e9e1',borderWidth:3,borderColor:'#39423a',borderRadius:16,padding:12,marginTop:12},
-  headerRow:{flexDirection:'row',alignItems:'center'},kicker:{fontSize:10,fontWeight:'900',letterSpacing:1.4,color:'#536453'},title:{fontSize:21,fontWeight:'900',color:'#263027',marginTop:2},subtitle:{fontSize:12,color:'#4b554c',marginTop:3,lineHeight:17},roundBadge:{width:44,height:44,borderRadius:22,borderWidth:2,borderColor:'#39423a',alignItems:'center',justifyContent:'center',backgroundColor:'#cbd7c6'},roundText:{fontWeight:'900',color:'#263027'},
-  liveBox:{backgroundColor:'#cfdacb',borderWidth:2,borderColor:'#596957',borderRadius:10,padding:9,marginTop:10},liveTitle:{fontSize:9,fontWeight:'900',letterSpacing:1,color:'#536453'},liveText:{fontSize:10,fontWeight:'800',color:'#3f4b42',marginTop:3},
-  analyzeButton:{backgroundColor:'#314b38',borderRadius:10,paddingVertical:12,alignItems:'center',marginTop:12},analyzeText:{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:.7},contextText:{color:'#5b625c',fontSize:11,marginTop:8},observationBox:{backgroundColor:'#dbe3d7',borderRadius:9,padding:9,marginTop:8},observationTitle:{color:'#536453',fontSize:9,fontWeight:'900',letterSpacing:1},observationText:{color:'#3f4b42',fontSize:10,fontWeight:'800',marginTop:3},
-  assistantButton:{flexDirection:'row',alignItems:'center',backgroundColor:'#d2dfcf',borderWidth:2,borderColor:'#425344',borderRadius:12,padding:8,marginTop:10},scientistMini:{width:48,height:48,borderRadius:9,backgroundColor:'#f2ecd5',borderWidth:2,borderColor:'#425344',alignItems:'center',justifyContent:'center',marginRight:9},scientistEmoji:{fontSize:30},assistantKicker:{fontSize:8,fontWeight:'900',letterSpacing:1.2,color:'#5a6b5b'},assistantTitle:{fontSize:15,fontWeight:'900',color:'#263027',marginTop:1},assistantSub:{fontSize:10,color:'#536056',marginTop:2},assistantArrow:{fontSize:30,fontWeight:'300',color:'#4b5b4d',paddingHorizontal:4},
-  resultBox:{marginTop:10},warning:{color:'#7d3f31',fontWeight:'900',padding:10,backgroundColor:'#f2d8cf',borderRadius:8},summaryBox:{backgroundColor:'#dce5d9',borderRadius:9,padding:9},summaryTitle:{fontSize:9,fontWeight:'900',color:'#536453',letterSpacing:1},summaryText:{fontSize:10,lineHeight:15,color:'#455048',marginTop:3},list:{maxHeight:430,marginTop:8},setBlock:{borderWidth:1,borderColor:'#b5c0b4',borderRadius:9,marginBottom:6,overflow:'hidden'},setRow:{flexDirection:'row',alignItems:'center',padding:8,backgroundColor:'#f2f1e9'},rankBadge:{width:28,height:28,borderRadius:14,backgroundColor:'#314b38',alignItems:'center',justifyContent:'center',marginRight:8},rankText:{color:'#fff',fontWeight:'900'},setName:{fontSize:13,fontWeight:'900',color:'#28332a'},frequency:{fontSize:9,color:'#657066',marginTop:2},threatLine:{fontSize:10,color:'#7d4a34',fontWeight:'900',marginTop:2},matchLine:{fontSize:9,color:'#47634c',fontWeight:'800',marginTop:2},chevron:{fontSize:12,color:'#536453',paddingLeft:6},detailCard:{backgroundColor:'#e3e9df',padding:9},reasonTitle:{fontSize:9,fontWeight:'900',color:'#536453',letterSpacing:1,marginTop:2},reasonText:{fontSize:10,color:'#3e4940',marginTop:3},detail:{fontSize:10,lineHeight:15,color:'#465047',marginTop:4},empty:{padding:12,textAlign:'center',color:'#5b625c'},more:{textAlign:'center',padding:9,color:'#536453',fontWeight:'900'},
-  eliminationToggle:{flexDirection:'row',alignItems:'center',backgroundColor:'#e0e3d9',borderRadius:10,padding:9,marginTop:8},eliminationTitle:{fontSize:9,fontWeight:'900',letterSpacing:1,color:'#536453'},eliminationSummary:{fontSize:10,color:'#59645a',marginTop:3},eliminationBox:{backgroundColor:'#eef0e8',borderWidth:1,borderColor:'#b6c0b4',borderRadius:9,padding:9,marginTop:5},eliminationRow:{fontSize:10,color:'#4b554c',marginTop:3},eliminationHint:{fontSize:9,color:'#747b73',marginTop:7,lineHeight:13},note:{fontSize:9,color:'#657066',lineHeight:13,marginTop:8},eliminationNote:{fontSize:9,color:'#737a72',lineHeight:13,marginTop:8},blocked:{fontSize:9,color:'#7b4b3d',fontWeight:'800',marginTop:8}
+  card:{backgroundColor:'#e9e9e1',borderWidth:3,borderColor:'#39423a',borderRadius:16,padding:12,marginTop:12},headerRow:{flexDirection:'row',alignItems:'center'},kicker:{fontSize:10,fontWeight:'900',letterSpacing:1.4,color:'#536453'},title:{fontSize:21,fontWeight:'900',color:'#263027',marginTop:2},subtitle:{fontSize:12,color:'#4b554c',marginTop:3,lineHeight:17},roundBadge:{width:44,height:44,borderRadius:22,borderWidth:2,borderColor:'#39423a',alignItems:'center',justifyContent:'center',backgroundColor:'#cbd7c6'},roundText:{fontWeight:'900',color:'#263027'},liveBox:{backgroundColor:'#cfdacb',borderWidth:2,borderColor:'#596957',borderRadius:10,padding:9,marginTop:10},liveTitle:{fontSize:9,fontWeight:'900',letterSpacing:1,color:'#536453'},liveText:{fontSize:10,fontWeight:'800',color:'#3f4b42',marginTop:3},analyzeButton:{backgroundColor:'#314b38',borderRadius:10,paddingVertical:12,alignItems:'center',marginTop:12},analyzeText:{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:.7},contextText:{color:'#5b625c',fontSize:11,marginTop:8},observationBox:{backgroundColor:'#dbe3d7',borderRadius:9,padding:9,marginTop:8},observationTitle:{color:'#536453',fontSize:9,fontWeight:'900',letterSpacing:1},observationText:{color:'#3f4b42',fontSize:10,fontWeight:'800',marginTop:3},assistantButton:{flexDirection:'row',alignItems:'center',backgroundColor:'#d2dfcf',borderWidth:2,borderColor:'#425344',borderRadius:12,padding:8,marginTop:10},scientistMini:{width:48,height:48,borderRadius:9,backgroundColor:'#f2ecd5',borderWidth:2,borderColor:'#425344',alignItems:'center',justifyContent:'center',marginRight:9},scientistEmoji:{fontSize:30},assistantKicker:{fontSize:8,fontWeight:'900',letterSpacing:1.2,color:'#5a6b5b'},assistantTitle:{fontSize:15,fontWeight:'900',color:'#263027',marginTop:1},assistantSub:{fontSize:10,color:'#536056',marginTop:2},assistantArrow:{fontSize:30,fontWeight:'300',color:'#4b5b4d',paddingHorizontal:4},resultBox:{marginTop:10},warning:{color:'#7d3f31',fontWeight:'900',padding:10,backgroundColor:'#f2d8cf',borderRadius:8},summaryBox:{backgroundColor:'#dce5d9',borderRadius:9,padding:9},summaryTitle:{fontSize:9,fontWeight:'900',color:'#536453',letterSpacing:1},summaryText:{fontSize:10,lineHeight:15,color:'#455048',marginTop:3},list:{maxHeight:430,marginTop:8},setBlock:{borderWidth:1,borderColor:'#b5c0b4',borderRadius:9,marginBottom:6,overflow:'hidden'},setRow:{flexDirection:'row',alignItems:'center',padding:8,backgroundColor:'#f2f1e9'},rankBadge:{width:28,height:28,borderRadius:14,backgroundColor:'#314b38',alignItems:'center',justifyContent:'center',marginRight:8},rankText:{color:'#fff',fontWeight:'900'},setName:{fontSize:13,fontWeight:'900',color:'#28332a'},frequency:{fontSize:9,color:'#657066',marginTop:2},scientistStatus:{fontSize:9,color:'#536453',fontWeight:'900',marginTop:2},threatLine:{fontSize:10,color:'#7d4a34',fontWeight:'900',marginTop:2},matchLine:{fontSize:9,color:'#47634c',fontWeight:'800',marginTop:2},chevron:{fontSize:12,color:'#536453',paddingLeft:6},detailCard:{backgroundColor:'#e3e9df',padding:9},reasonTitle:{fontSize:9,fontWeight:'900',color:'#536453',letterSpacing:1,marginTop:2},reasonText:{fontSize:10,color:'#3e4940',marginTop:3},scientistInsight:{backgroundColor:'#d5dfd1',borderWidth:1,borderColor:'#9fac9c',borderRadius:8,padding:8,marginTop:7},scientistInsightTitle:{fontSize:9,fontWeight:'900',letterSpacing:.8,color:'#425744'},scientistInsightText:{fontSize:10,lineHeight:14,color:'#3e4940',marginTop:3},scientistTeamCount:{fontSize:9,lineHeight:13,color:'#47634c',fontWeight:'900',marginTop:5},detail:{fontSize:10,lineHeight:15,color:'#465047',marginTop:4},empty:{padding:12,textAlign:'center',color:'#5b625c'},more:{textAlign:'center',padding:9,color:'#536453',fontWeight:'900'},eliminationToggle:{flexDirection:'row',alignItems:'center',backgroundColor:'#e0e3d9',borderRadius:10,padding:9,marginTop:8},eliminationTitle:{fontSize:9,fontWeight:'900',letterSpacing:1,color:'#536453'},eliminationSummary:{fontSize:10,color:'#59645a',marginTop:3},eliminationBox:{backgroundColor:'#eef0e8',borderWidth:1,borderColor:'#b6c0b4',borderRadius:9,padding:9,marginTop:5},eliminationRow:{fontSize:10,color:'#4b554c',marginTop:3},eliminationHint:{fontSize:9,color:'#747b73',marginTop:7,lineHeight:13},note:{fontSize:9,color:'#657066',lineHeight:13,marginTop:8},eliminationNote:{fontSize:9,color:'#737a72',lineHeight:13,marginTop:8},blocked:{fontSize:9,color:'#7b4b3d',fontWeight:'800',marginTop:8}
 });
