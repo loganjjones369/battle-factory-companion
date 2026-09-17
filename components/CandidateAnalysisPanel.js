@@ -4,6 +4,7 @@ import { analyzeFactoryCandidates } from '../data/candidateEngine';
 import { calculateDamage, bestDamagingMoves, getStats } from '../data/damageCalc';
 import { getActiveRunContext } from '../data/runProgress';
 import AssistantAnalysis from './AssistantAnalysis';
+import { explainSetAgainstScientist } from '../data/scientistContribution';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 const itemKey = (v) => norm(v).replace(/[^a-z0-9]/g, '');
@@ -152,8 +153,9 @@ export default function CandidateAnalysisPanel({ draft = [], team = [], currentT
           const matches = clueMatches(set, observations);
           const threatKey = `${norm(set.species)}#${set.id ?? set.sourceId ?? set.setId ?? ''}`;
           const threat = threatMap[threatKey];
+          const scientistInsight = explainSetAgainstScientist(set, scientist, result?.rankedSets?.map((entry) => entry.set) || []);
           return <View key={key} style={styles.setBlock}><Pressable style={styles.setRow} onPress={() => setExpandedSet(open ? null : key)}><View style={styles.rankBadge}><Text style={styles.rankText}>{index + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.setName}>{setLabel(set)}</Text><Text style={styles.frequency}>{percent.toFixed(1)}% of surviving candidate teams</Text>{!!threatLabel(threat) && <Text style={styles.threatLine}>⚠ {threatLabel(threat)}</Text>}{!!matches.length && <Text style={styles.matchLine}>✓ {matches.join('  •  ')}</Text>}</View><Text style={styles.chevron}>{open ? '▲' : '▼'}</Text></Pressable>
-            {open && <View style={styles.detailCard}>{!!matches.length && <><Text style={styles.reasonTitle}>WHY THIS SET SURVIVED</Text><Text style={styles.reasonText}>{matches.join(' • ')}</Text></>}{!!threat && <Text style={styles.detail}>{threatLabel(threat)}</Text>}{!!set.item && <Text style={styles.detail}>Item: {set.item}</Text>}{!!set.nature && <Text style={styles.detail}>Nature: {set.nature}</Text>}{!!set.ability && <Text style={styles.detail}>Ability: {set.ability}</Text>}{!!moveNames(set).length && <Text style={styles.detail}>Moves: {moveNames(set).join(' • ')}</Text>}</View>}
+            {open && <View style={styles.detailCard}>{!!matches.length && <><Text style={styles.reasonTitle}>WHY THIS SET SURVIVED</Text><Text style={styles.reasonText}>{matches.join(' • ')}</Text></>}{!!scientistInsight?.text && <View style={styles.scientistInsight}><Text style={styles.scientistInsightTitle}>SCIENTIST CONTRIBUTION</Text><Text style={styles.scientistInsightText}>{scientistInsight.text}</Text></View>}{!!threat && <Text style={styles.detail}>{threatLabel(threat)}</Text>}{!!set.item && <Text style={styles.detail}>Item: {set.item}</Text>}{!!set.nature && <Text style={styles.detail}>Nature: {set.nature}</Text>}{!!set.ability && <Text style={styles.detail}>Ability: {set.ability}</Text>}{!!moveNames(set).length && <Text style={styles.detail}>Moves: {moveNames(set).join(' • ')}</Text>}</View>}
           </View>;
         })}
         {!visibleSets.length && <Text style={styles.empty}>No surviving candidate sets match the current information.</Text>}
