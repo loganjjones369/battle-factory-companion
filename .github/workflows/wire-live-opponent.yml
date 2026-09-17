@@ -1,0 +1,42 @@
+name: Wire live opponent analysis
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  wire:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Wire component
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('RunFlowV3.js')
+          s = p.read_text()
+          imp = "import LiveOpponentAnalysis from './components/LiveOpponentAnalysis';"
+          anchor = "import DraftDecisionLab from './components/DraftDecisionLab';"
+          if imp not in s:
+              if anchor not in s:
+                  raise SystemExit('DraftDecisionLab import anchor not found')
+              s = s.replace(anchor, anchor + "\n" + imp, 1)
+          marker = "<CandidateAnalysisPanel draft={draft} blockedSpecies={state?.blockedSpecies||[]} scientist={state?.scientist||{}} levelMode={level} battle={b} revealed={{observations}} noland={state?.noland||false}/><Button onPress={()=>setPhase('swap')}"
+          insert = "<CandidateAnalysisPanel draft={draft} blockedSpecies={state?.blockedSpecies||[]} scientist={state?.scientist||{}} levelMode={level} battle={b} revealed={{observations}} noland={state?.noland||false}/><LiveOpponentAnalysis draft={draft} scientist={state?.scientist||{}} levelMode={level} battle={b} blockedSpecies={state?.blockedSpecies||[]} observations={observations} currentTeam={team} previousOpponent={state?.previousOpponent||[]} noland={state?.noland||false}/><Button onPress={()=>setPhase('swap')}"
+          if 'LiveOpponentAnalysis draft={draft}' not in s:
+              if marker not in s:
+                  raise SystemExit('battle CandidateAnalysisPanel anchor not found')
+              s = s.replace(marker, insert, 1)
+          p.write_text(s)
+          PY
+      - name: Commit change and remove one-time workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add RunFlowV3.js .github/workflows/wire-live-opponent.yml
+          git commit -m 'Integrate live opponent analysis' || exit 0
+          git rm .github/workflows/wire-live-opponent.yml
+          git commit -m 'Remove one-time wiring workflow'
+          git push
