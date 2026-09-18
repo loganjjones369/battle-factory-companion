@@ -21,6 +21,27 @@ function setIdentityKey(pokemon) {
   return `${species}#${setId ?? ''}`;
 }
 
+function uniqueByIdentity(list = []) {
+  const seen = new Set();
+  return list.filter((pokemon) => {
+    const key = setIdentityKey(pokemon);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * The purple History area is deliberately short-term memory:
+ * exactly three Pokémon from the previous battle that are not on the new team.
+ */
+export function buildPreviousBattleMemory(previousTeam = [], defeatedOpponent = [], nextTeam = []) {
+  const nextKeys = new Set((nextTeam || []).map(setIdentityKey).filter(Boolean));
+  return uniqueByIdentity([...(previousTeam || []), ...(defeatedOpponent || [])])
+    .filter((pokemon) => !nextKeys.has(setIdentityKey(pokemon)))
+    .slice(0, 3);
+}
+
 export function detectSwapCount(previousTeam = [], nextTeam = []) {
   const previous = previousTeam.map(speciesName).filter(Boolean);
   const next = nextTeam.map(speciesName).filter(Boolean);
@@ -67,7 +88,10 @@ export function isKnockedOut(state, side, index) {
 export function createInitialBattleState(options = {}) {
   const state = buildBattleState(options);
   const currentTeam = (state.currentTeam || []).map((pokemon, index) => ({ ...pokemon, teamSlot: pokemon?.teamSlot ?? index }));
-  return { ...state, currentTeam, round: getFactoryRound(state.battle), swapElevation: getSwapElevation(state.swaps), knockedOut: normalizeKO(options.knockedOut || state.knockedOut) };
+  const initialHistory = options.previousBattleMemory?.length
+    ? options.previousBattleMemory
+    : (options.draft || []).filter((pokemon) => !currentTeam.some((teamPokemon) => setIdentityKey(teamPokemon) === setIdentityKey(pokemon))).slice(0, 3);
+  return { ...state, currentTeam, previousBattleMemory: initialHistory, round: getFactoryRound(state.battle), swapElevation: getSwapElevation(state.swaps), knockedOut: normalizeKO(options.knockedOut || state.knockedOut) };
 }
 
 export function advanceAfterBattle(state, { nextCurrentTeam = [], defeatedOpponent = [], didSwap = null } = {}) {
@@ -78,6 +102,7 @@ export function advanceAfterBattle(state, { nextCurrentTeam = [], defeatedOppone
   const nextBattle = Math.max(1, Number(state.battle) || 1) + 1;
   const nextSwaps = Math.max(0, Number(state.swaps) || 0) + detected.count;
   const normalizedTeam = (nextCurrentTeam || []).map((pokemon, index) => ({ ...pokemon, teamSlot: pokemon?.teamSlot ?? index }));
+  const previousBattleMemory = buildPreviousBattleMemory(state.currentTeam || [], defeatedOpponent || [], normalizedTeam);
   const next = {
     ...state,
     battle: nextBattle,
@@ -85,6 +110,7 @@ export function advanceAfterBattle(state, { nextCurrentTeam = [], defeatedOppone
     swaps: nextSwaps,
     currentTeam: normalizedTeam,
     previousOpponent: defeatedOpponent,
+    previousBattleMemory,
     swapElevation: getSwapElevation(nextSwaps),
     progressionError: null,
     swapAttempt: detected,
