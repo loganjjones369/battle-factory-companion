@@ -179,7 +179,7 @@ export const DEFAULT_STAT_STAGES = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
 export function normalizeStatus(status = 'healthy') { const s = String(status || 'healthy').trim().toLowerCase(); const aliases = { healthy: 'healthy', none: 'healthy', par: 'paralyzed', paralysis: 'paralyzed', paralyzed: 'paralyzed', brn: 'burned', burn: 'burned', burned: 'burned', psn: 'poisoned', poison: 'poisoned', poisoned: 'poisoned', tox: 'toxic', toxic: 'toxic', slp: 'asleep', sleep: 'asleep', asleep: 'asleep', frz: 'frozen', freeze: 'frozen', frozen: 'frozen' }; return aliases[s] || s; }
 export function getEffectiveSpeed(stats, status = 'healthy') { const raw = Number(stats?.spe) || 0; return normalizeStatus(status) === 'paralyzed' ? Math.floor(raw / 4) : raw; }
 export function typeEffectiveness(moveType, defenderTypes) { return defenderTypes.reduce((multiplier, type) => multiplier * (TYPE_CHART[moveType]?.[type] ?? 1), 1); }
-export function getWeatherDamageMultiplier(moveType, weather = 'none') { if (weather === 'sun') { if (moveType === 'Fire') return 1.5; if (moveType === 'Water') return 0.5; } if (weather === 'rain') { if (moveType === 'Water') return 1.5; if (moveType === 'Fire') return 0.5; } return 1; }
+export function getWeatherDamageMultiplier(moveType, weather = 'none', moveName = '') { if (moveName === 'SolarBeam' && ['rain', 'sand', 'hail'].includes(weather)) return 0.5; if (weather === 'sun') { if (moveType === 'Fire') return 1.5; if (moveType === 'Water') return 0.5; } if (weather === 'rain') { if (moveType === 'Water') return 1.5; if (moveType === 'Fire') return 0.5; } return 1; }
 const RECOVERY_MOVES = new Set(['Moonlight', 'Synthesis', 'Morning Sun']);
 export function getWeatherRecoveryFraction(moveName, weather = 'none') { if (!RECOVERY_MOVES.has(moveName)) return null; if (weather === 'sun') return 2 / 3; if (weather === 'rain' || weather === 'sand' || weather === 'hail') return 1 / 4; return 1 / 2; }
 export function getRecoveryAmount(moveName, maxHP, weather = 'none') { const fraction = getWeatherRecoveryFraction(moveName, weather); return fraction == null ? 0 : Math.floor(Number(maxHP || 0) * fraction); }
@@ -219,7 +219,7 @@ export function getDamageRolls(result) {
   return [...new Set(values)];
 }
 
-export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP, defenderHP, attackerStages = DEFAULT_STAT_STAGES, defenderStages = DEFAULT_STAT_STAGES, attackerAbility, defenderAbility, critical = false, screens = {}, targets = 1 }) {
+export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP, defenderHP, attackerStages = DEFAULT_STAT_STAGES, defenderStages = DEFAULT_STAT_STAGES, attackerAbility, defenderAbility, critical = false, screens = {}, targets = 1, targetSwitching = false, attackerDamagedThisTurn = false }) {
   const move = MOVE_DATA[moveName];
   if (!move) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, unsupported: true };
   const rawAtkStats = getStats(attacker, attackerSet, level, round); const rawDefStats = getStats(defender, defenderSet, level, round);
@@ -248,22 +248,23 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
   if (crit) { for (const s of ['atk','spa']) critAtkStages[s] = Math.max(0, Number(critAtkStages[s] || 0)); for (const s of ['def','spd']) critDefStages[s] = Math.min(0, Number(critDefStages[s] || 0)); }
   const calcAtkStats = crit ? applyStatStages(rawAtkStats, critAtkStages) : atkStats;
   const calcDefStats = crit ? applyStatStages(rawDefStats, critDefStages) : defStats;
-  const attackStatBase = move.category === 'physical' ? calcAtkStats.atk : calcAtkStats.spa; let defenseStat = move.category === 'physical' ? calcDefStats.def : calcDefStats.spd; if (moveName === 'Explosion' && move.category === 'physical') defenseStat = Math.max(1, Math.floor(defenseStat / 2));
+  const attackStatBase = move.category === 'physical' ? calcAtkStats.atk : calcAtkStats.spa;
+  const effectivePower = moveName === 'Pursuit' && targetSwitching ? 80 : moveName === 'Revenge' && attackerDamagedThisTurn ? 120 : move.power; let defenseStat = move.category === 'physical' ? calcDefStats.def : calcDefStats.spd; if (moveName === 'Explosion' && move.category === 'physical') defenseStat = Math.max(1, Math.floor(defenseStat / 2));
   const ability = abilityEffect({ moveType: move.type, effectiveness: typeEffectiveness(move.type, defender.types), category: move.category, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStatus: normalizedAttackerStatus });
   const typeMultiplier = typeEffectiveness(move.type, defender.types);
   if (typeMultiplier === 0) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, ko: null, abilityReason: ability.reason, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
   if (ability.immune) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: typeEffectiveness(move.type, defender.types), ko: null, immune: true, abilityReason: ability.reason, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
   const lowHPBoost = currentHP * 3 <= maxAttackerHP && ((move.type === 'Fire' && normalizeAbility(chosenAtkAbility) === 'blaze') || (move.type === 'Water' && normalizeAbility(chosenAtkAbility) === 'torrent') || (move.type === 'Grass' && normalizeAbility(chosenAtkAbility) === 'overgrow') || (move.type === 'Bug' && normalizeAbility(chosenAtkAbility) === 'swarm')) ? 1.5 : 1;
-  const attackStat = Math.floor(attackStatBase * (ability.attackMultiplier || 1)); const power = movePower(move, moveName, currentHP, maxAttackerHP, normalizedAttackerStatus);
+  const attackStat = Math.floor(attackStatBase * (ability.attackMultiplier || 1)); const power = movePower({ ...move, power: effectivePower }, moveName, currentHP, maxAttackerHP, normalizedAttackerStatus);
   let base = Math.floor(Math.floor(Math.floor((2 * level) / 5 + 2) * power * attackStat / defenseStat) / 50) + 2;
   if (normalizedAttackerStatus === 'burned' && move.category === 'physical' && !crit && normalizeAbility(chosenAtkAbility) !== 'guts') base = Math.floor(base / 2);
-  base = Math.floor(base * getWeatherDamageMultiplier(move.type, weather));
+  base = Math.floor(base * getWeatherDamageMultiplier(move.type, weather, moveName));
   const item = normalizeAbility(attackerSet?.item);
   const typeBoostItems = { magnet:'electric', charcoal:'fire', nevermeltice:'ice', 'miracle seed':'grass', mysticwater:'water', 'soft sand':'ground', 'hard stone':'rock', 'blackglasses':'dark', 'silverpowder':'bug', 'spell tag':'ghost', 'twistedspoon':'psychic', 'dragon fang':'dragon', 'metal coat':'steel', 'poison barb':'poison', 'sharp beak':'flying', 'black belt':'fighting' };
   if (typeBoostItems[item] === normalizeAbility(move.type)) base = Math.floor(base * 1.1);
   if (item === 'choice band' && move.category === 'physical') base = Math.floor(base * 1.5);
   const stab = attacker.types.includes(move.type) ? 1.5 : 1; const effectiveness = typeMultiplier;
-  const modifiedBase = Math.floor(base * ability.multiplier * lowHPBoost); let critBase = modifiedBase; if (crit) critBase = Math.floor(critBase * 2); if (screens?.reflect && move.category === 'physical' && !crit) critBase = Math.floor(critBase / 2); if (screens?.lightScreen && move.category === 'special' && !crit) critBase = Math.floor(critBase / 2); if (targets > 1) critBase = Math.floor(critBase / 2); const min = Math.floor(Math.floor(critBase * stab * effectiveness) * 217 / 255); const max = Math.floor(Math.floor(critBase * stab * effectiveness) * 255 / 255); const hp = rawDefStats.hp;
+  const modifiedBase = Math.floor(base * ability.multiplier * lowHPBoost); let critBase = modifiedBase; if (crit) critBase = Math.floor(critBase * 2); if (screens?.reflect && move.category === 'physical' && !crit && moveName !== 'Brick Break') critBase = Math.floor(critBase / 2); if (screens?.lightScreen && move.category === 'special' && !crit && moveName !== 'Brick Break') critBase = Math.floor(critBase / 2); if (targets > 1) critBase = Math.floor(critBase / 2); const min = Math.floor(Math.floor(critBase * stab * effectiveness) * 217 / 255); const max = Math.floor(Math.floor(critBase * stab * effectiveness) * 255 / 255); const hp = rawDefStats.hp;
   if (move.multiHit) {
     const minHits = 2; const maxHits = 5;
     return { min: min * minHits, max: max * maxHits, percentMin: Math.floor((min * minHits * 100) / hp * 10) / 10, percentMax: Math.floor((max * maxHits * 100) / hp * 10) / 10, effectiveness, hp, immune: false, multiHit: true, hitRange: [minHits, maxHits], abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
