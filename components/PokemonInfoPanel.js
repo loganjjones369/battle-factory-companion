@@ -59,8 +59,8 @@ export default function PokemonInfoPanel({ visible, pokemon, kind = 'YOUR POKÉM
   const title = pokemon?.species || 'UNKNOWN';
   const setCount = useMemo(() => possibleSets(pokemon).length, [pokemon]);
   if (!visible || !pokemon) return null;
-  const previous = () => setPage((page + pages - 1) % pages);
-  const next = () => setPage((page + 1) % pages);
+  const previous = () => setPage(p => Math.max(0, p - 1));
+  const next = () => setPage(p => Math.min(pages - 1, p + 1));
   return <View style={styles.overlay} pointerEvents="box-none">
     <View style={[styles.panel, history ? styles.panelPurple : kind.includes('OPPONENT') ? styles.panelRed : styles.panelBlue]}>
       <View style={styles.header}><View style={{ flex: 1 }}><Text style={styles.kicker}>{kind}</Text><Text style={styles.title}>{title}</Text><Text style={styles.quickMeta}>{pokemon?.isElevated ? '↑ ELEVATED • ' : ''}{pokemon?.setId != null ? `SET ${pokemon.setId} • ` : ''}{setCount || '?'} POSSIBLE SETS</Text></View><TouchableOpacity onPress={onClose} style={styles.close}><Text style={styles.closeText}>×</Text></TouchableOpacity></View>
