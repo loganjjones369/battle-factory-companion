@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { getPokemon, getFactorySpecies } from './data/factoryData';
 import { getStats } from './data/damageCalc';
@@ -19,8 +19,8 @@ import PokemonInfoPanel from './components/PokemonInfoPanel';
 import BattleRoom from './components/BattleRoom';
 import ScientistCluePanel from './components/ScientistCluePanel';
 import { loadRunSnapshot, saveRunSnapshot, clearRunSnapshot } from './data/runPersistence';
+import Sprite from './components/Sprite';
 
-const SPRITES='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
 const norm=v=>String(v||'').trim().toLowerCase();
 const blank6=()=>['','','','','',''];
 const blank3=()=>['','',''];
@@ -28,7 +28,6 @@ const blankObs=()=>({species:'',item:'',moves:['','','','']});
 const blankObs3=()=>[blankObs(),blankObs(),blankObs()];
 
 function selectedPokemon(species,setId,extra={}){const base=getFactorySet(species,setId);if(!base)return null;const entry=getPokemon(species);return makeTeamPokemon({...entry,...base,id:entry?.id||entry?.nationalDexId,species,setId:base.id,factorySetId:base.id,...extra},extra)}
-function Sprite({p,size=58}){const id=p?.id||p?.nationalDexId;return id?<Image source={{uri:`${SPRITES}${id}.png`}} style={{width:size,height:size}} resizeMode="contain"/>:<Text style={st.question}>?</Text>}
 function SetPicker({species,setId,onChange,allowedSets=null}){const sets=allowedSets||getFactorySets(species);if(!species||!sets.length)return null;return <View style={st.sets}><Text style={st.setLabel}>SELECT FACTORY SET</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.setRow}>{sets.map(x=><TouchableOpacity key={x.id} onPress={()=>onChange(x.id)} style={[st.setBtn,Number(setId)===Number(x.id)&&st.setBtnOn]}><Text style={[st.setTxt,Number(setId)===Number(x.id)&&st.setTxtOn]}>SET {x.id}</Text></TouchableOpacity>)}</ScrollView>{setId?<Text style={st.setInfo}>{species} • SET {setId} • {getFactorySet(species,setId)?.item||'Factory set'}{getFactorySet(species,setId)?.nature?` • ${getFactorySet(species,setId).nature}`:''}</Text>:<Text style={st.setInfo}>Choose the exact set to load this rental.</Text>}</View>}
 
 function DraftSetDetails({pokemon,levelMode,battle}){if(!pokemon)return null;const round=Math.max(1,Math.ceil((Number(battle)||1)/7));const stats=getStats(pokemon,pokemon,levelMode==='Open Level'?100:50,round);return <View style={st.intakeDetails}><View style={st.intakeTop}><Sprite p={pokemon} size={62}/><View style={{flex:1}}><Text style={st.intakeSpecies}>{pokemon.species} • SET {pokemon.setId}</Text><Text style={st.intakeMeta}>{pokemon.item||'ITEM UNKNOWN'} • {pokemon.nature||'NATURE UNKNOWN'}{pokemon.isElevated?' • ELEVATED':''} • IV {pokemon.factoryIV ?? '?'}{pokemon.factoryIVSource ? ` • ${pokemon.factoryIVSource}` : ''}</Text></View></View><Text style={st.intakeLabel}>MOVES</Text><Text style={st.intakeMoves}>{(pokemon.moves||[]).join('  /  ')||'MOVES UNKNOWN'}</Text><Text style={st.intakeLabel}>QUICK STATS</Text><Text style={st.intakeStats}>HP {stats.hp}  •  ATK {stats.atk}  •  DEF {stats.def}  •  SPA {stats.spa}  •  SPD {stats.spd}  •  SPE {stats.spe}</Text></View>}
