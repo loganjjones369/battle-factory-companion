@@ -46,7 +46,7 @@ export function getNolandFactoryIV({ gold = false } = {}) {
 
 export function isNolandBattle(battle = 1) {
   const b = Math.max(1, Number(battle) || 1);
-  return b % 21 === 0;
+  return b % FACTORY_RULES.nolandEveryBattles === 0;
 }
 
 export function isNolandGoldBattle(battle = 1) {
