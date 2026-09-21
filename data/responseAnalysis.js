@@ -1,4 +1,4 @@
-import { bestDamagingMoves, calculateDamage, getEffectiveSpeed, getStats } from './damageCalc';
+import { bestDamagingMoves, calculateDamage, calculateResidualDamage, getEffectiveSpeed, getStats } from './damageCalc';
 import { getPokemon } from './factoryData';
 import { getFactorySet } from './setIdentity';
 import { getMoveTurnProfile, getMovePriority, getTurnOrderExplanation, buildTurnPlan } from './battleSequence';
@@ -100,6 +100,8 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   const allySwitch = scenarioSwitchInDamage(ally, level, round, { weather: options.weather || 'none', sides: { [String(ally?.species || '').trim().toLowerCase() + '#' + (ally?.setId ?? ally?.id ?? '')]: { spikes: options.allySpikes || 0 } } });
   const damageOut = hitBack?.percentMax ?? 0;
   const damageIn = incoming?.percentMax ?? 0;
+  const allyResidual = calculateResidualDamage({ pokemon: allyPokemon, set: allySet, level, round, hp: options.allyHP, status: options.allyStatus || 'healthy', weather: options.weather || 'none' });
+  const opponentResidual = calculateResidualDamage({ pokemon: opponentPokemon, set: opponentSet, level, round, hp: options.opponentHP, status: options.opponentStatus || 'healthy', weather: options.weather || 'none' });
   const safeSwitch = damageIn < 50;
   let classification = 'Neutral';
   if (safeSwitch && damageOut >= 50) classification = 'Safe switch + strong pressure';
@@ -111,12 +113,14 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   const incomingTurn = incoming?.moveName ? getMoveTurnProfile(incoming.moveName, options.weather || 'none') : null;
   const returnTurn = hitBack?.moveName ? getMoveTurnProfile(hitBack.moveName, options.weather || 'none') : null;
   const turnOrder = hitBack?.moveName || incoming?.moveName ? { priority: { ally: getMovePriority(hitBack?.moveName), opponent: getMovePriority(incoming?.moveName) }, allyProfile: returnTurn, opponentProfile: incomingTurn, explanation: getTurnOrderExplanation({ moveName: hitBack?.moveName, speed: allySpeed }, { moveName: incoming?.moveName, speed: opponentSpeed }), plan: buildTurnPlan({ allyMove: hitBack?.moveName, opponentMove: incoming?.moveName, weather: options.weather || 'none', allySpeed, opponentSpeed }) } : null;
-  return { ally: allyPokemon, opponent: opponentPokemon, allySet, opponentSet, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, safeSwitch, classification, incomingMove: incoming?.moveName || null, returnMove: hitBack?.moveName || null, switchIn: allySwitch, turnOrder };
+  const turnPlanRisk = turnOrder?.plan?.exposure ? 20 : 0;
+  const residualDelta = opponentResidual.percent - allyResidual.percent;
+  return { ally: allyPokemon, opponent: opponentPokemon, allySet, opponentSet, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, safeSwitch, classification, incomingMove: incoming?.moveName || null, returnMove: hitBack?.moveName || null, switchIn: allySwitch, turnOrder, turnPlanRisk, allyResidual, opponentResidual, residualDelta };
 }
 
 export function rankResponses(opponent, team = [], level = 100, round = 1, options = {}) {
   return team.map((ally) => analyzeResponse(opponent, ally, level, round, options)).filter(Boolean).sort((a, b) => {
-    const score = (x) => (x.relation === 'outspeeds' ? 15 : x.relation === 'speed ties' ? 5 : 0) + (x.safeSwitch ? 20 : 0) + Math.min(60, x.damageOut) - Math.min(60, x.damageIn);
+    const score = (x) => (x.relation === 'outspeeds' ? 15 : x.relation === 'speed ties' ? 5 : 0) + (x.safeSwitch ? 20 : 0) + Math.min(60, x.damageOut) - Math.min(60, x.damageIn) + Math.min(15, x.residualDelta) - x.turnPlanRisk;
     return score(b) - score(a);
   });
 }
