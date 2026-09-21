@@ -83,6 +83,7 @@ export default function RunFlowV3(){
    opponentText={oppText}
    opponentSets={oppSets}
    setProbabilities={setProbabilities}
+   observedAbilities={oppObs.map(o=>o?.ability||'')}
    onEndBattle={(outcome)=>{if(outcome==='win'){finish();}else if(outcome==='loss'){setState(null);setTeam([]);setOpponent([]);setPhase('draft');setActiveTeamIndex(0);setActiveOpponentIndex(0);}}}
    onOpenSummary={(p,k)=>openInfo(p,k)}
    onScenarioChange={setScenario}
