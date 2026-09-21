@@ -44,6 +44,23 @@ if (!pkg.dependencies['@react-native-async-storage/async-storage']) {
 if (!scenario.includes('hpPercent') || !scenario.includes('screens') || !scenario.includes('hazards') || !scenario.includes('scenarioSwitchInDamage')) {
   throw new Error('Scenario analysis is not consuming current HP, screens, and hazards');
 }
+const damageCalc = read('data/damageCalc.js');
+if (!damageCalc.includes('moveName === 'Explosion'')) {
+  throw new Error('Gen III Explosion defense handling is missing');
+}
+if (!damageCalc.includes('toxicCounter')) {
+  throw new Error('Toxic counter support is missing');
+}
+if (!damageCalc.includes('bindFraction')) {
+  throw new Error('Binding damage fraction support is missing');
+}
+if (!damageCalc.includes('fixedDamage === 'half-current-hp'')) {
+  throw new Error('Super Fang current-HP damage handling is missing');
+}
+if (!damageCalc.includes('fixedDamage === 'psywave'')) {
+  throw new Error('Psywave handling is missing');
+}
+
 const battleRoom = read('components/BattleRoom.js');
 if (battleRoom.includes('raw.githubusercontent.com') || battleRoom.includes('https://')) {
   throw new Error('BattleRoom still contains a remote asset dependency');
