@@ -69,6 +69,7 @@ function abilityEffect({ moveType, effectiveness, category, attackerAbility, def
   if (def === 'thick fat' && (moveType === 'Fire' || moveType === 'Ice')) { multiplier *= 0.5; reasons.push('Thick Fat'); }
   if (category === 'physical' && (atk === 'huge power' || atk === 'pure power')) { reasons.push('Huge/Pure Power'); }
   if (category === 'physical' && atk === 'guts' && attackerStatus !== 'healthy') { multiplier *= 1.5; reasons.push('Guts'); }
+  if ((moveType === 'Fire' && atk === 'blaze') || (moveType === 'Water' && atk === 'torrent') || (moveType === 'Grass' && atk === 'overgrow') || (moveType === 'Bug' && atk === 'swarm')) { reasons.push('STAB ability'); }
   return { immune: false, multiplier, reason: reasons.join(' • '), attackMultiplier: category === 'physical' && (atk === 'huge power' || atk === 'pure power') ? 2 : 1 };
 }
 
@@ -104,6 +105,7 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
   const attackStatBase = move.category === 'physical' ? calcAtkStats.atk : calcAtkStats.spa; const defenseStat = move.category === 'physical' ? calcDefStats.def : calcDefStats.spd;
   const ability = abilityEffect({ moveType: move.type, effectiveness: typeEffectiveness(move.type, defender.types), category: move.category, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStatus });
   if (ability.immune) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: typeEffectiveness(move.type, defender.types), ko: null, immune: true, abilityReason: ability.reason, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
+  const lowHPBoost = currentHP * 3 <= maxAttackerHP && ((move.type === 'Fire' && normalizeAbility(chosenAtkAbility) === 'blaze') || (move.type === 'Water' && normalizeAbility(chosenAtkAbility) === 'torrent') || (move.type === 'Grass' && normalizeAbility(chosenAtkAbility) === 'overgrow') || (move.type === 'Bug' && normalizeAbility(chosenAtkAbility) === 'swarm')) ? 1.5 : 1;
   const attackStat = Math.floor(attackStatBase * (ability.attackMultiplier || 1)); const power = movePower(move, currentHP, maxAttackerHP);
   let base = Math.floor(Math.floor(Math.floor((2 * level) / 5 + 2) * power * attackStat / defenseStat) / 50) + 2;
   if (attackerStatus === 'burned' && move.category === 'physical' && normalizeAbility(chosenAtkAbility) !== 'guts') base = Math.floor(base / 2);
@@ -113,7 +115,7 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
   if (typeBoostItems[item] === normalizeAbility(move.type)) base = Math.floor(base * 1.1);
   if (item === 'choice band' && move.category === 'physical') base = Math.floor(base * 1.5);
   const stab = attacker.types.includes(move.type) ? 1.5 : 1; const effectiveness = typeEffectiveness(move.type, defender.types); if (effectiveness === 0) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, ko: null, abilityReason: ability.reason, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
-  const modifiedBase = Math.floor(base * ability.multiplier); let critBase = modifiedBase; if (crit) critBase = Math.floor(critBase * 2); if (screens?.reflect && move.category === 'physical' && !crit) critBase = Math.floor(critBase / 2); if (screens?.lightScreen && move.category === 'special' && !crit) critBase = Math.floor(critBase / 2); if (targets > 1) critBase = Math.floor(critBase / 2); const min = Math.floor(Math.floor(critBase * stab * effectiveness) * 217 / 255); const max = Math.floor(Math.floor(critBase * stab * effectiveness) * 255 / 255); const hp = rawDefStats.hp;
+  const modifiedBase = Math.floor(base * ability.multiplier * lowHPBoost); let critBase = modifiedBase; if (crit) critBase = Math.floor(critBase * 2); if (screens?.reflect && move.category === 'physical' && !crit) critBase = Math.floor(critBase / 2); if (screens?.lightScreen && move.category === 'special' && !crit) critBase = Math.floor(critBase / 2); if (targets > 1) critBase = Math.floor(critBase / 2); const min = Math.floor(Math.floor(critBase * stab * effectiveness) * 217 / 255); const max = Math.floor(Math.floor(critBase * stab * effectiveness) * 255 / 255); const hp = rawDefStats.hp;
   return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, effectiveness, ko: Math.ceil(hp / Math.max(1, min)), hp, immune: false, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
 }
 export function bestDamagingMoves(set) { return (set?.moves || []).filter((move) => MOVE_DATA[move]); }
