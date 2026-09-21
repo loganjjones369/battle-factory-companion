@@ -134,7 +134,6 @@ export function analyzeBattleDecision({
             allyStages: teamSide.statStages || {},
             opponentStages: oppSide.statStages || {},
             allyHP: best.ally?.hp,
-            opponentHP: candidateStats?.hp,
             allyHPPercent: allyHPPercent,
             opponentHPPercent: oppHPPercent,
             allyMove: best.hitBack?.moveName || best.hitBack?.move || '',
