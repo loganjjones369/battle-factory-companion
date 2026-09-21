@@ -2,7 +2,7 @@
   "expo": {
     "name": "Battle Factory Companion",
     "slug": "battle-factory-companion",
-    "version": "0.1.0",
+    "version": "0.5.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "splash": {
