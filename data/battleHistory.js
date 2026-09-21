@@ -1,5 +1,26 @@
 const norm = (v) => String(v || '').trim().toLowerCase();
 
+function mergeEvidenceHistory(existing = [], incoming = []) {
+  const seen = new Set();
+  return [...existing, ...incoming]
+    .filter(Boolean)
+    .filter((event) => {
+      const key = [
+        event.type || '',
+        event.round || '',
+        event.value ?? '',
+        event.move || '',
+        event.percent ?? '',
+        event.targetSpecies || '',
+        event.targetSetId ?? '',
+      ].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
+}
+
 function moveNames(pokemon = {}) {
   return (pokemon.moves || [])
     .map((move) => (typeof move === 'string' ? move : move?.name))
@@ -18,6 +39,7 @@ export function makeObservation(pokemon = {}) {
     observedSpeedRelation: pokemon.observedSpeedRelation || '',
     observedDamagePercent: pokemon.observedDamagePercent ?? pokemon.observedDamage ?? null,
     observedDamageMove: pokemon.observedDamageMove || '',
+    evidenceHistory: Array.isArray(pokemon.evidenceHistory) ? pokemon.evidenceHistory.filter(Boolean) : [],
   };
 }
 
@@ -36,9 +58,10 @@ export function mergeObservationHistory(history = [], observations = []) {
         observedSpeedRelation: observation.observedSpeedRelation || next[existing].observedSpeedRelation || '',
         observedDamagePercent: observation.observedDamagePercent ?? observation.observedDamage ?? next[existing].observedDamagePercent ?? next[existing].observedDamage ?? null,
         observedDamageMove: observation.observedDamageMove || next[existing].observedDamageMove || '',
+        evidenceHistory: mergeEvidenceHistory(next[existing].evidenceHistory || [], observation.evidenceHistory || []),
       };
     } else {
-      next.push({ ...observation, moves: [...new Set(observation.moves || [])] });
+      next.push({ ...observation, moves: [...new Set(observation.moves || [])], evidenceHistory: [...(observation.evidenceHistory || [])] });
     }
   });
   return next;
