@@ -1,5 +1,5 @@
 import { analyzeFactoryCandidates } from './candidateEngine';
-import { rankResponses, rankResponsesAcrossOpponentSets } from './responseAnalysis';
+import { rankResponses } from './responseAnalysis';
 import { buildBattleSequence } from './battleSequence';
 import { getStats as requireStats } from './damageCalc';
 import { getPokemon } from './factoryData';
