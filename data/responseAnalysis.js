@@ -211,6 +211,87 @@ export function analyzeOpponentMovePool(opponent, ally, level = 100, round = 1, 
   };
 }
 
+
+export function analyzeDecisionBranches(opponent, team = [], opponentSets = [], level = 100, round = 1, options = {}) {
+  const branches = [];
+  const sets = opponentSets.filter(Boolean);
+  sets.forEach((opponentSet) => {
+    team.filter(Boolean).forEach((ally) => {
+      const response = analyzeResponse(
+        { ...opponent, setId: opponentSet.id },
+        ally,
+        level,
+        round,
+        { ...options, opponentSet },
+      );
+      if (!response) return;
+      const movePool = analyzeMoveOptions(
+        { ...opponent, setId: opponentSet.id },
+        ally,
+        level,
+        round,
+        { ...options, opponentSet },
+      );
+      if (!movePool.length) {
+        branches.push({
+          set: opponentSet,
+          move: null,
+          ally,
+          response,
+          branchScore: (Number(response.hitBack?.percentMax) || 0) - (Number(response.incoming?.percentMax) || 0),
+        });
+        return;
+      }
+      movePool.forEach((moveRow) => {
+        const incomingPercent = Number(moveRow.damage?.percentMax) || 0;
+        const branchScore =
+          (Number(response.hitBack?.percentMax) || 0) * 1.15 -
+          incomingPercent * 1.05 +
+          (response.relation === 'outspeeds' ? 12 : response.relation === 'speed ties' ? 5 : 0) +
+          (response.safeSwitch ? 10 : 0) -
+          (Number(moveRow.priority) > Number(getMovePriority(response.hitBack?.moveName)) ? 8 : 0);
+        branches.push({
+          set: opponentSet,
+          move: moveRow.moveName,
+          movePriority: moveRow.priority,
+          ally,
+          response,
+          incomingPercent,
+          branchScore,
+        });
+      });
+    });
+  });
+
+  const byBranch = new Map();
+  branches.forEach((branch) => {
+    const key = setKey(branch.set) + '|' + String(branch.move || 'unknown');
+    const old = byBranch.get(key);
+    if (!old || branch.branchScore > old.branchScore) byBranch.set(key, branch);
+  });
+  const bestByBranch = [...byBranch.values()];
+  const allyNames = [...new Set(bestByBranch.map((b) => norm(b.ally?.species)).filter(Boolean))];
+  const counts = new Map(allyNames.map((name) => [name, 0]));
+  bestByBranch.forEach((branch) => counts.set(norm(branch.ally?.species), (counts.get(norm(branch.ally?.species)) || 0) + 1));
+  const topBranches = [...bestByBranch].sort((a, b) => b.branchScore - a.branchScore);
+  const dominantAlly = topBranches[0]?.ally?.species || null;
+  const dominantCount = dominantAlly ? (counts.get(norm(dominantAlly)) || 0) : 0;
+
+  return {
+    branches: topBranches,
+    branchCount: topBranches.length,
+    setCount: sets.length,
+    moveBranchCount: topBranches.filter((b) => b.move).length,
+    allyCoverage: [...counts.entries()]
+      .map(([species, count]) => ({ species, count, share: topBranches.length ? count / topBranches.length : 0 }))
+      .sort((a, b) => b.count - a.count),
+    dominantAlly,
+    dominantShare: topBranches.length ? dominantCount / topBranches.length : 0,
+    decisionChanges: allyNames.length > 1,
+    note: 'Branch analysis tests each surviving opponent set against each damaging move option. It shows how much the recommended response depends on what the opponent reveals.',
+  };
+}
+
 export function analyzeOpponentSetPool(opponent, ally, opponentSets = [], level = 100, round = 1, options = {}) {
   const sets = opponentSets.filter(Boolean);
   const checks = sets.map((opponentSet) =>
