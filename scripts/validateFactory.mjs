@@ -68,13 +68,13 @@ if (battleRoom.includes('raw.githubusercontent.com') || battleRoom.includes('htt
 if (!battleRoom.includes('STAGE_STATS') || !battleRoom.includes('reflect') || !battleRoom.includes('lightScreen') || !battleRoom.includes('spikes')) {
   throw new Error('BattleRoom condition controls are incomplete');
 }
-if (!damage.includes('fixedDamage') || !damage.includes('multiHit') || !damage.includes('Super Fang') || !damage.includes('Endeavor')) {
+if (!damage.includes('fixedDamage') || !damage.includes('multiHit') || !damage.includes('Super Fang') || !damage.includes('Endeavor') || !damage.includes("moveName === 'Pursuit'") || !damage.includes("moveName === 'Revenge'") || !damage.includes("moveName === 'SolarBeam'")) {
   throw new Error('Gen III fixed-damage or multi-hit move handling is incomplete');
 }
 if (!damage.includes("toxicCounter") || !damage.includes("bindFraction") || !damage.includes("moveName === 'Explosion'")) {
   throw new Error('Gen III residual/Explosion mechanics coverage is incomplete');
 }
-if (!damage.includes('calculateResidualDamage') || !damage.includes('weather === ' + "'sand'") || !damage.includes('weather === ' + "'hail'")) {
+if (!damage.includes('calculateResidualDamage') || !damage.includes('weather === ' + "'sand'") || !damage.includes('weather === ' + "'hail'") || damage.includes('stealthRock')) {
   throw new Error('Gen III residual damage analysis is incomplete');
 }
 
