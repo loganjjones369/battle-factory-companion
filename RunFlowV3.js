@@ -34,7 +34,7 @@ export default function RunFlowV3(){
  const [draftText,setDraftText]=useState(blank6()),[draftSets,setDraftSets]=useState([null,null,null,null,null,null]),[selected,setSelected]=useState([]);
  const [state,setState]=useState(null),[phase,setPhase]=useState('draft');
  const [team,setTeam]=useState([]),[opponent,setOpponent]=useState([]),[oppText,setOppText]=useState(blank3()),[oppSets,setOppSets]=useState([null,null,null]),[oppObs,setOppObs]=useState(blankObs3());
- const [swapOut,setSwapOut]=useState(null),[swapIn,setSwapIn]=useState(null),[celebrate,setCelebrate]=useState(null);const [activeTeamIndex,setActiveTeamIndex]=useState(0),[activeOpponentIndex,setActiveOpponentIndex]=useState(0);const [scenario,setScenario]=useState({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});const [infoPokemon,setInfoPokemon]=useState(null),[infoKind,setInfoKind]=useState('YOUR POKÉMON');const scale=useRef(new Animated.Value(.7)).current;
+ const [swapOut,setSwapOut]=useState(null),[swapIn,setSwapIn]=useState(null),[pendingBattle,setPendingBattle]=useState(null),[celebrate,setCelebrate]=useState(null);const [activeTeamIndex,setActiveTeamIndex]=useState(0),[activeOpponentIndex,setActiveOpponentIndex]=useState(0);const [scenario,setScenario]=useState({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});const [infoPokemon,setInfoPokemon]=useState(null),[infoKind,setInfoKind]=useState('YOUR POKÉMON');const scale=useRef(new Animated.Value(.7)).current;
  const b=state?.battle||Math.max(1,Number(battle)||1),sw=state?.swaps??Math.max(0,Number(swaps)||0);
  const knockedOut=state?.knockedOut||{team:[],opponent:[]};
  const draft=useMemo(()=>draftText.map((x,i)=>{if(!x)return null;const p=selectedPokemon(x,draftSets[i]);if(!p)return null;const slot=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw,slotIndex:i});return {...p,draftSlot:i,isElevated:slot.isElevated,factoryIV:slot.iv,poolBucket:slot.poolBucket}}),[draftText,draftSets,level,b,sw]);
@@ -58,7 +58,23 @@ export default function RunFlowV3(){
  const survivingSetIds=useMemo(()=>{const out={};Object.entries(setProbabilities).forEach(([species,rows])=>{const ids=Object.entries(rows||{}).filter(([,p])=>Number(p)>0).map(([id])=>id);if(ids.length===1)out[species]=ids[0];});return out;},[setProbabilities]);
  useEffect(()=>{Object.entries(survivingAbilities).forEach(([species,ability])=>{const i=oppText.findIndex(x=>norm(x)===norm(species));if(i>=0&&!oppObs[i]?.ability){setOppObs(old=>old.map((o,j)=>j===i?{...o,ability}:o));}});},[survivingAbilities,oppText,oppObs]);
  useEffect(()=>{Object.entries(survivingSetIds).forEach(([species,id])=>{const i=oppText.findIndex(x=>norm(x)===norm(species));if(i>=0&&oppSets[i]!==id){const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null});if(!p)return;setOppSets(old=>old.map((x,j)=>j===i?id:x));setOpponent(old=>{const n=[...old];n[i]=p;return n});}});},[survivingSetIds,oppText,oppSets]);
- const finish=()=>{if(opponent.length!==3||opponent.some(p=>!p?.setId))return;let next=team;if(swapOut&&swapIn){const idx=swapOut.teamSlot;next=team.map((p,i)=>i===idx?makeSwapReplacement(swapIn,idx):{...p,teamSlot:i});}const r=completeBattle(state,{won:true,nextCurrentTeam:next,defeatedOpponent:opponent,observations});if(r.state.progressionError)return;setTeam(next);setState(r.state);setSwapOut(null);setSwapIn(null);setOpponent([]);setOppText(blank3());setOppSets([null,null,null]);setOppObs(blankObs3());setScenario({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});setPhase('battle');setCelebrate(r.celebration);scale.setValue(.7);Animated.spring(scale,{toValue:1,useNativeDriver:true}).start(()=>setTimeout(()=>setCelebrate(null),r.celebration?.durationMs||900));};
+ const finish=(nextTeam=team,didSwap=false,defeatedOpponent=pendingBattle?.opponent||opponent,observed=pendingBattle?.observations||observations)=>{
+   if((defeatedOpponent||[]).length!==3)return;
+   if(didSwap && (!swapOut || !swapIn))return;
+   const r=completeBattle(state,{won:true,nextCurrentTeam:nextTeam,defeatedOpponent,observations:observed,didSwap});
+   if(r.state.progressionError)return;
+   setTeam(nextTeam);setState(r.state);setSwapOut(null);setSwapIn(null);setPendingBattle(null);
+   setOpponent([]);setOppText(blank3());setOppSets([null,null,null]);setOppObs(blankObs3());
+   setScenario({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});
+   setPhase('battle');setCelebrate(r.celebration);scale.setValue(.7);
+   Animated.spring(scale,{toValue:1,useNativeDriver:true}).start(()=>setTimeout(()=>setCelebrate(null),r.celebration?.durationMs||900));
+ };
+ const beginBattleEnd=(outcome)=>{
+   if(outcome!=='win')return;
+   if(opponent.length!==3)return;
+   setPendingBattle({opponent:[...opponent],observations:[...observations]});
+   setPhase('swap');
+ };
  const elevation=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw}).elevationCount;
  const candidateResult=useMemo(()=>analyzeFactoryCandidates({draft,currentTeam:team,previousOpponent:state?.previousOpponent||[],blockedSpecies:state?.blockedSpecies||[],scientist:state?.scientist||{},levelMode:level,battle:b,revealed:{observations},noland:state?.noland||false}),[draft,team,state?.previousOpponent,state?.blockedSpecies,state?.scientist,level,b,observations,state?.noland]);
  const openInfo=(pokemon,kind)=>{if(!pokemon)return;setInfoPokemon(pokemon);setInfoKind(kind);};
@@ -88,7 +104,7 @@ export default function RunFlowV3(){
    opponentSets={oppSets}
    setProbabilities={setProbabilities}
    observedAbilities={oppObs.map(o=>o?.ability||'')}
-   onEndBattle={(outcome)=>{if(outcome==='win'){finish();}else if(outcome==='loss'){setState(null);setTeam([]);setOpponent([]);setPhase('draft');setActiveTeamIndex(0);setActiveOpponentIndex(0);}}}
+   onEndBattle={(outcome)=>{if(outcome==='win'){beginBattleEnd(outcome);}else if(outcome==='loss'){setState(null);setTeam([]);setOpponent([]);setPendingBattle(null);setPhase('draft');setActiveTeamIndex(0);setActiveOpponentIndex(0);}}}
    onOpenSummary={(p,k)=>openInfo(p,k)}
    onScenarioChange={setScenario}
    scenario={scenario}
@@ -99,7 +115,7 @@ export default function RunFlowV3(){
  />
  <CandidateAnalysisPanel draft={draft} blockedSpecies={state?.blockedSpecies||[]} scientist={state?.scientist||{}} levelMode={level} battle={b} revealed={{observations}} noland={state?.noland||false}/>
  <RemainingFactoryPool rankedSets={candidateResult.rankedSets||[]} opponentText={oppText} opponentSets={oppSets} onAddPossible={(species)=>{const i=oppSets.findIndex((set,j)=>set==null && !!oppText[j]); const empty=i<0?oppText.findIndex(x=>!x):-1; const target=i>=0?i:empty; if(target>=0) recordOpponent(target,species);}}/>
- </>{phase==='swap'&&<View style={st.card}><Text style={st.label}>POST-BATTLE SWAP</Text><Text style={st.title}>Keep team or replace one slot</Text><Text style={st.help}>First tap a current party member. Then tap one defeated opponent. The replacement occupies the exact same team slot and is explicitly cleared of draft elevation.</Text><Text style={st.small}>CURRENT TEAM</Text>{team.map((p,i)=><Party key={`out-${i}`} p={p} slot={i} active={swapOut?.teamSlot===i} knockedOut={knockedOut.team.includes(i)} onKO={()=>toggleKO('team',i)} onPress={()=>setSwapOut(p)}/>) }<Text style={st.small}>DEFEATED OPPONENTS</Text>{opponent.map((p,i)=><Party key={`in-${i}`} p={p} slot={i} active={swapIn?.setId===p.setId&&swapIn?.species===p.species} knockedOut={false} onPress={()=>setSwapIn(p)}/>) }<Text style={st.swapText}>{swapOut&&swapIn?`SLOT ${(swapOut.teamSlot??0)+1}: ${swapOut.species} ${swapOut.setId} → ${swapIn.species} ${swapIn.setId}`:'No swap selected — keeping team'}</Text><Button secondary onPress={()=>{setSwapOut(null);setSwapIn(null);finish()}}>KEEP TEAM</Button><Button onPress={finish} disabled={!swapOut||!swapIn}>CONFIRM ONE SWAP</Button></View>}
+ </>{phase==='swap'&&<View style={st.card}><Text style={st.label}>POST-BATTLE SWAP</Text><Text style={st.title}>Keep team or replace one slot</Text><Text style={st.help}>Keep the team, or replace exactly one slot with a defeated opponent. A swap requires that opponent's exact Factory set; unknown sets can still be kept in history.</Text><Text style={st.small}>CURRENT TEAM</Text>{team.map((p,i)=><Party key={`out-${i}`} p={p} slot={i} active={swapOut?.teamSlot===i} knockedOut={knockedOut.team.includes(i)} onKO={()=>toggleKO('team',i)} onPress={()=>setSwapOut(p)}/>) }<Text style={st.small}>DEFEATED OPPONENTS</Text>{(pendingBattle?.opponent||opponent).map((p,i)=><Party key={`in-${i}`} p={p} slot={i} active={swapIn?.setId===p.setId&&swapIn?.species===p.species} knockedOut={false} onPress={()=>p?.setId!=null&&setSwapIn(p)}/>) }<Text style={st.swapText}>{swapOut&&swapIn?`SLOT ${(swapOut.teamSlot??0)+1}: ${swapOut.species} ${swapOut.setId} → ${swapIn.species} ${swapIn.setId}`:'No swap selected — keeping team'}</Text><Button secondary onPress={()=>{setSwapOut(null);setSwapIn(null);finish(team,false)}}>KEEP TEAM</Button><Button onPress={()=>{const next=team.map((p,i)=>i===(swapOut?.teamSlot??-1)?makeSwapReplacement(swapIn,i):{...p,teamSlot:i});finish(next,true)}} disabled={!swapOut||!swapIn}>CONFIRM ONE SWAP</Button></View>}
  <View style={st.card}><Text style={st.title}>Factory memory</Text><Text style={st.help}>Battle {b} • Round {Math.ceil(b/7)} • {state?.swaps||0} swaps • {state?.swapElevation||0} elevated. Team slots persist; elevation is recalculated only from the persistent swap count.</Text></View></>}
  <Text style={st.footer}>Battle Factory Companion • selectable set-aware draft</Text></ScrollView><PokemonInfoPanel visible={!!infoPokemon} pokemon={infoPokemon} kind={infoKind} level={level==='Open Level'?100:50} round={Math.max(1,Math.ceil(b/7))} onClose={()=>setInfoPokemon(null)}/>{celebrate&&<Animated.View pointerEvents="none" style={[st.overlay,{transform:[{scale}]}]}><Text style={st.win}>{celebrate.intensity==='major'?'ROUND COMPLETE!':'BATTLE WON!'}</Text><Text style={st.winSub}>ON TO BATTLE {celebrate.nextBattle}</Text></Animated.View>}</SafeAreaView>
 }
