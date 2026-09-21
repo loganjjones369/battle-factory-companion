@@ -103,6 +103,9 @@ const responseAnalysis = read('data/responseAnalysis.js');
 if (!responseAnalysis.includes('defenderSubstitute') || !responseAnalysis.includes('applyStagesForResponse') || !responseAnalysis.includes('opponentStages')) {
   throw new Error('Response analysis is not consuming live battle stages/Substitute state');
 }
+if (!responseAnalysis.includes('scenarioSwitchInDamage') || !responseAnalysis.includes('switchIn')) {
+  throw new Error('Response analysis is missing switch-in hazard damage');
+}
 
 for (const required of [
   'data/candidateEngine.js',
