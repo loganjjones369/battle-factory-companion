@@ -219,7 +219,7 @@ export function getDamageRolls(result) {
   return [...new Set(values)];
 }
 
-export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP, defenderHP, attackerStages = DEFAULT_STAT_STAGES, defenderStages = DEFAULT_STAT_STAGES, attackerAbility, defenderAbility, critical = false, screens = {}, targets = 1, targetSwitching = false, attackerDamagedThisTurn = false }) {
+export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP, defenderHP, attackerStages = DEFAULT_STAT_STAGES, defenderStages = DEFAULT_STAT_STAGES, attackerAbility, defenderAbility, critical = false, screens = {}, targets = 1, targetSwitching = false, attackerDamagedThisTurn = false, consecutiveUses = 1 }) {
   const move = MOVE_DATA[moveName];
   if (!move) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, unsupported: true };
   const rawAtkStats = getStats(attacker, attackerSet, level, round); const rawDefStats = getStats(defender, defenderSet, level, round);
@@ -249,7 +249,9 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
   const calcAtkStats = crit ? applyStatStages(rawAtkStats, critAtkStages) : atkStats;
   const calcDefStats = crit ? applyStatStages(rawDefStats, critDefStages) : defStats;
   const attackStatBase = move.category === 'physical' ? calcAtkStats.atk : calcAtkStats.spa;
-  const effectivePower = moveName === 'Pursuit' && targetSwitching ? 80 : moveName === 'Revenge' && attackerDamagedThisTurn ? 120 : move.power; let defenseStat = move.category === 'physical' ? calcDefStats.def : calcDefStats.spd; if (moveName === 'Explosion' && move.category === 'physical') defenseStat = Math.max(1, Math.floor(defenseStat / 2));
+  const ramp = Math.max(1, Number(consecutiveUses) || 1);
+  const rampPower = moveName === 'Rollout' || moveName === 'Ice Ball' ? Math.min(480, move.power * (2 ** Math.min(4, ramp - 1))) : moveName === 'Fury Cutter' ? Math.min(160, move.power * (2 ** Math.min(4, ramp - 1))) : move.power;
+  const effectivePower = moveName === 'Pursuit' && targetSwitching ? 80 : moveName === 'Revenge' && attackerDamagedThisTurn ? 120 : rampPower; let defenseStat = move.category === 'physical' ? calcDefStats.def : calcDefStats.spd; if (moveName === 'Explosion' && move.category === 'physical') defenseStat = Math.max(1, Math.floor(defenseStat / 2));
   const ability = abilityEffect({ moveType: move.type, effectiveness: typeEffectiveness(move.type, defender.types), category: move.category, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStatus: normalizedAttackerStatus });
   const typeMultiplier = typeEffectiveness(move.type, defender.types);
   if (typeMultiplier === 0) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, ko: null, abilityReason: ability.reason, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
