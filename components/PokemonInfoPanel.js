@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, PanResponder } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getFactorySets, getFactorySet } from '../data/setIdentity';
 import { getStats, getNatureEffect } from '../data/damageCalc';
@@ -40,7 +40,7 @@ function SetDetails({ set, pokemon, level, round }) {
 
 function SummaryPage({ page, pokemon, level, round }) {
   const palette = [styles.pageOverview, styles.pageMoves, styles.pageStats, styles.pageIVs, styles.pageEVs, styles.pageSets][page];
-  const sets = possibleSets(pokemon);
+  const sets = selectedSet ? [selectedSet] : possibleSets(pokemon);
   const selectedSet = pokemon?.setId != null ? getFactorySet(pokemon.species, pokemon.setId) : null;
   const stats = statRows(pokemon, selectedSet, level, round);
   return <View style={[styles.page, palette]}>
@@ -63,11 +63,22 @@ export default function PokemonInfoPanel({ visible, pokemon, kind = 'YOUR POKÉM
   if (!visible || !pokemon) return null;
   const previous = () => setPage(p => Math.max(0, p - 1));
   const next = () => setPage(p => Math.min(pages - 1, p + 1));
+  const summarySwipe = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dx < -45) next();
+      else if (gesture.dx > 45) previous();
+    },
+  }), []);
   return <View style={styles.overlay} pointerEvents="box-none">
     <View style={[styles.panel, history ? styles.panelPurple : kind.includes('OPPONENT') ? styles.panelRed : styles.panelBlue]}>
-      <View style={styles.header}><View style={{ flex: 1 }}><Text style={styles.kicker}>{kind}</Text><Text style={styles.title}>{title}</Text><Text style={styles.quickMeta}>{pokemon?.isElevated ? '↑ ELEVATED • ' : ''}{pokemon?.setId != null ? `SET ${pokemon.setId} • ` : ''}{setCount || '?'} POSSIBLE SETS</Text></View><TouchableOpacity onPress={onClose} style={styles.close}><Text style={styles.closeText}>×</Text></TouchableOpacity></View>
+      <View style={styles.header}><View style={{ flex: 1 }}><Text style={styles.kicker}>{kind}</Text><Text style={styles.title}>{title}</Text><Text style={styles.quickMeta}>{pokemon?.isElevated ? '↑ ELEVATED • ' : ''}{pokemon?.setId != null ? `SET ${pokemon.setId} — CONFIRMED` : `${setCount || '?'} POSSIBLE SETS`}</Text></View><TouchableOpacity onPress={onClose} style={styles.close}><Text style={styles.closeText}>×</Text></TouchableOpacity></View>
       {!summary ? <><View style={styles.quick}><Sprite pokemon={pokemon} size={112}/><View style={styles.quickInfo}><Text style={styles.quickLine}>Type: {pokemon?.type1 || pokemon?.types?.join(' / ') || '???'}{pokemon?.type2 ? ` / ${pokemon.type2}` : ''}</Text><Text style={styles.quickLine}>Level: {pokemon?.level || level}</Text><Text style={styles.quickLine}>HP: {pokemon?.hp ?? '???'}</Text><Text style={styles.quickLine}>Status: {pokemon?.status || 'Healthy'}</Text><Text style={styles.quickLine}>Set: {pokemon?.setId != null ? `SET ${pokemon.setId}` : '???'}</Text></View></View><View style={styles.toolRow}><TouchableOpacity onPress={() => setSummary(true)} style={styles.tool}><Text style={styles.toolText}>📋 SUMMARY</Text></TouchableOpacity><TouchableOpacity onPress={onClose} style={styles.tool}><Text style={styles.toolText}>{history ? 'REFERENCE' : 'CLOSE'}</Text></TouchableOpacity></View></> :
-      <><View style={styles.summaryHead}><TouchableOpacity onPress={previous}><Text style={styles.arrow}>‹</Text></TouchableOpacity><Text style={styles.pageIndicator}>{page + 1} / {pages}</Text><TouchableOpacity onPress={next}><Text style={styles.arrow}>›</Text></TouchableOpacity></View><ScrollView showsVerticalScrollIndicator={false}><SummaryPage page={page} pokemon={pokemon} level={level} round={round}/></ScrollView><TouchableOpacity onPress={() => setSummary(false)} style={styles.back}><Text style={styles.backText}>‹ QUICK INFO</Text></TouchableOpacity></>}
+      <View {...summarySwipe.panHandlers}>
+        <View style={styles.summaryHead}><TouchableOpacity onPress={previous}><Text style={styles.arrow}>‹</Text></TouchableOpacity><Text style={styles.pageIndicator}>{page + 1} / {pages}</Text><TouchableOpacity onPress={next}><Text style={styles.arrow}>›</Text></TouchableOpacity></View>
+        <ScrollView showsVerticalScrollIndicator={false}><SummaryPage page={page} pokemon={pokemon} level={level} round={round}/></ScrollView>
+        <TouchableOpacity onPress={() => setSummary(false)} style={styles.back}><Text style={styles.backText}>‹ QUICK INFO</Text></TouchableOpacity>
+      </View>}
     </View>
   </View>;
 }
