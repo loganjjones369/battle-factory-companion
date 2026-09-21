@@ -2,6 +2,7 @@ import { analyzeFactoryCandidates } from './candidateEngine';
 import { rankResponses } from './responseAnalysis';
 import { buildBattleSequence } from './battleSequence';
 import { getStats as requireStats } from './damageCalc';
+import { getPokemon } from './factoryData';
 
 const norm = (value) => String(value || '').trim().toLowerCase();
 const setKey = (set) => `${norm(set?.species)}#${set?.id ?? set?.setId ?? set?.sourceId ?? ''}`;
@@ -97,13 +98,14 @@ export function analyzeBattleDecision({
       const oppSide = battleConditions.opponent || {};
       const allyHPPercent = teamSide.hpPercent == null ? 100 : teamSide.hpPercent;
       const oppHPPercent = oppSide.hpPercent == null ? 100 : oppSide.hpPercent;
+      const candidateStats = candidate ? requireStats(getPokemon(candidate.species), candidate, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7))) : null;
       const allyStats = ally ? requireStats(ally, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7))) : null;
       return rankResponses(candidate, [ally], levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7)), {
         opponentSet: candidate,
         allyStatus: teamSide.status || 'healthy',
         opponentStatus: oppSide.status || 'healthy',
         allyHP: allyStats ? Math.max(1, Math.floor(allyStats.hp * allyHPPercent / 100)) : undefined,
-        opponentHP: Math.max(1, Math.floor((candidate.hp || 1) * oppHPPercent / 100)),
+        opponentHP: candidateStats ? Math.max(1, Math.floor(candidateStats.hp * oppHPPercent / 100)) : undefined,
         allyStages: teamSide.statStages || {},
         opponentStages: oppSide.statStages || {},
         allyScreens: { reflect: Boolean(teamSide.reflect), lightScreen: Boolean(teamSide.lightScreen) },
