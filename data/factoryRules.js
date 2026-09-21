@@ -51,6 +51,13 @@ export function isNolandGoldBattle(battle = 1) {
   return isNolandBattle(b) && b >= 42;
 }
 
+export function getFactoryIVSource({ battle = 1, isElevated = false, noland = false, battleTowerStreak = FACTORY_RULES.defaultBattleTowerStreak } = {}) {
+  const b = Math.max(1, Number(battle) || 1);
+  if (noland) return isNolandGoldBattle(b) ? 'NOLAND GOLD' : 'NOLAND SILVER';
+  if (isElevated) return 'ELEVATED RENTAL';
+  return `REGULAR OPPONENT • TOWER STREAK ${Math.max(0, Number(battleTowerStreak) || 0)}`;
+}
+
 export function getSwapElevation(swaps = 0) {
   const n = Math.max(0, Number(swaps) || 0);
   return FACTORY_RULES.swapElevation.find((row) => n >= row.min && n <= row.max)?.elevated ?? 0;
