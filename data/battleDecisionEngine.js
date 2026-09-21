@@ -219,6 +219,7 @@ export function analyzeBattleDecision({
     return {
       species, setCount: rows.length, sets: rows.map((row) => row.opponentSet), bestResponse: best.bestResponse, twoTurnPlan: best.twoTurnPlan || null,
       branchAnalysis: rows.find((row) => row.branchAnalysis)?.branchAnalysis || null,
+      informationValue: rows.find((row) => row.informationValue)?.informationValue || null,
       responseRange: { incomingMin: incoming.length ? Math.min(...incoming) : null, incomingMax: incoming.length ? Math.max(...incoming) : null, outgoingMin: outgoing.length ? Math.min(...outgoing) : null, outgoingMax: outgoing.length ? Math.max(...outgoing) : null },
       worstCase: { incomingPercent: worstCaseIncoming, outgoingPercent: worstCaseOutgoing, fasterShare, safeShare, exposureShare },
       safeSwitchCount: safeCount, safeSwitchTotal: responses.length, uncertaintyScore,
