@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Validate Factory data and percentage-only analysis
+        run: node scripts/validateFactory.mjs
+
       - name: Check Expo project
         run: npx expo-doctor
 
