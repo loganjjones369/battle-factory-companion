@@ -106,13 +106,14 @@ const battleDecisionEngine = read('data/battleDecisionEngine.js');
 if (!battleDecisionEngine.includes('worstCase') || !battleDecisionEngine.includes('uncertaintyScore') || !battleDecisionEngine.includes('responseRange')) {
   throw new Error('Battle decision engine is not propagating uncertainty across surviving sets');
 }
-if (!response.includes('analyzeOpponentSetPool') || !response.includes('rankResponsesAcrossOpponentSets') || !response.includes('safeShare') || !response.includes('exposureShare') || !response.includes('buildTwoTurnBattlePlan') || !response.includes('analyzeOpponentMovePool')) {
+if (!response.includes('analyzeOpponentSetPool') || !response.includes('rankResponsesAcrossOpponentSets') || !response.includes('safeShare') || !response.includes('exposureShare') || !response.includes('buildTwoTurnBattlePlan') || !response.includes('analyzeOpponentMovePool') || !response.includes('analyzeDecisionBranches')) {
   throw new Error('Opponent-set uncertainty planner helpers are missing');
 }
 const responseAnalysis = read('data/responseAnalysis.js');
 if (!responseAnalysis.includes('defenderSubstitute') || !responseAnalysis.includes('applyStagesForResponse') || !responseAnalysis.includes('opponentStages')) {
   throw new Error('Response analysis is not consuming live battle stages/Substitute state');
 }
+if (!responseAnalysis.includes('branchCount') || !responseAnalysis.includes('decisionChanges') || !responseAnalysis.includes('allyCoverage')) throw new Error('Branch-aware decision analysis is missing');
 if (!responseAnalysis.includes('scenarioSwitchInDamage') || !responseAnalysis.includes('switchIn')) {
   throw new Error('Response analysis is missing switch-in hazard damage');
 }
