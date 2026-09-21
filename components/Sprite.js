@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 
 const shortName = (pokemon) => String(pokemon?.species || pokemon?.name || '?').replace(/[^a-z0-9]/gi, '').slice(0, 3).toUpperCase() || '?';
 
-export default function Sprite({ p, size = 48 }) {
+export default function Sprite({ p, pokemon, size = 48 }) {
+  p = p || pokemon;
   const radius = Math.max(8, Math.round(size * 0.2));
   return (
     <View style={[styles.box, { width: size, height: size, borderRadius: radius }]} accessibilityLabel={String(p?.species || p?.name || 'Pokemon')}>
