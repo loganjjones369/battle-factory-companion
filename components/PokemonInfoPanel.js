@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getFactorySets, getFactorySet } from '../data/setIdentity';
-import { getStats } from '../data/damageCalc';
+import { getStats, getNatureEffect } from '../data/damageCalc';
 
 const SPRITES = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
 
@@ -10,10 +10,11 @@ function Sprite({ pokemon, size = 104 }) {
   return id ? <Image source={{ uri: `${SPRITES}${id}.png` }} style={{ width: size, height: size }} resizeMode="contain" /> : <Text style={styles.q}>?</Text>;
 }
 
-function statRows(pokemon, level, round) {
+function statRows(pokemon, set, level, round) {
   if (!pokemon) return [];
-  const stats = getStats(pokemon, pokemon, level, round);
-  return [['HP', stats.hp], ['Attack', stats.atk], ['Defense', stats.def], ['Sp. Atk', stats.spa], ['Sp. Def', stats.spd], ['Speed', stats.spe]];
+  const source = set || pokemon;
+  const stats = getStats(pokemon, source, level, round);
+  return [['HP','hp',stats.hp],['Attack','atk',stats.atk],['Defense','def',stats.def],['Sp. Atk','spa',stats.spa],['Sp. Def','spd',stats.spd],['Speed','spe',stats.spe]];
 }
 
 function possibleSets(pokemon) {
@@ -41,11 +42,11 @@ function SummaryPage({ page, pokemon, level, round }) {
   const palette = [styles.pageOverview, styles.pageMoves, styles.pageStats, styles.pageIVs, styles.pageEVs, styles.pageSets][page];
   const sets = possibleSets(pokemon);
   const selectedSet = pokemon?.setId != null ? getFactorySet(pokemon.species, pokemon.setId) : null;
-  const stats = statRows(pokemon, level, round);
+  const stats = statRows(pokemon, selectedSet, level, round);
   return <View style={[styles.page, palette]}>
-    {page === 0 && <><View style={styles.hero}><Sprite pokemon={pokemon} size={128}/><View style={{ flex: 1 }}><Text style={styles.name}>{pokemon?.species || 'UNKNOWN'}</Text><Text style={styles.role}>{pokemon?.isElevated ? 'ELEVATED PICK' : 'POKÉMON SUMMARY'}</Text><Text style={styles.meta}>{pokemon?.type1 || pokemon?.types?.join(' / ') || '???'}{pokemon?.type2 ? ` / ${pokemon.type2}` : ''}</Text><Text style={styles.meta}>Level {pokemon?.level || level} • HP {stats[0]?.[1] ?? '???'}</Text></View></View><Text style={styles.section}>FACTORY SET</Text><Text style={styles.bigValue}>{selectedSet ? `SET ${selectedSet.id} — CONFIRMED` : `${sets.length || '?'} POSSIBLE SETS`}</Text><Text style={styles.body}>Item: {pokemon?.item || '???'}   Ability: {pokemon?.ability || '???'}   Nature: {pokemon?.nature || '???'}</Text></>}
+    {page === 0 && <><View style={styles.hero}><Sprite pokemon={pokemon} size={128}/><View style={{ flex: 1 }}><Text style={styles.name}>{pokemon?.species || 'UNKNOWN'}</Text><Text style={styles.role}>{pokemon?.isElevated ? 'ELEVATED PICK' : 'POKÉMON SUMMARY'}</Text><Text style={styles.meta}>{pokemon?.type1 || pokemon?.types?.join(' / ') || '???'}{pokemon?.type2 ? ` / ${pokemon.type2}` : ''}</Text><Text style={styles.meta}>Level {pokemon?.level || level} • HP {stats[0]?.[2] ?? '???'}</Text></View></View><Text style={styles.section}>FACTORY SET</Text><Text style={styles.bigValue}>{selectedSet ? `SET ${selectedSet.id} — CONFIRMED` : `${sets.length || '?'} POSSIBLE SETS`}</Text><Text style={styles.body}>Item: {pokemon?.item || '???'}   Ability: {pokemon?.ability || '???'}   Nature: {pokemon?.nature || '???'}</Text></>}
     {page === 1 && <><Text style={styles.pageTitle}>MOVES</Text>{(selectedSet?.moves || pokemon?.moves || ['???','???','???','???']).map((move, i) => <View key={i} style={styles.moveRow}><Text style={styles.moveName}>{move || '???'}</Text><Text style={styles.qmark}>{move ? 'KNOWN' : '???'}</Text></View>)}</>}
-    {page === 2 && <><Text style={styles.pageTitle}>BATTLE STATS</Text>{stats.map(([label, value]) => <View key={label} style={styles.statRow}><Text style={styles.statName}>{label}</Text><Text style={styles.statValue}>{value ?? '???'}</Text></View>)}</>}
+    {page === 2 && <><Text style={styles.pageTitle}>BATTLE STATS</Text>{stats.map(([label, key, value]) => { const effect=getNatureEffect(selectedSet?.nature,key); return <View key={label} style={styles.statRow}><Text style={styles.statName}>{label}</Text><Text style={[styles.statValue,effect==='up'&&styles.statUp,effect==='down'&&styles.statDown]}>{value ?? '???'} {effect==='up'?'↑':effect==='down'?'↓':''}</Text></View>; })}</>}
     {page === 3 && <><Text style={styles.pageTitle}>INDIVIDUAL VALUES</Text>{['hp','atk','def','spa','spd','spe'].map((key) => <View key={key} style={styles.statRow}><Text style={styles.statName}>{key.toUpperCase()}</Text><Text style={styles.statValue}>{selectedSet?.ivs?.[key] ?? '???'}</Text></View>)}</>}
     {page === 4 && <><Text style={styles.pageTitle}>EFFORT VALUES</Text>{['hp','atk','def','spa','spd','spe'].map((key) => <View key={key} style={styles.statRow}><Text style={styles.statName}>{key.toUpperCase()}</Text><Text style={styles.statValue}>{selectedSet?.evs?.[key] ?? selectedSet?.evs?.[key.toUpperCase()] ?? '???'}</Text></View>)}</>}
     {page === 5 && <><Text style={styles.pageTitle}>FACTORY SETS</Text><Text style={styles.body}>Each remaining set is a separate possibility. Nothing here is averaged.</Text>{sets.map((set) => <SetDetails key={set.id} set={set} pokemon={pokemon} level={level} round={round}/>)}</>}
