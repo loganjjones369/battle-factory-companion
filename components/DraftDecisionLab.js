@@ -9,8 +9,6 @@ import Sprite from './Sprite';
 import { getFactorySets, getFactorySet } from '../data/setIdentity';
 import StatStageControls from './StatStageControls';
 import AbilitySelector, { optionsFor } from './AbilitySelector';
-import TeamCombinationLab from './TeamCombinationLab';
-import OpponentDraftLab from './OpponentDraftLab';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 const key = (p) => `${norm(p?.species)}#${p?.setId ?? ''}`;
