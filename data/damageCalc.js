@@ -1,6 +1,7 @@
 // Generation III damage helpers for the Battle Factory Companion.
 // This module is deliberately dependency-free so the calculator remains offline.
 
+const GENERATED_MOVE_DATA = {};
 export const MOVE_DATA = {
   Megahorn: { type: 'Bug', power: 120, category: 'physical' },
   'Brick Break': { type: 'Fighting', power: 75, category: 'physical' },
@@ -88,22 +89,31 @@ export function getDamageRolls(result) {
   return [...new Set(values)];
 }
 
-export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP, attackerStages = DEFAULT_STAT_STAGES, defenderStages = DEFAULT_STAT_STAGES, attackerAbility, defenderAbility }) {
+export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP, attackerStages = DEFAULT_STAT_STAGES, defenderStages = DEFAULT_STAT_STAGES, attackerAbility, defenderAbility, critical = false, screens = {}, targets = 1 }) {
   const move = MOVE_DATA[moveName];
   if (!move) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, unsupported: true };
   const rawAtkStats = getStats(attacker, attackerSet, level, round); const rawDefStats = getStats(defender, defenderSet, level, round);
   const atkStats = applyStatStages(rawAtkStats, attackerStages); const defStats = applyStatStages(rawDefStats, defenderStages);
   const maxAttackerHP = rawAtkStats.hp; const currentHP = attackerHP == null ? maxAttackerHP : Math.max(1, Math.min(maxAttackerHP, attackerHP));
   const chosenAtkAbility = selectedAbility(attacker, attackerSet, attackerAbility); const chosenDefAbility = selectedAbility(defender, defenderSet, defenderAbility);
-  const attackStatBase = move.category === 'physical' ? atkStats.atk : atkStats.spa; const defenseStat = move.category === 'physical' ? defStats.def : defStats.spd;
+  const crit = Boolean(critical);
+  const critAtkStages = { ...attackerStages }; const critDefStages = { ...defenderStages };
+  if (crit) { for (const s of ['atk','spa']) critAtkStages[s] = Math.max(0, Number(critAtkStages[s] || 0)); for (const s of ['def','spd']) critDefStages[s] = Math.min(0, Number(critDefStages[s] || 0)); }
+  const calcAtkStats = crit ? applyStatStages(rawAtkStats, critAtkStages) : atkStats;
+  const calcDefStats = crit ? applyStatStages(rawDefStats, critDefStages) : defStats;
+  const attackStatBase = move.category === 'physical' ? calcAtkStats.atk : calcAtkStats.spa; const defenseStat = move.category === 'physical' ? calcDefStats.def : calcDefStats.spd;
   const ability = abilityEffect({ moveType: move.type, effectiveness: typeEffectiveness(move.type, defender.types), category: move.category, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStatus });
   if (ability.immune) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: typeEffectiveness(move.type, defender.types), ko: null, immune: true, abilityReason: ability.reason, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
   const attackStat = Math.floor(attackStatBase * (ability.attackMultiplier || 1)); const power = movePower(move, currentHP, maxAttackerHP);
   let base = Math.floor(Math.floor(Math.floor((2 * level) / 5 + 2) * power * attackStat / defenseStat) / 50) + 2;
   if (attackerStatus === 'burned' && move.category === 'physical' && normalizeAbility(chosenAtkAbility) !== 'guts') base = Math.floor(base / 2);
   base = Math.floor(base * getWeatherDamageMultiplier(move.type, weather));
+  const item = normalizeAbility(attackerSet?.item);
+  const typeBoostItems = { magnet:'electric', charcoal:'fire', nevermeltice:'ice', 'miracle seed':'grass', mysticwater:'water', 'soft sand':'ground', 'hard stone':'rock', 'blackglasses':'dark', 'silverpowder':'bug', 'spell tag':'ghost', 'twistedspoon':'psychic', 'dragon fang':'dragon', 'metal coat':'steel', 'poison barb':'poison', 'sharp beak':'flying', 'black belt':'fighting' };
+  if (typeBoostItems[item] === normalizeAbility(move.type)) base = Math.floor(base * 1.1);
+  if (item === 'choice band' && move.category === 'physical') base = Math.floor(base * 1.5);
   const stab = attacker.types.includes(move.type) ? 1.5 : 1; const effectiveness = typeEffectiveness(move.type, defender.types); if (effectiveness === 0) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, ko: null, abilityReason: ability.reason, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
-  const modifiedBase = Math.floor(base * ability.multiplier); const min = Math.floor(Math.floor(modifiedBase * stab * effectiveness) * 217 / 255); const max = Math.floor(Math.floor(modifiedBase * stab * effectiveness) * 255 / 255); const hp = rawDefStats.hp;
+  const modifiedBase = Math.floor(base * ability.multiplier); let critBase = modifiedBase; if (crit) critBase = Math.floor(critBase * 2); if (screens?.reflect && move.category === 'physical' && !crit) critBase = Math.floor(critBase / 2); if (screens?.lightScreen && move.category === 'special' && !crit) critBase = Math.floor(critBase / 2); if (targets > 1) critBase = Math.floor(critBase / 2); const min = Math.floor(Math.floor(critBase * stab * effectiveness) * 217 / 255); const max = Math.floor(Math.floor(critBase * stab * effectiveness) * 255 / 255); const hp = rawDefStats.hp;
   return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, effectiveness, ko: Math.ceil(hp / Math.max(1, min)), hp, immune: false, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
 }
 export function bestDamagingMoves(set) { return (set?.moves || []).filter((move) => MOVE_DATA[move]); }
