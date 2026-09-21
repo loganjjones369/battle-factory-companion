@@ -94,10 +94,6 @@ export default function RunFlowV3(){
    onMarkKO={(side,i)=>{
      toggleKO(side,i);
      if(side==='opponent'){
-       setOpponent(old=>old.map((p,j)=>j===i?null:p));
-       setOppText(old=>old.map((p,j)=>j===i?'':p));
-       setOppSets(old=>old.map((p,j)=>j===i?null:p));
-       setOppObs(old=>old.map((o,j)=>j===i?{...blankObs3()[0]}:o));
        setSelectedResult(null);
        setSearch('');
        setActiveOpponentIndex(i);
