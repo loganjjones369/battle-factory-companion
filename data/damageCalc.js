@@ -267,7 +267,7 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
     const minHits = 2; const maxHits = 5;
     return { min: min * minHits, max: max * maxHits, percentMin: Math.floor((min * minHits * 100) / hp * 10) / 10, percentMax: Math.floor((max * maxHits * 100) / hp * 10) / 10, effectiveness, hp, immune: false, multiHit: true, hitRange: [minHits, maxHits], abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
   }
-  return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, effectiveness, hp, immune: false, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefenderStats };
+  return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, effectiveness, hp, immune: false, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
 }
 export function calculateResidualDamage({ pokemon, set, level = 50, round = 1, hp, status = 'healthy', weather = 'none', bindTurns = 0, curse = false }) {
   const maxHP = getStats(pokemon, set, level, round).hp;
