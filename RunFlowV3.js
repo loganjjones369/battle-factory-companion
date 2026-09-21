@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { getPokemon } from './data/factoryData';
@@ -50,12 +50,14 @@ export default function RunFlowV3(){
  const recordOpponent=(i,v)=>{setOppText(old=>old.map((x,j)=>j===i?v:x));setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>j===i?{species:v,item:'',moves:['','','','']}:o));setOpponent(old=>{const n=[...old];n[i]={species:v};return n});};
  const updateOppClue=(i,field,value)=>{setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>j===i?{...o,[field]:value}:o));setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));};
  const updateOppMove=(i,m,value)=>{if(m<0)return;setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>{if(j!==i)return o;const moves=[...(o.moves||[])];if(!moves.includes(value)&&moves.length<4)moves.push(value);return {...o,moves}}));setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));};
- const chooseOppSet=(i,id)=>{const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null});if(!p)return;setOppSets(old=>old.map((x,j)=>j===i?id:x));setOppObs(old=>old.map((o,j)=>j===i?{species:p.species,item:p.item||'',moves:[...(p.moves||[])].slice(0,4)}:o));setOpponent(old=>{const n=[...old];n[i]=p;return n});};
+ const chooseOppSet=(i,id)=>{const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null});if(!p)return;setOppSets(old=>old.map((x,j)=>j===i?id:x));setOppObs(old=>old.map((o,j)=>j===i?{...o,species:p.species}:o));setOpponent(old=>{const n=[...old];n[i]=p;return n});};
  const observeOpponentMove=(i,move)=>updateOppMove(i,(oppObs[i]?.moves||[]).length,move);
  const clearOpponentClue=(i,field,value)=>{setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>{if(j!==i)return o;if(field==='move')return {...o,moves:(o.moves||[]).filter(m=>m!==value)};return {...o,[field]:''};}));setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));};
  const observeOpponentItem=(i,item)=>updateOppClue(i,'item',item||'');
  const observeOpponentAbility=(i,ability)=>updateOppClue(i,'ability',ability||'');
  const observations=oppObs.filter(o=>o?.species).map(o=>({species:o.species,item:o.item,ability:o.ability||'',moves:(o.moves||[]).filter(Boolean)}));
+ const survivingAbilities=useMemo(()=>{const out={};Object.entries(setProbabilities).forEach(([species,rows])=>{const sets=getFactorySets(species).filter(s=>rows?.[s.id]==null||Number(rows[s.id])>0);const abilities=[...new Set(sets.flatMap(s=>String(s.ability||'').split('/').map(a=>a.trim()).filter(Boolean)))];if(abilities.length===1)out[species]=abilities[0];});return out;},[setProbabilities]);
+ useEffect(()=>{Object.entries(survivingAbilities).forEach(([species,ability])=>{const i=oppText.findIndex(x=>norm(x)===norm(species));if(i>=0&&!oppObs[i]?.ability){setOppObs(old=>old.map((o,j)=>j===i?{...o,ability}:o));}});},[survivingAbilities,oppText,oppObs]);
  const finish=()=>{if(opponent.length!==3||opponent.some(p=>!p?.setId))return;let next=team;if(swapOut&&swapIn){const idx=swapOut.teamSlot;next=team.map((p,i)=>i===idx?makeSwapReplacement(swapIn,idx):{...p,teamSlot:i});}const r=completeBattle(state,{won:true,nextCurrentTeam:next,defeatedOpponent:opponent,observations});if(r.state.progressionError)return;setTeam(next);setState(r.state);setSwapOut(null);setSwapIn(null);setOpponent([]);setOppText(blank3());setOppSets([null,null,null]);setOppObs(blankObs3());setScenario({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});setPhase('battle');setCelebrate(r.celebration);scale.setValue(.7);Animated.spring(scale,{toValue:1,useNativeDriver:true}).start(()=>setTimeout(()=>setCelebrate(null),r.celebration?.durationMs||900));};
  const elevation=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw}).elevationCount;
  const activeTeam=team.filter((_,i)=>!knockedOut.team.includes(i));
