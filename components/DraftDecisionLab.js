@@ -78,6 +78,7 @@ export default function DraftDecisionLab({ draft = [], selectedDraftIndices = []
     }).sort((a,b) => Number(a.set.id) - Number(b.set.id));
   }, [opponentText, candidateResult, activeRentalMeta, levelNumber, round, scenario]);
   const draftSpread = useMemo(() => buildDraftSetSpread({ draft: usable, levelMode, battle, swaps, weather }), [usable, levelMode, battle, swaps, weather]);
+  useEffect(() => { setAnalysis(null); }, [activeRental?.species, activeRental?.setId]);
   const toggle = (p) => { const k = key(p); setAnalysis(null); setSelectedKeys((old) => old.includes(k) ? old.filter((x) => x !== k) : old.length < 3 ? [...old, k] : old); };
   const cycleStatus = (p) => { const k = key(p); setAnalysis(null); setStatuses((old) => { const next = nextStatus(old[k]); const copy = { ...old }; if (next === 'healthy') delete copy[k]; else copy[k] = next; return copy; }); };
   const changeStages = (p, next) => { const k = key(p); setAnalysis(null); setStages((old) => ({ ...old, [k]: { ...emptyStages(), ...(old[k] || {}), ...next } })); };
