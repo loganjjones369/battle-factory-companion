@@ -99,8 +99,8 @@ if (!damageCalc.includes('hitDistribution')) {
 if (!damageCalc.includes('defenderSubstitute') || !damageCalc.includes('substituteBreaks') || !scenario.includes('defenderSubstitute')) {
   throw new Error('Gen III Substitute state is not wired into scenario damage');
 }
-if (!damageCalc.includes('getGen3MoveTurnProfile') || !damageCalc.includes('requiresRechargeTurn') || !sequence.includes('getMoveTurnProfile')) {
-  throw new Error('Gen III multi-turn move profiles are missing');
+if (!damageCalc.includes('getGen3MoveTurnProfile') || !damageCalc.includes('requiresRechargeTurn') || !sequence.includes('getMoveTurnProfile') || !sequence.includes('buildTurnPlan')) {
+  throw new Error('Gen III multi-turn move planning is missing');
 }
 const responseAnalysis = read('data/responseAnalysis.js');
 if (!responseAnalysis.includes('defenderSubstitute') || !responseAnalysis.includes('applyStagesForResponse') || !responseAnalysis.includes('opponentStages')) {
