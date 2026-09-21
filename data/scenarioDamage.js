@@ -73,8 +73,5 @@ export function scenarioMatchup(attacker, defender, level, round, state = {}) {
     attackerSpeed,
     defenderSpeed,
     speed: attackerSpeed > defenderSpeed ? 'faster' : attackerSpeed < defenderSpeed ? 'slower' : 'tie',
-    guaranteedOHKO: !!hitBack && hitBack.percentMin >= 100,
-    guaranteedTwoHKO: !!hitBack && hitBack.percentMin * 2 >= 100,
-    threatened: !!incoming && incoming.percentMax >= 100,
   };
 }
