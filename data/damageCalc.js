@@ -269,4 +269,18 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
   }
   return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, effectiveness, hp, immune: false, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefenderStats };
 }
+export function calculateResidualDamage({ pokemon, set, level = 50, round = 1, hp, status = 'healthy', weather = 'none', bindTurns = 0, curse = false }) {
+  const maxHP = getStats(pokemon, set, level, round).hp;
+  const currentHP = Math.max(0, Math.min(maxHP, Number(hp == null ? maxHP : hp)));
+  const normalized = normalizeStatus(status);
+  let damage = 0;
+  if (normalized === 'burned' || normalized === 'poisoned' || normalized === 'toxic') damage += Math.max(1, Math.floor(maxHP / (normalized === 'burned' ? 8 : 8)));
+  if (normalized === 'toxic') damage += Math.max(0, Math.floor(maxHP / 16));
+  if (weather === 'sand' && !pokemon.types.includes('Rock') && !pokemon.types.includes('Ground') && !pokemon.types.includes('Steel')) damage += Math.max(1, Math.floor(maxHP / 16));
+  if (weather === 'hail' && !pokemon.types.includes('Ice')) damage += Math.max(1, Math.floor(maxHP / 16));
+  if (curse) damage += Math.max(1, Math.floor(maxHP / 4));
+  if (bindTurns > 0) damage += Math.max(1, Math.floor(maxHP / 16));
+  return { damage: Math.min(currentHP, damage), percent: Math.floor(Math.min(currentHP, damage) * 100 / maxHP * 10) / 10, remainingHP: Math.max(0, currentHP - damage), maxHP };
+}
+
 export function bestDamagingMoves(set) { return (set?.moves || []).filter((move) => MOVE_DATA[move]); }
