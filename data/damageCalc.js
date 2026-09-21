@@ -177,6 +177,10 @@ export function applyStatStage(stat, stage = 0) { return Math.floor(Number(stat 
 export function applyStatStages(stats, stages = {}) { return { ...stats, atk: applyStatStage(stats.atk, stages.atk), def: applyStatStage(stats.def, stages.def), spa: applyStatStage(stats.spa, stages.spa), spd: applyStatStage(stats.spd, stages.spd), spe: applyStatStage(stats.spe, stages.spe) }; }
 export const DEFAULT_STAT_STAGES = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
 export function normalizeStatus(status = 'healthy') { const s = String(status || 'healthy').trim().toLowerCase(); const aliases = { healthy: 'healthy', none: 'healthy', par: 'paralyzed', paralysis: 'paralyzed', paralyzed: 'paralyzed', brn: 'burned', burn: 'burned', burned: 'burned', psn: 'poisoned', poison: 'poisoned', poisoned: 'poisoned', tox: 'toxic', toxic: 'toxic', slp: 'asleep', sleep: 'asleep', asleep: 'asleep', frz: 'frozen', freeze: 'frozen', frozen: 'frozen' }; return aliases[s] || s; }
+export function getGen3Priority(moveName = '') {
+  const priorities = { 'Fake Out': 3, 'Protect': 3, 'Detect': 3, 'Endure': 3, 'Follow Me': 3, 'Helping Hand': 5, 'Quick Attack': 1, 'Mach Punch': 1, 'ExtremeSpeed': 1 };
+  return priorities[String(moveName || '')] ?? 0;
+}
 export function getEffectiveSpeed(stats, status = 'healthy') { const raw = Number(stats?.spe) || 0; return normalizeStatus(status) === 'paralyzed' ? Math.floor(raw / 4) : raw; }
 export function typeEffectiveness(moveType, defenderTypes) { return defenderTypes.reduce((multiplier, type) => multiplier * (TYPE_CHART[moveType]?.[type] ?? 1), 1); }
 export function getWeatherDamageMultiplier(moveType, weather = 'none', moveName = '') { if (moveName === 'SolarBeam' && ['rain', 'sand', 'hail'].includes(weather)) return 0.5; if (weather === 'sun') { if (moveType === 'Fire') return 1.5; if (moveType === 'Water') return 0.5; } if (weather === 'rain') { if (moveType === 'Water') return 1.5; if (moveType === 'Fire') return 0.5; } return 1; }
