@@ -1,5 +1,5 @@
 import { analyzeFactoryCandidates } from './candidateEngine';
-import { rankResponses, buildTwoTurnBattlePlan, analyzeOpponentMovePool } from './responseAnalysis';
+import { rankResponses, buildTwoTurnBattlePlan, analyzeOpponentMovePool, analyzeDecisionBranches } from './responseAnalysis';
 import { buildBattleSequence } from './battleSequence';
 import { getStats as requireStats } from './damageCalc';
 import { getPokemon } from './factoryData';
@@ -147,6 +147,24 @@ export function analyzeBattleDecision({
           },
         )
       : null;
+    const branchAnalysis = analyzeDecisionBranches(
+      { ...candidate, setId: candidate.id },
+      activeTeam,
+      [candidate],
+      levelMode === 'Open Level' ? 100 : 50,
+      Math.max(1, Math.ceil(Number(battle) / 7)),
+      {
+        weather: battleConditions.weather || 'none',
+        allyStatus: teamSide.status || 'healthy',
+        opponentStatus: oppSide.status || 'healthy',
+        allyStages: teamSide.statStages || {},
+        opponentStages: oppSide.statStages || {},
+        allyHPPercent,
+        opponentHPPercent: oppHPPercent,
+        allyScreens: { reflect: Boolean(teamSide.reflect), lightScreen: Boolean(teamSide.lightScreen) },
+        opponentScreens: { reflect: Boolean(oppSide.reflect), lightScreen: Boolean(oppSide.lightScreen) },
+      },
+    );
     const bestTwoTurn = best
       ? buildTwoTurnBattlePlan(
           { ...candidate, setId: candidate.id },
@@ -170,6 +188,7 @@ export function analyzeBattleDecision({
       responseScore: scoreResponse(best),
       twoTurnPlan: bestTwoTurn,
       movePool,
+      branchAnalysis,
     });
   });
 
@@ -196,6 +215,7 @@ export function analyzeBattleDecision({
     const uncertaintyScore = (fasterShare * 15) + (safeShare * 20) + Math.min(60, worstCaseOutgoing) - Math.min(60, worstCaseIncoming) - (exposureShare * 20);
     return {
       species, setCount: rows.length, sets: rows.map((row) => row.opponentSet), bestResponse: best.bestResponse, twoTurnPlan: best.twoTurnPlan || null,
+      branchAnalysis: rows.find((row) => row.branchAnalysis)?.branchAnalysis || null,
       responseRange: { incomingMin: incoming.length ? Math.min(...incoming) : null, incomingMax: incoming.length ? Math.max(...incoming) : null, outgoingMin: outgoing.length ? Math.min(...outgoing) : null, outgoingMax: outgoing.length ? Math.max(...outgoing) : null },
       worstCase: { incomingPercent: worstCaseIncoming, outgoingPercent: worstCaseOutgoing, fasterShare, safeShare, exposureShare },
       safeSwitchCount: safeCount, safeSwitchTotal: responses.length, uncertaintyScore,
