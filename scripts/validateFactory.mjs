@@ -54,6 +54,9 @@ if (!battleRoom.includes('STAGE_STATS') || !battleRoom.includes('reflect') || !b
 if (!damage.includes('fixedDamage') || !damage.includes('multiHit') || !damage.includes('Super Fang') || !damage.includes('Endeavor')) {
   throw new Error('Gen III fixed-damage or multi-hit move handling is incomplete');
 }
+if (!damage.includes("toxicCounter") || !damage.includes("bindFraction") || !damage.includes("moveName === 'Explosion'")) {
+  throw new Error('Gen III residual/Explosion mechanics coverage is incomplete');
+}
 if (!damage.includes('calculateResidualDamage') || !damage.includes('weather === ' + "'sand'") || !damage.includes('weather === ' + "'hail'")) {
   throw new Error('Gen III residual damage analysis is incomplete');
 }
