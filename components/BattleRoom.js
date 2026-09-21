@@ -185,7 +185,7 @@ export default function BattleRoom({
       <View style={styles.center}>
         <Text style={styles.arenaLabel}>FACTORY BATTLE PLATFORM</Text>
         <View style={styles.centerFloor}><View style={styles.floorLine} /><View style={styles.floorLine} /></View>
-        {(!activeFoe || (activeFoe && setId == null && selectedResult)) && <View style={styles.entryPanel}>
+        {(!activeFoe || knockedOut.opponent.includes(activeOpponentIndex) || (activeFoe && setId == null && selectedResult)) && <View style={styles.entryPanel}>
           <Text style={styles.entryTitle}>WHAT POKÉMON CAME OUT?</Text>
           <TextInput value={search} onChangeText={(v) => { setSearch(v); setSelectedResult(null); }} placeholder="Type a Pokémon name" placeholderTextColor="#58736b" style={styles.searchInput} autoFocus />
           {results.length > 0 && <View style={styles.results}>{results.map(name => <TouchableOpacity key={name} onPress={() => chooseSpecies(name)} style={styles.result}><Sprite pokemon={getPokemon(name)} size={34}/><Text style={styles.resultText}>{name}</Text></TouchableOpacity>)}</View>}
