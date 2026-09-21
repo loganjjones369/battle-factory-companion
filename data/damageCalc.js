@@ -230,7 +230,7 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
     let min = 0; let max = 0;
     if (move.fixedDamage === 'level') { min = max = level; }
     else if (move.fixedDamage === 20 || move.fixedDamage === 40) { min = max = move.fixedDamage; }
-    else if (move.fixedDamage === 'half-current-hp') { min = max = Math.floor(defenderCurrentHP / 2); }
+    else if (move.fixedDamage === 'half-current-hp') { min = max = Math.max(1, Math.floor(defenderCurrentHP / 2)); }
     else if (move.fixedDamage === 'hp-difference') {
       const attackerCurrentHP = attackerHP == null ? rawAtkStats.hp : Math.max(0, Math.min(rawAtkStats.hp, Number(attackerHP) || 0));
       min = max = Math.max(0, attackerCurrentHP - defenderCurrentHP);
@@ -247,7 +247,7 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
   if (crit) { for (const s of ['atk','spa']) critAtkStages[s] = Math.max(0, Number(critAtkStages[s] || 0)); for (const s of ['def','spd']) critDefStages[s] = Math.min(0, Number(critDefStages[s] || 0)); }
   const calcAtkStats = crit ? applyStatStages(rawAtkStats, critAtkStages) : atkStats;
   const calcDefStats = crit ? applyStatStages(rawDefStats, critDefStages) : defStats;
-  const attackStatBase = move.category === 'physical' ? calcAtkStats.atk : calcAtkStats.spa; const defenseStat = move.category === 'physical' ? calcDefStats.def : calcDefStats.spd;
+  const attackStatBase = move.category === 'physical' ? calcAtkStats.atk : calcAtkStats.spa; let defenseStat = move.category === 'physical' ? calcDefStats.def : calcDefStats.spd; if (moveName === 'Explosion' && move.category === 'physical') defenseStat = Math.max(1, Math.floor(defenseStat / 2));
   const ability = abilityEffect({ moveType: move.type, effectiveness: typeEffectiveness(move.type, defender.types), category: move.category, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStatus: normalizedAttackerStatus });
   const typeMultiplier = typeEffectiveness(move.type, defender.types);
   if (typeMultiplier === 0) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, ko: null, abilityReason: ability.reason, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
@@ -255,7 +255,7 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
   const lowHPBoost = currentHP * 3 <= maxAttackerHP && ((move.type === 'Fire' && normalizeAbility(chosenAtkAbility) === 'blaze') || (move.type === 'Water' && normalizeAbility(chosenAtkAbility) === 'torrent') || (move.type === 'Grass' && normalizeAbility(chosenAtkAbility) === 'overgrow') || (move.type === 'Bug' && normalizeAbility(chosenAtkAbility) === 'swarm')) ? 1.5 : 1;
   const attackStat = Math.floor(attackStatBase * (ability.attackMultiplier || 1)); const power = movePower(move, currentHP, maxAttackerHP);
   let base = Math.floor(Math.floor(Math.floor((2 * level) / 5 + 2) * power * attackStat / defenseStat) / 50) + 2;
-  if (attackerStatus === 'burned' && move.category === 'physical' && normalizeAbility(chosenAtkAbility) !== 'guts') base = Math.floor(base / 2);
+  if (normalizedAttackerStatus === 'burned' && move.category === 'physical' && normalizeAbility(chosenAtkAbility) !== 'guts') base = Math.floor(base / 2);
   base = Math.floor(base * getWeatherDamageMultiplier(move.type, weather));
   const item = normalizeAbility(attackerSet?.item);
   const typeBoostItems = { magnet:'electric', charcoal:'fire', nevermeltice:'ice', 'miracle seed':'grass', mysticwater:'water', 'soft sand':'ground', 'hard stone':'rock', 'blackglasses':'dark', 'silverpowder':'bug', 'spell tag':'ghost', 'twistedspoon':'psychic', 'dragon fang':'dragon', 'metal coat':'steel', 'poison barb':'poison', 'sharp beak':'flying', 'black belt':'fighting' };
@@ -269,17 +269,17 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
   }
   return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, effectiveness, hp, immune: false, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
 }
-export function calculateResidualDamage({ pokemon, set, level = 50, round = 1, hp, status = 'healthy', weather = 'none', bindTurns = 0, curse = false }) {
+export function calculateResidualDamage({ pokemon, set, level = 50, round = 1, hp, status = 'healthy', weather = 'none', toxicCounter = 1, bindTurns = 0, bindFraction = 1 / 16, curse = false }) {
   const maxHP = getStats(pokemon, set, level, round).hp;
   const currentHP = Math.max(0, Math.min(maxHP, Number(hp == null ? maxHP : hp)));
   const normalized = normalizeStatus(status);
   let damage = 0;
   if (normalized === 'burned' || normalized === 'poisoned') damage += Math.max(1, Math.floor(maxHP / 8));
-  if (normalized === 'toxic') damage += Math.max(1, Math.floor(maxHP / 16));
+  if (normalized === 'toxic') damage += Math.max(1, Math.floor(maxHP * Math.max(1, Number(toxicCounter) || 1) / 16));
   if (weather === 'sand' && !pokemon.types.includes('Rock') && !pokemon.types.includes('Ground') && !pokemon.types.includes('Steel')) damage += Math.max(1, Math.floor(maxHP / 16));
   if (weather === 'hail' && !pokemon.types.includes('Ice')) damage += Math.max(1, Math.floor(maxHP / 16));
   if (curse) damage += Math.max(1, Math.floor(maxHP / 4));
-  if (bindTurns > 0) damage += Math.max(1, Math.floor(maxHP / 16));
+  if (bindTurns > 0) damage += Math.max(1, Math.floor(maxHP * Math.max(0, Number(bindFraction) || 0)));
   return { damage: Math.min(currentHP, damage), percent: Math.floor(Math.min(currentHP, damage) * 100 / maxHP * 10) / 10, remainingHP: Math.max(0, currentHP - damage), maxHP };
 }
 
