@@ -34,12 +34,12 @@ function speedOf(pokemon, levelNumber, round, scenario = {}) {
   return Math.floor(getEffectiveSpeed(stats, status));
 }
 
-export function buildDraftSetSpread({ draft = [], levelMode = 'Open Level', battle = 1, swaps = null, weather = 'none', statuses = {}, stages = {}, abilities = {} } = {}) {
+export function buildDraftSetSpread({ draft = [], levelMode = 'Open Level', battle = 1, swaps = null, weather = 'none', statuses = {}, stages = {}, abilities = {}, blockedSpecies = [] } = {}) {
   const levelNumber = levelMode === 'Open Level' ? 100 : 50;
   const round = Math.max(1, Math.ceil((Number(battle) || 1) / 7));
   const inferredElevation = draft.filter((p) => p?.isElevated).length;
   const effectiveSwaps = swaps == null ? swapCountForElevation(inferredElevation) : Math.max(0, Number(swaps) || 0);
-  const pool = getDraftSetPools({ levelMode, battle, swaps: effectiveSwaps });
+  const pool = getDraftSetPools({ levelMode, battle, swaps: effectiveSwaps, blockedSpecies });
   if (!pool.supported) return { supported: false, reason: pool.reason, rows: [] };
 
   const scenario = { weather, statuses, stages, abilities };
