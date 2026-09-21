@@ -82,7 +82,7 @@ function QuickReference({ source, target, side, setId, setProbabilities = {}, on
       <Text style={styles.quickMoveName}>{move}</Text><Text style={styles.quickDamage}>{result.immune?'0%':`${result.percentMin}–${result.percentMax}%`}</Text><Text style={styles.quickPP}>PP {pp[move] ?? 4}</Text><Text style={styles.quickBP}>BP {effectiveBP}</Text>
     </TouchableOpacity>) : <Text style={styles.quickHint}>No confirmed target set yet.</Text>}</View>
     {ppMenu && <View style={styles.ppMenu}><Text style={styles.ppTitle}>{ppMenu}</Text><TouchableOpacity onPress={()=>{setRolls(ppMenu);setPpMenu(null)}}><Text style={styles.ppOption}>SEE ROLLS</Text></TouchableOpacity><TouchableOpacity onPress={()=>{setEditingPP(ppMenu);setPpMenu(null)}}><Text style={styles.ppOption}>EDIT PP</Text></TouchableOpacity></View>}
-    {rolls && <View style={styles.rollPanel}><Text style={styles.rollTitle}>{rolls} · DAMAGE ROLLS</Text>{(()=>{const rr=rows.find(r=>r.move===rolls)?.result;const vals=getDamageRolls(rr);return <><Text style={styles.rollRange}>{rr?.percentMin ?? 0}–{rr?.percentMax ?? 0}% · {vals.length} POSSIBLE VALUES</Text><Text style={styles.rollHint}>{vals.map(v=>Math.floor(v*100/(rr?.max||1)*10)/10).join(' · ')}%</Text></>})()}<TouchableOpacity onPress={()=>setRolls(null)}><Text style={styles.rollClose}>× CLOSE</Text></TouchableOpacity></View>}
+    {rolls && <View style={styles.rollPanel}><Text style={styles.rollTitle}>{rolls} · DAMAGE ROLLS</Text>{(()=>{const rr=rows.find(r=>r.move===rolls)?.result;const vals=getDamageRolls(rr);const hp=targetSet?getStats(target,targetSet,level,1).hp:1;const pct=vals.map(v=>(v*100/hp).toFixed(1));return <><Text style={styles.rollRange}>{rr?.percentMin ?? 0}–{rr?.percentMax ?? 0}% · {vals.length} POSSIBLE VALUES</Text><Text style={styles.rollHint}>{pct.join(' · ')}%</Text></>})()}<TouchableOpacity onPress={()=>setRolls(null)}><Text style={styles.rollClose}>× CLOSE</Text></TouchableOpacity></View>}
   </View>;
 }
 export default function BattleRoom({
@@ -134,6 +134,7 @@ export default function BattleRoom({
   }, [search]);
 
   const status = scenario?.status?.[`team:${activeTeamIndex}`] || 'healthy';
+  const foeStatus = scenario?.status?.[`opponent:${activeOpponentIndex}`] || 'healthy';
   const activeHP = scenario?.hp?.[`team:${activeTeamIndex}`];
   const setId = opponentSets[activeOpponentIndex];
   const activeOppSpecies = activeFoe?.species;
