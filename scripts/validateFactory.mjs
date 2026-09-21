@@ -109,6 +109,12 @@ if (!battleDecisionEngine.includes('informationValue') || !battleDecisionEngine.
 if (!response.includes('analyzeInformationValue') || !response.includes('analyzeOpponentSetPool') || !response.includes('rankResponsesAcrossOpponentSets') || !response.includes('safeShare') || !response.includes('exposureShare') || !response.includes('buildTwoTurnBattlePlan') || !response.includes('analyzeOpponentMovePool') || !response.includes('analyzeDecisionBranches')) {
   throw new Error('Opponent-set uncertainty planner helpers are missing');
 }
+if (!evidenceInference.includes('inferObservationBranches') || !evidenceInference.includes('inferDamageCandidates') || !evidenceInference.includes('inferSpeedCandidates') || !evidenceInference.includes('getFactorySet')) {
+  throw new Error('Observation branch replay is missing exact-set damage/speed inference');
+}
+if (!response.includes('residualEdge') || !response.includes('switchInPercent')) {
+  throw new Error('Decision branches are missing residual and switch-in exposure scoring');
+}
 const responseAnalysis = read('data/responseAnalysis.js');
 if (!responseAnalysis.includes('defenderSubstitute') || !responseAnalysis.includes('applyStagesForResponse') || !responseAnalysis.includes('opponentStages')) {
   throw new Error('Response analysis is not consuming live battle stages/Substitute state');
