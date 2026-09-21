@@ -4,7 +4,7 @@ An offline Pokémon Emerald Battle Factory companion for phone use.
 
 ## Current version
 
-**v0.4.0 — verified Factory pool logic + run progression groundwork**
+**v0.5.0 — Factory Brain candidate engine + persistent run workflow**
 
 The app now includes:
 
@@ -28,15 +28,18 @@ The app now includes:
 - Burned-attacker handling
 - Full damage-roll display and minimum-damage KO estimate
 - Comparison against every loaded defender set
-- Scientist notes and style/type groundwork
+- Scientist notes and style/type deduction groundwork
+- Noland-aware opponent candidate handling with Silver/Gold IV rules
+- Factory blocked-species enforcement in draft analysis
+- Device persistence for active runs and battle history
 
 ## Factory rules currently verified in the engine
 
 The opening draft's elevation is based on the persistent rental/swap count: 0–14 = no upgraded slots, 15–21 = 1, 22–28 = 2, 29–35 = 3, 36–42 = 4, and 43+ = 5. The initial rental counts toward that persistent count.
 
-The canonical Group 3 dataset used by this app covers the higher Factory sets. Level 50 battles 1–3 use separate low/mid-tier pools that are not yet bundled into the 436-set dataset; the candidate engine therefore reports those battles as unsupported rather than silently using the wrong sets. Level 50 Group 3 begins at Factory round 4. Open Level uses Group 3 from round 1.
+The canonical Group 3 dataset and the verified early Level 50 pools are bundled into the generated local dataset. Level 50 battles 1–3 use the dedicated `l50-1`, `l50-2`, and `l50-3` pools; Level 50 Group 3 begins at the next Factory tier. Open Level uses Group 3 from round 1. The importer currently records 667 total sets, including 157 early Level 50 sets.
 
-For ordinary trainers, the last battle of each seven-battle round uses the following round's opponent pool. Noland is handled separately and will not inherit the ordinary trainer pool rules.
+For ordinary trainers, the last battle of each seven-battle round uses the following round's opponent pool. Noland is handled separately: his candidate engine uses the appropriate Factory Head variant rules, does not apply the ordinary player-species block, and records Silver/Gold IVs as 15/31.
 
 ## Complete Factory dataset
 
@@ -52,13 +55,13 @@ Factory round/elevation mechanics have also been cross-checked against establish
 
 ## Roadmap
 
-1. Finish bundling the Level 50 low/mid-tier pools.
-2. Wire verified pool/elevation logic into the visible draft screen.
-3. Add Pokémon names, local sprites and search/autocomplete.
-4. Finish the Gen III damage engine: critical hits, stat stages, abilities, items, berries, multi-turn effects and remaining status/weather interactions.
-5. Add switch-in analysis and automated 2HKO/3HKO/OHKO summaries across all possible sets.
-6. Finish the Factory Buddy-style scientist/remaining-pool deduction system offline.
-7. Add battle-state tracking and full battle theory-crafting tools.
+1. Complete the remaining Emerald move/mechanics data so every Factory set can be evaluated by the damage engine.
+2. Replace the remaining remote sprite dependency with bundled offline sprite assets.
+3. Expand opponent observation tracking: speed tests, damage ranges, ability/item confirmation, and multi-turn evidence.
+4. Expand switch-in and revenge-kill analysis to account for residual damage, status, hazards, screens, priority, and guaranteed-vs-possible KO outcomes.
+5. Finish the offline Factory Buddy-style deduction layer, including richer scientist clues and remaining-pool/team enumeration.
+6. Add a dedicated Noland battle view with his special variant restrictions surfaced directly in the UI.
+7. Add a run-summary/history screen so previous battles and eliminated sets can be reviewed without leaving the active run.
 8. Package the app for reliable offline phone use.
 
 ## Running locally
