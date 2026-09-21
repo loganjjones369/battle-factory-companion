@@ -45,7 +45,7 @@ if (!scenario.includes('hpPercent') || !scenario.includes('screens') || !scenari
   throw new Error('Scenario analysis is not consuming current HP, screens, and hazards');
 }
 const damageCalc = read('data/damageCalc.js');
-if (!damageCalc.includes('moveName === 'Explosion'')) {
+if (!damageCalc.includes("moveName === 'Explosion'")) {
   throw new Error('Gen III Explosion defense handling is missing');
 }
 if (!damageCalc.includes('toxicCounter')) {
@@ -54,10 +54,10 @@ if (!damageCalc.includes('toxicCounter')) {
 if (!damageCalc.includes('bindFraction')) {
   throw new Error('Binding damage fraction support is missing');
 }
-if (!damageCalc.includes('fixedDamage === 'half-current-hp'')) {
+if (!damageCalc.includes("fixedDamage === 'half-current-hp'")) {
   throw new Error('Super Fang current-HP damage handling is missing');
 }
-if (!damageCalc.includes('fixedDamage === 'psywave'')) {
+if (!damageCalc.includes("fixedDamage === 'psywave'")) {
   throw new Error('Psywave handling is missing');
 }
 
