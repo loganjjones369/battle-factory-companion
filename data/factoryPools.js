@@ -4,8 +4,8 @@ import { getSwapElevation, getFactoryIVForRound } from './factoryRules';
 const norm = (v) => String(v || '').trim().toLowerCase();
 const poolKey = (set) => String(set?.pool || (set?.round != null ? `g3-${set.round}` : ''));
 
-export function getPlayerDraftBaseBucket(levelMode = 'Open Level', battle = 1) { const b = Math.max(1, Number(battle) || 1); if (levelMode === 'Open Level') return b <= 4 ? `g3-${b}` : 'g3-6'; if (b <= 7) return `l50-${Math.min(3, b === 1 ? 1 : b === 2 ? 2 : 3)}`; return 'g3-5'; }
-export function getPlayerDraftUpgradeBucket(levelMode = 'Open Level', battle = 1) { const b = Math.max(1, Number(battle) || 1); if (levelMode === 'Open Level') return b < 4 ? `g3-${b + 1}` : 'g3-6'; if (b <= 6) return b === 1 ? 'l50-2' : b === 2 ? 'l50-3' : 'g3-1'; if (b === 7) return 'g3-2'; return 'g3-5'; }
+export function getPlayerDraftBaseBucket(levelMode = 'Open Level', battle = 1) { const b = Math.max(1, Number(battle) || 1); const round = Math.max(1, Math.ceil(b / 7)); if (levelMode === 'Open Level') return round <= 4 ? `g3-${round}` : 'g3-6'; if (round === 1) return 'l50-1'; if (round === 2) return 'l50-2'; if (round === 3) return 'l50-3'; return `g3-${Math.min(5, round - 3)}`; }
+export function getPlayerDraftUpgradeBucket(levelMode = 'Open Level', battle = 1) { const b = Math.max(1, Number(battle) || 1); const round = Math.max(1, Math.ceil(b / 7)); if (levelMode === 'Open Level') return round < 4 ? `g3-${round + 1}` : 'g3-6'; if (round === 1) return 'l50-2'; if (round === 2) return 'l50-3'; if (round === 3) return 'g3-1'; if (round === 4) return 'g3-2'; return 'g3-6'; }
 export function getDraftElevation(swaps = 0) { return Math.min(5, getSwapElevation(swaps)); }
 function allSets() { return Object.values(POKEMON).flatMap((pokemon) => pokemon.sets); }
 function uniqueSpecies(sets) { return [...new Set(sets.map((set) => norm(set.species)))].length; }
