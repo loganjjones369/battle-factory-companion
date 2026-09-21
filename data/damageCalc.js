@@ -284,7 +284,13 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
   const modifiedBase = Math.floor(base * ability.multiplier * lowHPBoost); let critBase = modifiedBase; if (crit) critBase = Math.floor(critBase * 2); if (screens?.reflect && move.category === 'physical' && !crit && moveName !== 'Brick Break') critBase = Math.floor(critBase / 2); if (screens?.lightScreen && move.category === 'special' && !crit && moveName !== 'Brick Break') critBase = Math.floor(critBase / 2); if (targets > 1) critBase = Math.floor(critBase / 2); const min = Math.floor(Math.floor(critBase * stab * effectiveness) * 217 / 255); const max = Math.floor(Math.floor(critBase * stab * effectiveness) * 255 / 255); const hp = rawDefStats.hp;
   if (move.multiHit) {
     const minHits = 2; const maxHits = 5;
-    return { min: min * minHits, max: max * maxHits, percentMin: Math.floor((min * minHits * 100) / hp * 10) / 10, percentMax: Math.floor((max * maxHits * 100) / hp * 10) / 10, effectiveness, hp, immune: false, multiHit: true, hitRange: [minHits, maxHits], abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
+    const hitDistribution = GEN3_MULTI_HIT_COUNTS.map(({ hits, probability }) => ({
+      hits,
+      probability,
+      percentMin: Math.floor((min * hits * 100) / hp * 10) / 10,
+      percentMax: Math.floor((max * hits * 100) / hp * 10) / 10,
+    }));
+    return { min: min * minHits, max: max * maxHits, percentMin: Math.floor((min * minHits * 100) / hp * 10) / 10, percentMax: Math.floor((max * maxHits * 100) / hp * 10) / 10, effectiveness, hp, immune: false, multiHit: true, hitRange: [minHits, maxHits], hitDistribution, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAttackerStats, rawDefenderStats: rawDefenderStats };
   }
   return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, effectiveness, hp, immune: false, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
 }
