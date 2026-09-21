@@ -125,6 +125,12 @@ const candidateEngine = read('data/candidateEngine.js');
 if (!candidateEngine.includes('observationImpact') || !candidateEngine.includes('observedDamagePercent') || !candidateEngine.includes('observedDamageMove') || !candidateEngine.includes('observedDamageMatches') || !candidateEngine.includes('observedSpeed')) {
   throw new Error('Factory candidate engine is missing observed damage evidence filtering');
 }
+if (!candidateEngine.includes('evidenceHistory') || !candidateEngine.includes('setMatchesEvidenceHistory') || !candidateEngine.includes('evidenceTimeline') || !candidateEngine.includes('evidenceSummary')) {
+  throw new Error('Sequential battle evidence replay is not wired into candidate filtering and memory');
+}
+if (!battleDecisionEngine.includes('allySpikes') || !battleDecisionEngine.includes('Math.floor(st.hp * allyHPPercent / 100)')) {
+  throw new Error('Battle decision engine is not propagating live hazard and HP state');
+}
 
 for (const required of [
   'data/candidateEngine.js',
