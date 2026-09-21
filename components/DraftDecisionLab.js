@@ -55,6 +55,7 @@ export default function DraftDecisionLab({ draft = [], selectedDraftIndices = []
   const opponentMatches = useMemo(() => { const q = norm(opponentText); if (!q) return []; return getFactorySpecies().filter((name) => norm(name).startsWith(q)).slice(0, 8); }, [opponentText]);
   const opponent = useMemo(() => { if (!opponentText || opponentSetId == null) return null; const base = getFactorySet(opponentText, opponentSetId); const entry = getPokemon(opponentText); return base && entry ? {...entry,...base,species:entry.name,setId:base.id,factorySetId:base.id} : null; }, [opponentText, opponentSetId]);
   const activeRental = selected.find((p) => Number(p?.draftSlot) === Number(activeDraftIndex)) || selected[0] || null;
+ const activeRentalMeta = useMemo(() => activeRental ? ({ ...activeRental, factoryIV: activeRental.factoryIV, factoryIVSource: activeRental.factoryIVSource, isElevated: Boolean(activeRental.isElevated), poolBucket: activeRental.poolBucket }) : null, [activeRental]);
   const scenario = useMemo(() => ({ statuses, stages, abilities, weather }), [statuses, stages, abilities, weather]);
   const opponentSetRows = useMemo(() => {
     if (!opponentText) return [];
@@ -69,7 +70,7 @@ export default function DraftDecisionLab({ draft = [], selectedDraftIndices = []
       const entry = rankedMap.get(Number(set.id));
       const share = entry && totalFrequency > 0 ? ((Number(entry.frequency) || 0) / totalFrequency) * 100 : null;
       const foe = {...(getPokemon(species) || {}), ...set, species, setId:set.id, factorySetId:set.id};
-      const matchup = activeRental ? scenarioMatchup(activeRental, foe, levelNumber, round, scenario) : null;
+      const matchup = activeRentalMeta ? scenarioMatchup(activeRentalMeta, foe, levelNumber, round, scenario) : null;
       return { set, foe, matchup, share };
     }).sort((a,b) => Number(a.set.id) - Number(b.set.id));
   }, [opponentText, candidateResult, activeRental, levelNumber, round, scenario]);
