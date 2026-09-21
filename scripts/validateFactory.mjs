@@ -106,8 +106,12 @@ if (!responseAnalysis.includes('defenderSubstitute') || !responseAnalysis.includ
 if (!responseAnalysis.includes('scenarioSwitchInDamage') || !responseAnalysis.includes('switchIn')) {
   throw new Error('Response analysis is missing switch-in hazard damage');
 }
+const runFlow = read('RunFlowV3.js');
+if (runFlow.includes('stealthRock')) throw new Error('Run flow still contains Emerald-incompatible Stealth Rock state');
+const battleSequence = read('data/battleSequence.js');
+if (!battleRoom.includes('observedSpeed') || !battleRoom.includes('Observed Speed')) throw new Error('Observed Speed evidence controls are missing');
 const candidateEngine = read('data/candidateEngine.js');
-if (!candidateEngine.includes('observedDamagePercent') || !candidateEngine.includes('observedDamageMove') || !candidateEngine.includes('observedDamageMatches')) {
+if (!candidateEngine.includes('observedDamagePercent') || !candidateEngine.includes('observedDamageMove') || !candidateEngine.includes('observedDamageMatches') || !candidateEngine.includes('observedSpeed')) {
   throw new Error('Factory candidate engine is missing observed damage evidence filtering');
 }
 
