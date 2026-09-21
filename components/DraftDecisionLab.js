@@ -106,18 +106,23 @@ export default function DraftDecisionLab({ draft = [], selectedDraftIndices = []
     previousOpponent,
     noland,
   }), [usable, nextRoundPreview, levelMode, selected, previousOpponent, noland]);
+  const nextPoolRound = useMemo(() => {
+    const bucket = String(nextRoundResult?.roundBucket || '');
+    const match = bucket.match(/(?:g3|l50)-(\d+)/);
+    return Number(match?.[1]) || nextRoundPreview.nextRound;
+  }, [nextRoundResult, nextRoundPreview.nextRound]);
   const nextRoundThreats = useMemo(() => {
     if (selected.length !== 3 || !nextRoundResult?.rankedSets?.length) return [];
     return nextRoundResult.rankedSets.map((entry) => {
       const foe = entry.set;
       const rows = selected.map((ally) => {
-        const matchup = scenarioMatchup(foe, ally, levelNumber, nextRoundPreview.nextRound, scenario);
+        const matchup = scenarioMatchup(foe, ally, levelNumber, nextPoolRound, scenario);
         return { ally, matchup, incoming: Number(matchup?.incoming?.percentMax || 0), speed: matchup?.speed || 'unknown' };
       });
       const exposed = rows.filter((row) => row.incoming >= 50 || row.speed === 'faster');
       return { foe, entry, rows, exposed, maxIncoming: rows.length ? Math.max(...rows.map((row) => row.incoming)) : 0 };
     }).filter((row) => row.exposed.length).sort((a, b) => b.maxIncoming - a.maxIncoming || (Number(b.entry.frequency) || 0) - (Number(a.entry.frequency) || 0));
-  }, [selected, nextRoundResult, levelNumber, nextRoundPreview.nextRound, scenario]);
+  }, [selected, nextRoundResult, levelNumber, nextPoolRound, scenario]);
   const matchupComparison = useMemo(() => { if (!opponentSetRows.length || !activeRentalMeta) return null; const valid = opponentSetRows.filter((r) => r.matchup?.hitBack && r.matchup?.incoming); if (!valid.length) return null; const best = valid.reduce((a,b) => b.matchup.hitBack.percentMax < a.matchup.hitBack.percentMax ? b : a); const worst = valid.reduce((a,b) => b.matchup.incoming.percentMax > a.matchup.incoming.percentMax ? b : a); return { best, worst }; }, [opponentSetRows, activeRentalMeta]);
   useEffect(() => { setAnalysis(null); }, [activeRental?.species, activeRental?.setId]);
   const toggle = (p) => { const k = key(p); setAnalysis(null); setSelectedKeys((old) => old.includes(k) ? old.filter((x) => x !== k) : old.length < 3 ? [...old, k] : old); };
@@ -150,7 +155,7 @@ export default function DraftDecisionLab({ draft = [], selectedDraftIndices = []
       <View style={st.nextRoundBox}>
         <Text style={st.coverageLabel}>NEXT BATTLE POOL</Text>
         <Text style={st.nextRoundTitle}>What the next battle can realistically contain</Text>
-        <Text style={st.nextRoundMeta}>Battle {nextRoundPreview.nextBattle} • Round {nextRoundPreview.nextRound} • IV {nextRoundPreview.nextRoundIV} • {nextRoundResult?.rankedSets?.length || 0} surviving sets across {nextRoundResult?.possibleSpecies?.length || 0} species.</Text>
+        <Text style={st.nextRoundMeta}>Battle {nextRoundPreview.nextBattle} • Pool round {nextPoolRound} • IV {nextRoundPreview.nextRoundIV} • {nextRoundResult?.rankedSets?.length || 0} surviving sets across {nextRoundResult?.possibleSpecies?.length || 0} species.</Text>
         <Text style={st.nextRoundMeta}>Blocked by Factory rules: {nextRoundPreview.blockedCount ? nextRoundPreview.blockedSpecies.join(' • ') : 'none recorded'}.</Text>
         {selected.length === 3 ? <Text style={st.nextRoundMeta}>{nextRoundThreats.length} surviving sets create at least 50% incoming pressure or a speed advantage against the tested lineup.</Text> : <Text style={st.nextRoundMeta}>Select three rentals to test the next-battle exposure of the final lineup.</Text>}
         {selected.length === 3 && nextRoundThreats.slice(0, 6).map((row) => <View key={'next-'+key(row.foe)} style={st.nextRoundThreatRow}><View style={{flex:1}}><Text style={st.nextRoundName}>{row.foe.species} SET {row.foe.id ?? row.foe.setId}</Text><Text style={st.nextRoundMeta}>{row.rows.map(x => `${x.ally.species} ${x.incoming.toFixed(0)}% • ${x.speed}`).join('  ·  ')}</Text></View><Text style={st.nextRoundPct}>{row.maxIncoming.toFixed(0)}%</Text></View>)}
