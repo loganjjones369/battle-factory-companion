@@ -17,12 +17,12 @@ function PokeBall({ size = 48 }) {
   </View>;
 }
 
-function Slot({ pokemon, side, index, active, knockedOut, onPress }) {
+function Slot({ pokemon, side, index, active, knockedOut, onPress, scenario, onScenarioChange }) {
   return <TouchableOpacity onPress={onPress} activeOpacity={.85} style={[styles.slot, side === 'you' ? styles.youSlot : styles.foeSlot, active && styles.activeSlot, knockedOut && styles.koSlot]}>
     {pokemon ? <Sprite pokemon={pokemon} size={active ? 82 : 68} /> : <PokeBall />}
     <Text style={styles.slotName}>{pokemon?.species || '???'}</Text>
     <Text style={styles.slotMeta}>{pokemon ? `SET ${pokemon.setId ?? '?'}` : side === 'foe' ? 'UNREVEALED' : 'EMPTY'}</Text>
-    {active && <View style={styles.arenaLight} />}
+    {active && <View style={styles.arenaLight} />}{pokemon && <View style={styles.hpMini}><View style={[styles.hpFill,{width:'100%'}]} /></View>}
     {knockedOut && <Text style={styles.koMark}>◌</Text>}
     <Text style={styles.slotNumber}>{index + 1}</Text>
   </TouchableOpacity>;
@@ -85,6 +85,7 @@ export default function BattleRoom({
   }, [search]);
 
   const status = scenario?.status?.[`team:${activeTeamIndex}`] || 'healthy';
+  const activeHP = scenario?.hp?.[`team:${activeTeamIndex}`];
   const setId = opponentSets[activeOpponentIndex];
   const statusLabel = String(status).toUpperCase();
 
@@ -106,7 +107,7 @@ export default function BattleRoom({
       <View style={styles.catwalk} />
       <View style={styles.pipes}><View /><View /><View /></View>
       <View style={styles.foeRail}>
-        {[0,1,2].map(i => <Slot key={i} pokemon={opponent[i]} side="foe" index={i} active={activeOpponentIndex === i && !!opponent[i]} knockedOut={knockedOut.opponent.includes(i)} onPress={() => opponent[i] && onSelectOpponent?.(i)} />)}
+        {[0,1,2].map(i => <Slot key={i} pokemon={opponent[i]} side="foe" index={i} active={activeOpponentIndex === i && !!opponent[i]} knockedOut={knockedOut.opponent.includes(i)} onPress={() => opponent[i] && onSelectOpponent?.(i)} scenario={scenario} onScenarioChange={onScenarioChange} />)}
       </View>
 
       <View style={styles.center}>
@@ -121,13 +122,13 @@ export default function BattleRoom({
       </View>
 
       <View style={styles.youRail}>
-        {[0,1,2].map(i => <Slot key={i} pokemon={team[i]} side="you" index={i} active={activeTeamIndex === i && !!team[i]} knockedOut={knockedOut.team.includes(i)} onPress={() => team[i] && onSelectTeam?.(i)} />)}
+        {[0,1,2].map(i => <Slot key={i} pokemon={team[i]} side="you" index={i} active={activeTeamIndex === i && !!team[i]} knockedOut={knockedOut.team.includes(i)} onPress={() => team[i] && onSelectTeam?.(i)} scenario={scenario} onScenarioChange={onScenarioChange} />)}
       </View>
 
       <View style={styles.quick}>
         <Text style={styles.quickTitle}>QUICK REFERENCE</Text>
         <Text style={styles.quickLead}>{activeYou?.species || 'YOUR POKÉMON'} → {activeFoe?.species || 'OPPONENT'}</Text>
-        <Text style={styles.quickHint}>{activeFoe ? 'Damage / sets / speed update from the scenario instrument below.' : 'Enter the first opponent Pokémon to begin.'}</Text>
+        <Text style={styles.quickHint}>{activeFoe ? 'Moves → damage · HP · stats · item · ability' : 'Enter the first opponent Pokémon to begin.'}</Text>
         <View style={styles.quickActions}>
           <TouchableOpacity onPress={() => onOpenSummary?.(activeYou, 'YOUR POKÉMON')} style={styles.quickButton}><Text style={styles.quickButtonText}>SUMMARY</Text></TouchableOpacity>
           <TouchableOpacity onPress={() => onOpenSummary?.(activeFoe, 'OPPONENT')} disabled={!activeFoe} style={[styles.quickButton, !activeFoe && styles.disabled]}><Text style={styles.quickButtonText}>FOE INFO</Text></TouchableOpacity>
@@ -169,11 +170,11 @@ const styles = StyleSheet.create({
   arena:{minHeight:500,backgroundColor:'#172124',position:'relative',padding:12,overflow:'hidden'},
   catwalk:{position:'absolute',top:115,left:0,right:0,height:1,backgroundColor:'#3c5153'},pipes:{position:'absolute',right:12,top:60,width:70,gap:8},
   foeRail:{position:'absolute',right:8,top:12,width:105,gap:7},youRail:{position:'absolute',left:8,bottom:94,width:105,gap:7},
-  slot:{height:104,borderRadius:12,borderWidth:1,alignItems:'center',justifyContent:'center',overflow:'hidden',position:'relative',backgroundColor:'rgba(6,12,13,.78)'},youSlot:{borderColor:'#386f9d'},foeSlot:{borderColor:'#91484f'},activeSlot:{borderColor:'#7ee0bd',backgroundColor:'#1d302c',transform:[{scale:1.04}]},koSlot:{opacity:.45},slotName:{fontSize:9,fontWeight:'900',color:'#edf7f3',maxWidth:94},slotMeta:{fontSize:7,fontWeight:'900',color:'#78928b',marginTop:2},slotNumber:{position:'absolute',left:5,top:4,fontSize:7,fontWeight:'900',color:'#58716b'},arenaLight:{position:'absolute',bottom:0,left:'18%',right:'18%',height:4,backgroundColor:'#79d8b6',borderRadius:4},koMark:{position:'absolute',right:5,top:3,fontSize:17,color:'#d9e5df'},
+  slot:{height:104,borderRadius:12,borderWidth:1,alignItems:'center',justifyContent:'center',overflow:'hidden',position:'relative',backgroundColor:'rgba(6,12,13,.78)'},youSlot:{borderColor:'#386f9d'},foeSlot:{borderColor:'#91484f'},activeSlot:{borderColor:'#7ee0bd',backgroundColor:'#1d302c',transform:[{scale:1.04}]},koSlot:{opacity:.45},slotName:{fontSize:9,fontWeight:'900',color:'#edf7f3',maxWidth:94},slotMeta:{fontSize:7,fontWeight:'900',color:'#78928b',marginTop:2},hpMini:{position:'absolute',left:12,right:12,bottom:12,height:4,borderRadius:4,backgroundColor:'#293735',overflow:'hidden'},hpFill:{height:4,backgroundColor:'#65c39f'},slotNumber:{position:'absolute',left:5,top:4,fontSize:7,fontWeight:'900',color:'#58716b'},arenaLight:{position:'absolute',bottom:0,left:'18%',right:'18%',height:4,backgroundColor:'#79d8b6',borderRadius:4},koMark:{position:'absolute',right:5,top:3,fontSize:17,color:'#d9e5df'},
   pokeBall:{overflow:'hidden',borderWidth:1,borderColor:'#2a3536'},ballTop:{position:'absolute',left:0,right:0,top:0,height:'50%',backgroundColor:'#b64b4f'},ballBottom:{position:'absolute',left:0,right:0,bottom:0,height:'50%',backgroundColor:'#d9ded8'},ballLine:{position:'absolute',left:0,right:0,top:'46%',height:'8%',backgroundColor:'#222a2b'},ballButton:{position:'absolute',backgroundColor:'#edf2ec',borderWidth:2,borderColor:'#27302f'},
   center:{position:'absolute',left:115,right:115,top:18,bottom:104,alignItems:'center',justifyContent:'center'},arenaLabel:{fontSize:7,fontWeight:'900',letterSpacing:1.2,color:'#5e7771'},centerFloor:{position:'absolute',left:10,right:10,bottom:28,height:95,borderWidth:1,borderColor:'#3a4c4e',borderRadius:50,justifyContent:'space-around',paddingVertical:20},floorLine:{height:1,backgroundColor:'#354749',marginHorizontal:20},
   entryPanel:{width:'100%',backgroundColor:'#0b1514',borderWidth:1,borderColor:'#4b7065',borderRadius:14,padding:12,zIndex:10},entryTitle:{fontSize:12,fontWeight:'900',color:'#eafff5',letterSpacing:.5},searchInput:{marginTop:8,backgroundColor:'#08100f',borderWidth:1,borderColor:'#2f4944',borderRadius:9,padding:9,color:'#effff9',fontSize:11},results:{marginTop:5,borderWidth:1,borderColor:'#29413d',borderRadius:9,overflow:'hidden'},result:{flexDirection:'row',alignItems:'center',padding:6,borderBottomWidth:1,borderBottomColor:'#1f302d'},resultText:{color:'#edf7f3',fontSize:10,fontWeight:'900'},possible:{color:'#71d2b0',fontSize:9,fontWeight:'900',marginTop:7},setStrip:{flexDirection:'row',flexWrap:'wrap',gap:4,marginTop:5},setButton:{paddingHorizontal:7,paddingVertical:5,borderRadius:6,borderWidth:1,borderColor:'#304840'},setButtonOn:{backgroundColor:'#365846',borderColor:'#72d3b2'},setText:{fontSize:8,fontWeight:'900',color:'#6f8881'},setTextOn:{color:'#fff'},
-  quick:{position:'absolute',left:115,right:115,bottom:10,backgroundColor:'#10201d',borderWidth:1,borderColor:'#3e6057',borderRadius:12,padding:8},quickTitle:{fontSize:7,fontWeight:'900',letterSpacing:1.2,color:'#69c7aa'},quickLead:{fontSize:11,fontWeight:'900',color:'#eef8f4',marginTop:2},quickHint:{fontSize:8,color:'#78928b',marginTop:2},quickActions:{flexDirection:'row',gap:5,marginTop:5},quickButton:{flex:1,padding:6,borderRadius:7,borderWidth:1,borderColor:'#36534c',alignItems:'center'},quickButtonText:{fontSize:7,fontWeight:'900',color:'#dff7ee'},
+  quick:{position:'absolute',left:115,right:115,bottom:10,backgroundColor:'#10201d',borderWidth:1,borderColor:'#3e6057',borderRadius:12,padding:8},quickHeader:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},quickSet:{fontSize:7,fontWeight:'900',color:'#7fa69a'},quickTitle:{fontSize:7,fontWeight:'900',letterSpacing:1.2,color:'#69c7aa'},quickLead:{fontSize:11,fontWeight:'900',color:'#eef8f4',marginTop:2},quickHint:{fontSize:8,color:'#78928b',marginTop:2},quickActions:{flexDirection:'row',gap:5,marginTop:5},quickButton:{flex:1,padding:6,borderRadius:7,borderWidth:1,borderColor:'#36534c',alignItems:'center'},quickButtonText:{fontSize:7,fontWeight:'900',color:'#dff7ee'},
   statusArea:{position:'absolute',left:12,bottom:10,flexDirection:'row',alignItems:'center',gap:5},hpText:{fontSize:8,fontWeight:'900',color:'#9eb9b1'},statusButton:{paddingHorizontal:6,paddingVertical:4,borderRadius:6,borderWidth:1,borderColor:'#3e5a54',backgroundColor:'#0c1715'},statusText:{fontSize:8,fontWeight:'900',color:'#dff8ee'},statusMenu:{position:'absolute',left:0,bottom:30,flexDirection:'row',flexWrap:'wrap',width:220,backgroundColor:'#0b1514',borderWidth:1,borderColor:'#4b7065',borderRadius:9,padding:4},statusOption:{paddingHorizontal:7,paddingVertical:6},statusOptionText:{fontSize:8,fontWeight:'900',color:'#e6f7f1'},
   console:{backgroundColor:'#0b1213',borderTopWidth:2,borderTopColor:'#38504e',padding:9},consoleScreen:{backgroundColor:'#18332b',borderWidth:1,borderColor:'#4e796c',padding:7,borderRadius:7},screenText:{fontFamily:'monospace',fontSize:8,fontWeight:'900',color:'#a6e6d1'},consoleButtons:{flexDirection:'row',gap:6,marginTop:7},consoleButton:{flex:1,minHeight:42,borderRadius:8,borderWidth:1,borderColor:'#49645e',backgroundColor:'#253532',alignItems:'center',justifyContent:'center'},consoleText:{fontSize:8,fontWeight:'900',color:'#ecfaf5',textAlign:'center'},disabled:{opacity:.35},endMenu:{marginTop:7,borderWidth:1,borderColor:'#58756d',borderRadius:9,backgroundColor:'#111d1b',padding:8},endTitle:{fontSize:9,fontWeight:'900',color:'#bfeadf'},endButtons:{flexDirection:'row',gap:5,marginTop:5},endButton:{flex:1,padding:8,borderRadius:6,backgroundColor:'#284c40',alignItems:'center'},endButtonText:{fontSize:8,fontWeight:'900',color:'#fff'},endCancel:{flex:1,padding:8,borderRadius:6,borderWidth:1,borderColor:'#40534f',alignItems:'center'},endCancelText:{fontSize:8,fontWeight:'900',color:'#b4c8c1'},
   history:{height:58,backgroundColor:'#281b39',borderTopWidth:1,borderTopColor:'#5b4076',flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:10},historyTitle:{fontSize:7,fontWeight:'900',color:'#c5a8df',letterSpacing:1},historyItem:{width:48,height:48,alignItems:'center',justifyContent:'center'},unknownSprite:{fontSize:28,color:'#6f8881'}
