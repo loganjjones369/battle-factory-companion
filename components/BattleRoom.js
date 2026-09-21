@@ -163,10 +163,7 @@ export default function BattleRoom({
       </View>
 
       <QuickReference source={activeYou} target={activeFoe} side="team" setId={activeYou?.setId} onSet={(id)=>onSelectTeam?.(activeTeamIndex, id)} scenario={scenario} onScenarioChange={onScenarioChange}/>
-        <Text style={styles.quickLead}>{activeYou?.species || 'YOUR POKÉMON'} → {activeFoe?.species || 'OPPONENT'}</Text>
-        <Text style={styles.quickHint}>{activeFoe ? 'Moves → damage · HP · stats · item · ability' : 'Enter the first opponent Pokémon to begin.'}</Text>
-        <View style={styles.quickActions}>
-  
+
 
       <View style={styles.statusArea}>
         <Text style={styles.hpText}>HP {scenario?.hp?.[`team:${activeTeamIndex}`] ?? '—'} / —</Text>
