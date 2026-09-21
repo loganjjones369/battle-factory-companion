@@ -91,7 +91,19 @@ export default function RunFlowV3(){
    activeOpponentIndex={activeOpponentIndex}
    onSelectTeam={(i)=>{setActiveTeamIndex(i);setScenario(s=>({...s,focus:`team:${i}`}));}}
    onSelectOpponent={(i)=>{setActiveOpponentIndex(i);setScenario(s=>({...s,focus:`opponent:${i}`}));}}
-   onMarkKO={(side,i)=>toggleKO(side,i)}
+   onMarkKO={(side,i)=>{
+     toggleKO(side,i);
+     if(side==='opponent'){
+       setOpponent(old=>old.map((p,j)=>j===i?null:p));
+       setOppText(old=>old.map((p,j)=>j===i?'':p));
+       setOppSets(old=>old.map((p,j)=>j===i?null:p));
+       setOppObs(old=>old.map((o,j)=>j===i?{...blankObs3()[0]}:o));
+       setSelectedResult(null);
+       setSearch('');
+       setActiveOpponentIndex(i);
+       setScenario(s=>({...s,focus:'opponent:'+i}));
+     }
+   }}
    onOpponentSearch={(i,v)=>recordOpponent(i,v)}
    onOpponentSet={(i,id)=>chooseOppSet(i,id)}
    onObserveMove={observeOpponentMove}
