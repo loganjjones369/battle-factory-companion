@@ -27,6 +27,7 @@ export function scenarioState(pokemon, state = {}) {
     weather: state.weather || 'none',
     hpPercent: side.hpPercent == null ? 100 : Math.max(0, Math.min(100, Number(side.hpPercent) || 0)),
     screens: { reflect: Boolean(side.reflect), lightScreen: Boolean(side.lightScreen) },
+    substitute: Boolean(side.substitute),
     hazards: { spikes: Math.max(0, Math.min(3, Number(side.spikes) || 0)) },
   };
 }
@@ -66,6 +67,7 @@ export function bestScenarioHit(attacker, defender, level, round, state = {}) {
       attackerHP: Math.max(1, Math.floor(attackerStats.hp * atk.hpPercent / 100)),
       defenderHP: Math.max(1, Math.floor(defenderStats.hp * def.hpPercent / 100)),
       screens: def.screens,
+          defenderSubstitute: Boolean(def.substitute),
     });
     if (!result.unsupported && (!best || result.percentMax > best.percentMax)) {
       best = { ...result, moveName };
