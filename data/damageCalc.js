@@ -71,6 +71,16 @@ function abilityEffect({ moveType, effectiveness, category, attackerAbility, def
   return { immune: false, multiplier, reason: reasons.join(' • '), attackMultiplier: category === 'physical' && (atk === 'huge power' || atk === 'pure power') ? 2 : 1 };
 }
 
+export function getDamageRollDistribution(result) {
+  if (!result || result.max == null) return [];
+  const counts = new Map();
+  for (let factor = 217; factor <= 255; factor += 1) {
+    const damage = Math.floor(Number(result.max) * factor / 255);
+    counts.set(damage, (counts.get(damage) || 0) + 1);
+  }
+  return [...counts.entries()].map(([damage, count]) => ({ damage, rolls: count, probability: Number((count / 39 * 100).toFixed(1)) }));
+}
+
 export function getDamageRolls(result) {
   if (!result || result.min == null || result.max == null) return [];
   const values = [];
