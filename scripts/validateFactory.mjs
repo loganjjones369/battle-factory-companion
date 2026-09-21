@@ -99,14 +99,14 @@ if (!damageCalc.includes('hitDistribution')) {
 if (!damageCalc.includes('defenderSubstitute') || !damageCalc.includes('substituteBreaks') || !scenario.includes('defenderSubstitute')) {
   throw new Error('Gen III Substitute state is not wired into scenario damage');
 }
-if (!damageCalc.includes('getGen3MoveTurnProfile') || !damageCalc.includes('requiresRechargeTurn') || !sequence.includes('getMoveTurnProfile') || !sequence.includes('buildTurnPlan')) {
+if (!damageCalc.includes('getGen3MoveTurnProfile') || !damageCalc.includes('requiresRechargeTurn') || !sequence.includes('getMoveTurnProfile') || !sequence.includes('buildTurnPlan') || !sequence.includes('buildTurnOutcomes')) {
   throw new Error('Gen III multi-turn move planning is missing');
 }
 const battleDecisionEngine = read('data/battleDecisionEngine.js');
 if (!battleDecisionEngine.includes('worstCase') || !battleDecisionEngine.includes('uncertaintyScore') || !battleDecisionEngine.includes('responseRange')) {
   throw new Error('Battle decision engine is not propagating uncertainty across surviving sets');
 }
-if (!response.includes('analyzeOpponentSetPool') || !response.includes('rankResponsesAcrossOpponentSets') || !response.includes('safeShare') || !response.includes('exposureShare')) {
+if (!response.includes('analyzeOpponentSetPool') || !response.includes('rankResponsesAcrossOpponentSets') || !response.includes('safeShare') || !response.includes('exposureShare') || !response.includes('buildTwoTurnBattlePlan')) {
   throw new Error('Opponent-set uncertainty planner helpers are missing');
 }
 const responseAnalysis = read('data/responseAnalysis.js');
