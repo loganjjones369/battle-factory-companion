@@ -40,8 +40,8 @@ function SetDetails({ set, pokemon, level, round }) {
 
 function SummaryPage({ page, pokemon, level, round }) {
   const palette = [styles.pageOverview, styles.pageMoves, styles.pageStats, styles.pageIVs, styles.pageEVs, styles.pageSets][page];
-  const sets = selectedSet ? [selectedSet] : possibleSets(pokemon);
   const selectedSet = pokemon?.setId != null ? getFactorySet(pokemon.species, pokemon.setId) : null;
+  const sets = selectedSet ? [selectedSet] : possibleSets(pokemon);
   const stats = statRows(pokemon, selectedSet, level, round);
   return <View style={[styles.page, palette]}>
     {page === 0 && <><View style={styles.hero}><Sprite pokemon={pokemon} size={128}/><View style={{ flex: 1 }}><Text style={styles.name}>{pokemon?.species || 'UNKNOWN'}</Text><Text style={styles.role}>{pokemon?.isElevated ? 'ELEVATED PICK' : 'POKÉMON SUMMARY'}</Text><Text style={styles.meta}>{pokemon?.type1 || pokemon?.types?.join(' / ') || '???'}{pokemon?.type2 ? ` / ${pokemon.type2}` : ''}</Text><Text style={styles.meta}>Level {pokemon?.level || level} • HP {stats[0]?.[2] ?? '???'}</Text></View></View><Text style={styles.section}>FACTORY SET</Text><Text style={styles.bigValue}>{selectedSet ? `SET ${selectedSet.id} — CONFIRMED` : `${sets.length || '?'} POSSIBLE SETS`}</Text><View style={styles.infoRows}><Text style={styles.infoRow}>ITEM <Text style={styles.infoValue}>{pokemon?.item || '???'}</Text></Text><Text style={styles.infoRow}>ABILITY <Text style={styles.infoValue}>{pokemon?.ability || '???'}</Text></Text><Text style={styles.infoRow}>NATURE <Text style={styles.infoValue}>{pokemon?.nature || '???'}</Text></Text></View></>}
