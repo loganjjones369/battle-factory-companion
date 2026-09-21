@@ -1,6 +1,6 @@
 // Pokémon Emerald Battle Factory rules used by the Companion prediction engine.
-// Battle Tower streak is intentionally NOT modeled: this app assumes the user
-// does not use the Battle Tower and therefore has no Tower-streak input.
+// Battle Tower streak is retained as an advanced internal setting. It defaults to 0
+// because the normal Companion workflow does not use the Battle Tower.
 
 export const FACTORY_RULES = {
   teamSize: 3,
@@ -11,6 +11,7 @@ export const FACTORY_RULES = {
   nolandIgnoresPlayerSpeciesForGeneration: true,
   itemClause: true,
   speciesClause: true,
+  defaultBattleTowerStreak: 0,
   rentalIVsByRound: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 },
   swapElevation: [
     { min: 0, max: 14, elevated: 0 },
@@ -27,11 +28,13 @@ export function getFactoryIVForRound(round = 1) {
   return [0, 3, 6, 9, 12, 15, 21, 31][r];
 }
 
-export function getOpponentFactoryIV({ battle = 1, round = null } = {}) {
+export function getOpponentFactoryIV({ battle = 1, battleTowerStreak = FACTORY_RULES.defaultBattleTowerStreak } = {}) {
   const b = Math.max(1, Number(battle) || 1);
-  const currentRound = round == null ? Math.ceil(b / 7) : Math.max(1, Number(round) || 1);
-  const effectiveRound = b % 7 === 0 ? currentRound + 1 : currentRound;
-  return getFactoryIVForRound(effectiveRound);
+  const streak = Math.max(0, Number(battleTowerStreak) || 0);
+  const challengeNum = Math.floor(streak / 7);
+  const baseTier = Math.min(7, challengeNum + 1);
+  const tier = b % 7 === 0 ? Math.min(7, baseTier + 1) : baseTier;
+  return getFactoryIVForRound(tier);
 }
 
 export function getNolandFactoryIV({ gold = false } = {}) {
@@ -99,12 +102,14 @@ export function buildBattleState({
   scientist = {},
   noland = false,
   revealed = {},
+  battleTowerStreak = FACTORY_RULES.defaultBattleTowerStreak,
 } = {}) {
   return {
     level,
     round: Number(round) || 1,
     battle: Number(battle) || 1,
     swaps: Math.max(0, Number(swaps) || 0),
+    battleTowerStreak: Math.max(0, Number(battleTowerStreak) || 0),
     swapElevation: getSwapElevation(swaps),
     currentTeam,
     previousOpponent,
