@@ -41,6 +41,13 @@ if (!pkg.dependencies['@react-native-async-storage/async-storage']) {
   throw new Error('AsyncStorage dependency is missing');
 }
 
+if (!scenario.includes('hpPercent') || !scenario.includes('screens') || !scenario.includes('hazards') || !scenario.includes('scenarioSwitchInDamage')) {
+  throw new Error('Scenario analysis is not consuming current HP, screens, and hazards');
+}
+if (!damage.includes('fixedDamage') || !damage.includes('multiHit') || !damage.includes('Super Fang') || !damage.includes('Endeavor')) {
+  throw new Error('Gen III fixed-damage or multi-hit move handling is incomplete');
+}
+
 for (const required of [
   'data/candidateEngine.js',
   'data/draftBrain.js',
