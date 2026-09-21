@@ -5,6 +5,7 @@ import { getPokemon } from './data/factoryData';
 import { createRun, completeBattle } from './data/runProgress';
 import { setKnockedOut } from './data/battleState';
 import { getDraftSlotInfo } from './data/factoryPools';
+import { analyzeFactoryCandidates } from './data/candidateEngine';
 import { getFactorySets, getFactorySet, makeSwapReplacement, makeTeamPokemon } from './data/setIdentity';
 import DraftCalculator from './components/DraftCalculator';
 import CandidateAnalysisPanel from './components/CandidateAnalysisPanel';
@@ -54,6 +55,8 @@ export default function RunFlowV3(){
  const elevation=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw}).elevationCount;
  const activeTeam=team.filter((_,i)=>!knockedOut.team.includes(i));
  const activeOpponents=opponent.filter((_,i)=>!knockedOut.opponent.includes(i));
+ const candidateResult=useMemo(()=>analyzeFactoryCandidates({draft,currentTeam:team,previousOpponent:state?.previousOpponent||[],blockedSpecies:state?.blockedSpecies||[],scientist:state?.scientist||{},levelMode:level,battle:b,revealed:{observations},noland:state?.noland||false}),[draft,team,state?.previousOpponent,state?.blockedSpecies,state?.scientist,level,b,observations,state?.noland]);
+ const setProbabilities=useMemo(()=>{const bySpecies={};(candidateResult.rankedSets||[]).forEach(e=>{const s=norm(e.set?.species);if(!bySpecies[s])bySpecies[s]=[];bySpecies[s].push({id:e.set?.id,frequency:Number(e.frequency)||0});});const out={};Object.entries(bySpecies).forEach(([species,rows])=>{const total=rows.reduce((n,x)=>n+x.frequency,0);out[species]={};rows.forEach(x=>{out[species][x.id]=total?Number((x.frequency/total*100).toFixed(1)):0;});});return out;},[candidateResult.rankedSets]);
  const openInfo=(pokemon,kind)=>{if(!pokemon)return;setInfoPokemon(pokemon);setInfoKind(kind);};
  return <SafeAreaView style={st.safe}><StatusBar style="light"/><ScrollView contentContainerStyle={st.container} keyboardShouldPersistTaps="handled"><Text style={st.brand}>POKÉMON EMERALD • BATTLE FACTORY</Text><Text style={st.hero}>{phase==='draft'?'DRAFT':`BATTLE ${b}`}</Text><Text style={st.sub}>Round {Math.ceil(b/7)} • {level} • {sw} swaps • {elevation} elevated slots</Text>
  {phase==='draft'?<><View style={st.card}><Text style={st.label}>STARTING SAVE STATE</Text><View style={st.two}><View style={{flex:1}}><Text style={st.small}>BATTLE</Text><TextInput value={battle} onChangeText={setBattle} keyboardType="number-pad" style={st.input}/></View><View style={{flex:1}}><Text style={st.small}>TOTAL SWAPS</Text><TextInput value={swaps} onChangeText={setSwaps} keyboardType="number-pad" style={st.input}/></View></View><View style={st.row}>{['Open Level','Level 50'].map(x=><TouchableOpacity key={x} onPress={()=>setLevel(x)} style={[st.choice,level===x&&st.choiceOn]}><Text style={st.choiceTxt}>{x}</Text></TouchableOpacity>)}</View></View>
@@ -73,6 +76,7 @@ export default function RunFlowV3(){
    onOpponentSet={(i,id)=>chooseOppSet(i,id)}
    opponentText={oppText}
    opponentSets={oppSets}
+   setProbabilities={setProbabilities}
    onEndBattle={(outcome)=>{if(outcome==='win'){finish();}else if(outcome==='loss'){setState(null);setTeam([]);setOpponent([]);setPhase('draft');setActiveTeamIndex(0);setActiveOpponentIndex(0);}}}
    onOpenSummary={(p,k)=>openInfo(p,k)}
    onScenarioChange={setScenario}
