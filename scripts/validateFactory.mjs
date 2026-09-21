@@ -87,6 +87,9 @@ if (!sequence.includes('getMovePriority') || !sequence.includes('compareTurnOrde
 if (!damageCalc.includes('getGen3Priority') || !damageCalc.includes("'Fake Out': 3") || !damageCalc.includes("'Helping Hand': 5")) {
   throw new Error('Damage engine is missing Gen III move priority metadata');
 }
+if (!damageCalc.includes('GEN3_MULTI_HIT_COUNTS') || !damageCalc.includes('{ hits: 2, probability: 35 }') || !damageCalc.includes('{ hits: 5, probability: 15 }')) {
+  throw new Error('Gen III multi-hit distribution metadata is missing');
+}
 
 for (const required of [
   'data/candidateEngine.js',
