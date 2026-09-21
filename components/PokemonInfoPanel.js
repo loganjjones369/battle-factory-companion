@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getFactorySets, getFactorySet } from '../data/setIdentity';
 import { getStats, getNatureEffect } from '../data/damageCalc';
@@ -59,6 +59,7 @@ export default function PokemonInfoPanel({ visible, pokemon, kind = 'YOUR POKÉM
   const pages = 6;
   const title = pokemon?.species || 'UNKNOWN';
   const setCount = useMemo(() => possibleSets(pokemon).length, [pokemon]);
+  useEffect(() => { setPage(0); setSummary(false); }, [pokemon?.species, pokemon?.setId]);
   if (!visible || !pokemon) return null;
   const previous = () => setPage(p => Math.max(0, p - 1));
   const next = () => setPage(p => Math.min(pages - 1, p + 1));
