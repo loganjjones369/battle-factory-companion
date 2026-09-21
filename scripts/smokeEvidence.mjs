@@ -7,8 +7,9 @@ assert.equal(inferSetEvidence({sets:[setA,setB],observation:{item:'Leftovers',mo
 
 const fast={id:1};
 const slow={id:2};
-const pokemon={baseStats:{hp:50,attack:50,defense:50,specialAttack:50,specialDefense:50,speed:100}};
+const pokemon={name:'Testmon',baseStats:{hp:50,attack:50,defense:50,specialAttack:50,specialDefense:50,speed:100}};
 const speedResult=inferSpeedCandidates({pokemon,sets:[fast,slow],level:50,round:1,observedSpeed:120,observedRelation:'at least'});
 assert.ok(Array.isArray(speedResult.possible));
+assert.equal(inferSetEvidence({sets:[setA,setB],observation:{ability:'Static',moves:['ThunderPunch']}}).filter(x=>x.compatible).length,1);
 
 console.log('Evidence smoke tests passed.');
