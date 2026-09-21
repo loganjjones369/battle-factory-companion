@@ -49,7 +49,8 @@ function QuickReference({ source, target, side, setId, setProbabilities = {}, on
   const [rolls, setRolls] = useState(null);
   const [ppMenu, setPpMenu] = useState(null);
   const validSetIds = getFactorySets(source?.species || '').map(s => s.id).filter(id => setProbabilities?.[id] == null || Number(setProbabilities[id]) > 0);
-  const set = source && setId != null ? getFactorySet(source.species, setId) : null;
+  const displaySetId = setId != null && validSetIds.includes(setId) ? setId : validSetIds[0];
+  const set = source && displaySetId != null ? getFactorySet(source.species, displaySetId) : null;
   if (!source || !set) return <View style={styles.quick}><Text style={styles.quickTitle}>QUICK REFERENCE</Text><Text style={styles.quickHint}>Select a confirmed set to calculate the matchup.</Text></View>;
   const level = source.level || 50;
   const stats = getStats(source, set, level, 1);
@@ -68,13 +69,13 @@ function QuickReference({ source, target, side, setId, setProbabilities = {}, on
     return {move,result,effectiveBP};
   }).filter(Boolean) : [];
   const setList = validSetIds;
-  const currentIndex=Math.max(0,setList.indexOf(setId));
+  const currentIndex=Math.max(0,setList.indexOf(displaySetId));
   const changeSet=(dir)=>{ const next=setList[Math.max(0,Math.min(setList.length-1,currentIndex+dir))]; if(next!=null) onSet?.(next); };
   const changePP=(move, delta)=>onScenarioChange?.({...scenario,pp:{...(scenario.pp||{}),[ppKey]:{...pp,[move]:Math.max(0,(pp[move] ?? 4)+delta)}}});
   return <View style={styles.quick}>
-    <View style={styles.quickHeader}><Text style={styles.quickTitle}>{side==='team'?'YOUR':'OPPONENT'} QUICK REFERENCE</Text><Text style={styles.quickSet}>SET {setId} · {side==='opponent' ? `${setProbabilities?.[setId] != null ? setProbabilities[setId] : '—'}% LIKELY` : 'CONFIRMED'}</Text></View>
+    <View style={styles.quickHeader}><Text style={styles.quickTitle}>{side==='team'?'YOUR':'OPPONENT'} QUICK REFERENCE</Text><Text style={styles.quickSet}>SET {displaySetId} · {side==='opponent' ? `${setProbabilities?.[displaySetId] != null ? setProbabilities[displaySetId] : '—'}% LIKELY` : 'CONFIRMED'}</Text></View>
     <View style={styles.quickNav}><TouchableOpacity disabled={currentIndex<=0} onPress={()=>changeSet(-1)}><Text style={styles.navArrow}>‹</Text></TouchableOpacity><Text style={styles.quickLead}>{source.species} → {target?.species || 'OPPONENT'}</Text><TouchableOpacity disabled={currentIndex>=setList.length-1} onPress={()=>changeSet(1)}><Text style={styles.navArrow}>›</Text></TouchableOpacity></View>
-    <View style={styles.quickSetRail}>{setList.map(id => <TouchableOpacity key={id} onPress={()=>onSet?.(id)} style={[styles.quickSetChip, Number(id)===Number(setId)&&styles.quickSetChipOn]}><Text style={[styles.quickSetChipText, Number(id)===Number(setId)&&styles.quickSetChipTextOn]}>{id}{side==='opponent' && setProbabilities?.[id] != null ? ` · ${setProbabilities[id]}%` : ''}</Text></TouchableOpacity>)}</View>
+    <View style={styles.quickSetRail}>{setList.map(id => <TouchableOpacity key={id} onPress={()=>onSet?.(id)} style={[styles.quickSetChip, Number(id)===Number(displaySetId)&&styles.quickSetChipOn]}><Text style={[styles.quickSetChipText, Number(id)===Number(displaySetId)&&styles.quickSetChipTextOn]}>{id}{side==='opponent' && setProbabilities?.[id] != null ? ` · ${setProbabilities[id]}%` : ''}</Text></TouchableOpacity>)}</View>
     <View style={styles.quickStats}><Text>HP {hp}/{stats.hp}</Text><Text>SPD {Math.floor(getEffectiveSpeed(stats,status))}</Text><Text>ITEM {set.item || '—'}</Text><Text>ABILITY {set.ability || '—'}</Text></View>
     {side==='opponent' && <View style={styles.observeBox}><Text style={styles.observeTitle}>OBSERVED</Text><Text style={styles.observeHint}>Tap a clue as soon as you see it. It immediately narrows the remaining sets.</Text><View style={styles.observeRows}><Text style={styles.observeLabel}>MOVE</Text>{[...new Set(getFactorySets(source.species).filter(s=>validSetIds.includes(s.id)).flatMap(s=>s.moves||[]))].map(move=><TouchableOpacity key={move} onPress={()=>observedMoves.includes(move)?onClearClue?.(source._index,'move',move):onObserveMove?.(source._index, move)} style={[styles.observeChip,observedMoves.includes(move)&&styles.observeChipOn]}><Text style={styles.observeChipText}>{observedMoves.includes(move)?'✓ ':''}{move}</Text></TouchableOpacity>)}</View><View style={styles.observeRows}><Text style={styles.observeLabel}>ITEM</Text>{[...new Set(getFactorySets(source.species).filter(s=>validSetIds.includes(s.id)).map(s=>s.item).filter(Boolean))].map(item=><TouchableOpacity key={item} onPress={()=>observedItem===item?onClearClue?.(source._index,'item',item):onObserveItem?.(source._index,item)} style={[styles.observeChip,observedItem===item&&styles.observeChipOn]}><Text style={styles.observeChipText}>{observedItem===item?'✓ ':''}{item}</Text></TouchableOpacity>)}</View>{side==='opponent' && <View style={styles.abilityChoices}><Text style={styles.observeLabel}>ABILITY</Text>{[...new Set(getFactorySets(source.species).filter(s=>setProbabilities?.[s.id] == null || Number(setProbabilities[s.id]) > 0).flatMap(s=>String(s.ability||'').split('/').map(a=>a.trim()).filter(Boolean)))].map(a=><TouchableOpacity key={a} onPress={()=>onObserveAbility?.(source._index,a)} style={[styles.observeChip, observedAbility===a&&styles.observeChipOn]}><Text style={styles.observeChipText}>{a}</Text></TouchableOpacity>)}</View>}</View>}
     <View style={styles.quickMoves}>{rows.length ? rows.map(({move,result,effectiveBP})=><TouchableOpacity key={move} onPress={()=>changePP(move,-1)} onLongPress={()=>setPpMenu(move)} style={styles.quickMove}>
@@ -164,7 +165,7 @@ export default function BattleRoom({
       <View style={styles.center}>
         <Text style={styles.arenaLabel}>FACTORY BATTLE PLATFORM</Text>
         <View style={styles.centerFloor}><View style={styles.floorLine} /><View style={styles.floorLine} /></View>
-        {!activeFoe && <View style={styles.entryPanel}>
+        {(!activeFoe || (activeFoe && setId == null && selectedResult)) && <View style={styles.entryPanel}>
           <Text style={styles.entryTitle}>WHAT POKÉMON CAME OUT?</Text>
           <TextInput value={search} onChangeText={(v) => { setSearch(v); setSelectedResult(null); }} placeholder="Type a Pokémon name" placeholderTextColor="#58736b" style={styles.searchInput} autoFocus />
           {results.length > 0 && <View style={styles.results}>{results.map(name => <TouchableOpacity key={name} onPress={() => chooseSpecies(name)} style={styles.result}><Sprite pokemon={getPokemon(name)} size={34}/><Text style={styles.resultText}>{name}</Text></TouchableOpacity>)}</View>}
