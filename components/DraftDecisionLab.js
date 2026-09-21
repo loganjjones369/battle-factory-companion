@@ -25,16 +25,20 @@ const nextStatus = (s) => { const i = STATUS_ORDER.indexOf(s || 'healthy'); retu
 
 function analyzeThreats(candidateResult, lineup, levelNumber, round, scenario) {
   const threats = [];
-  for (const entry of (candidateResult?.rankedSets || []).slice(0, 120)) {
+  const rows = candidateResult?.rankedSets || [];
+  for (const entry of rows) {
     const foe = entry.set;
     const targetRows = lineup.map((ally) => {
       const matchup = scenarioMatchup(foe, ally, levelNumber, round, scenario);
       return { ally, matchup, maxDamage: matchup.incoming?.percentMax || 0, speed: matchup.speed === 'faster' ? 'faster' : matchup.speed === 'tie' ? 'tie' : 'slower' };
     });
     const dangerous = targetRows.filter((r) => r.maxDamage >= 50 || r.matchup.incoming?.ko <= 2 || r.speed === 'faster');
-    if (dangerous.length) threats.push({ entry, foe, targetRows, probability: Number(entry.frequency) || 0, score: dangerous.reduce((s, r) => s + (r.maxDamage >= 100 ? 4 : r.maxDamage >= 50 ? 2 : 0) + (r.speed === 'faster' ? 1 : 0), 0), weightedScore: (Number(entry.frequency) || 0) * dangerous.reduce((s, r) => s + (r.maxDamage >= 100 ? 4 : r.maxDamage >= 50 ? 2 : 0) + (r.speed === 'faster' ? 1 : 0), 0) });
+    if (!dangerous.length) continue;
+    const severity = dangerous.reduce((s, r) => s + (r.maxDamage >= 100 ? 4 : r.maxDamage >= 75 ? 3 : r.maxDamage >= 50 ? 2 : 0) + (r.speed === 'faster' ? 1 : 0) + (r.matchup.incoming?.ko === 1 ? 2 : r.matchup.incoming?.ko === 2 ? 1 : 0), 0);
+    const probability = Number(entry.frequency) || 0;
+    threats.push({ entry, foe, targetRows, probability, score: severity, weightedScore: probability * severity });
   }
-  return threats.sort((a, b) => b.weightedScore - a.weightedScore || b.score - a.score || b.probability - a.probability || (b.entry.count || 0) - (a.entry.count || 0)).slice(0, 12);
+  return threats.sort((a, b) => b.weightedScore - a.weightedScore || b.score - a.score || b.probability - a.probability || String(a.foe.species).localeCompare(String(b.foe.species))).slice(0, 12);
 }
 
 function matchupSummary(target) {
