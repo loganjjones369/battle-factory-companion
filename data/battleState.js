@@ -62,6 +62,43 @@ export function replaceTeamSlot(team = [], outgoing = null, incoming = null) {
   return team.map((pokemon, index) => index === outgoingIndex ? replacement : { ...pokemon, teamSlot: pokemon?.teamSlot ?? index });
 }
 
+export const BATTLE_STATUSES = ['healthy', 'brn', 'psn', 'tox', 'par', 'slp', 'frz'];
+export const WEATHER_STATES = ['none', 'sun', 'rain', 'sand', 'hail'];
+
+export function normalizeBattleConditions(input = {}) {
+  const normalizeStatus = (value) => {
+    const key = String(value || 'healthy').trim().toLowerCase();
+    if (['burn', 'brn'].includes(key)) return 'brn';
+    if (['poison', 'psn'].includes(key)) return 'psn';
+    if (['toxic', 'tox'].includes(key)) return 'tox';
+    if (['paralysis', 'par'].includes(key)) return 'par';
+    if (['sleep', 'slp'].includes(key)) return 'slp';
+    if (['freeze', 'frz'].includes(key)) return 'frz';
+    return 'healthy';
+  };
+  const normalizeSide = (side = {}) => ({
+    hpPercent: side.hpPercent == null ? 100 : Math.max(0, Math.min(100, Number(side.hpPercent) || 0)),
+    status: normalizeStatus(side.status),
+    statStages: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0, ...(side.statStages || {}) },
+    substitute: Boolean(side.substitute),
+    reflect: Boolean(side.reflect),
+    lightScreen: Boolean(side.lightScreen),
+    spikes: Math.max(0, Math.min(3, Number(side.spikes) || 0)),
+    stealthRock: Boolean(side.stealthRock),
+  });
+  return {
+    weather: WEATHER_STATES.includes(String(input.weather || 'none').toLowerCase()) ? String(input.weather || 'none').toLowerCase() : 'none',
+    weatherTurns: Math.max(0, Number(input.weatherTurns) || 0),
+    priority: input.priority == null ? null : String(input.priority),
+    team: normalizeSide(input.team),
+    opponent: normalizeSide(input.opponent),
+  };
+}
+
+export function updateBattleConditions(state, patch = {}) {
+  return { ...state, battleConditions: normalizeBattleConditions({ ...(state.battleConditions || {}), ...(patch || {}) }) };
+}
+
 function normalizeKO(ko = {}) {
   return {
     team: Array.isArray(ko.team) ? ko.team.map(Number).filter(Number.isInteger) : [],
@@ -91,7 +128,7 @@ export function createInitialBattleState(options = {}) {
   const initialHistory = options.previousBattleMemory?.length
     ? options.previousBattleMemory
     : (options.draft || []).filter((pokemon) => !currentTeam.some((teamPokemon) => setIdentityKey(teamPokemon) === setIdentityKey(pokemon))).slice(0, 3);
-  return { ...state, currentTeam, previousBattleMemory: initialHistory, round: getFactoryRound(state.battle), swapElevation: getSwapElevation(state.swaps), noland: isNolandBattle(state.battle), knockedOut: normalizeKO(options.knockedOut || state.knockedOut) };
+  return { ...state, currentTeam, previousBattleMemory: initialHistory, round: getFactoryRound(state.battle), swapElevation: getSwapElevation(state.swaps), noland: isNolandBattle(state.battle), knockedOut: normalizeKO(options.knockedOut || state.knockedOut), battleConditions: normalizeBattleConditions(options.battleConditions || state.battleConditions) };
 }
 
 export function advanceAfterBattle(state, { nextCurrentTeam = [], defeatedOpponent = [], didSwap = null } = {}) {
