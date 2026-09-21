@@ -18,7 +18,9 @@ function statRows(pokemon, set, level, round) {
 }
 
 function possibleSets(pokemon) {
-  return getFactorySets(pokemon?.species || pokemon?.name);
+  const all = getFactorySets(pokemon?.species || pokemon?.name);
+  const ids = Array.isArray(pokemon?.possibleSetIds) ? new Set(pokemon.possibleSetIds.map(Number)) : null;
+  return ids && ids.size ? all.filter(set => ids.has(Number(set.id))) : all;
 }
 
 function SetDetails({ set, pokemon, level, round }) {
