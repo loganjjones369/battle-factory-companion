@@ -147,10 +147,11 @@ export function analyzeBattleDecision({
           },
         )
       : null;
+    const sameSpeciesSets = futureCandidateSets.filter((set) => norm(set?.species) === norm(candidate?.species));
     const branchAnalysis = analyzeDecisionBranches(
       { ...candidate, setId: candidate.id },
       activeTeam,
-      [candidate],
+      sameSpeciesSets,
       levelMode === 'Open Level' ? 100 : 50,
       Math.max(1, Math.ceil(Number(battle) / 7)),
       {
