@@ -184,3 +184,55 @@ export function getTurnOrderExplanation(a = {}, b = {}) {
   if (speedA === speedB) return 'Speed tie — order is random';
   return speedA > speedB ? 'Higher effective Speed moves first' : 'Opponent has higher effective Speed';
 }
+
+
+export function buildTurnOutcomes({
+  allyMove = '',
+  opponentMove = '',
+  allySpeed = 0,
+  opponentSpeed = 0,
+  allyHPPercent = 100,
+  opponentHPPercent = 100,
+  allyDamagePercent = 0,
+  opponentDamagePercent = 0,
+  allyResidualPercent = 0,
+  opponentResidualPercent = 0,
+  weather = 'none',
+} = {}) {
+  const plan = buildTurnPlan({ allyMove, opponentMove, weather, allySpeed, opponentSpeed });
+  const first = plan.order === 'Opponent priority moves first' || plan.order === 'Opponent has higher effective Speed'
+    ? 'opponent'
+    : plan.order === 'Speed tie — order is random'
+      ? 'tie'
+      : 'ally';
+  const allyAttackTurn = plan.ally.firstTurn === 'attack' ? 1 : 2;
+  const opponentAttackTurn = plan.opponent.firstTurn === 'attack' ? 1 : 2;
+  const allyTurnOneDamage = allyAttackTurn === 1 ? Math.min(allyHPPercent, opponentDamagePercent) : 0;
+  const opponentTurnOneDamage = opponentAttackTurn === 1 ? Math.min(opponentHPPercent, allyDamagePercent) : 0;
+  const allyAfterTurnOne = Math.max(0, allyHPPercent - allyTurnOneDamage - allyResidualPercent);
+  const opponentAfterTurnOne = Math.max(0, opponentHPPercent - opponentTurnOneDamage - opponentResidualPercent);
+  const allyTurnTwoDamage = allyAttackTurn <= 2 && opponentAfterTurnOne > 0 ? Math.min(allyAfterTurnOne, opponentDamagePercent) : 0;
+  const opponentTurnTwoDamage = opponentAttackTurn <= 2 && allyAfterTurnOne > 0 ? Math.min(opponentAfterTurnOne, allyDamagePercent) : 0;
+  const allyAfterTurnTwo = Math.max(0, allyAfterTurnOne - allyTurnTwoDamage - allyResidualPercent);
+  const opponentAfterTurnTwo = Math.max(0, opponentAfterTurnOne - opponentTurnTwoDamage - opponentResidualPercent);
+  return {
+    plan,
+    firstMover: first,
+    turnOne: {
+      allyDamagePercent: allyTurnOneDamage,
+      opponentDamagePercent: opponentTurnOneDamage,
+      allyHPRemaining: allyAfterTurnOne,
+      opponentHPRemaining: opponentAfterTurnOne,
+    },
+    turnTwo: {
+      allyDamagePercent: allyTurnTwoDamage,
+      opponentDamagePercent: opponentTurnTwoDamage,
+      allyHPRemaining: allyAfterTurnTwo,
+      opponentHPRemaining: opponentAfterTurnTwo,
+    },
+    survivingAfterTurnTwo: {
+      ally: allyAfterTurnTwo > 0,
+      opponent: opponentAfterTurnTwo > 0,
+    },
+  };
+}
