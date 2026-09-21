@@ -32,9 +32,9 @@ function analyzeThreats(candidateResult, lineup, levelNumber, round, scenario) {
       return { ally, matchup, maxDamage: matchup.incoming?.percentMax || 0, speed: matchup.speed === 'faster' ? 'faster' : matchup.speed === 'tie' ? 'tie' : 'slower' };
     });
     const dangerous = targetRows.filter((r) => r.maxDamage >= 50 || r.matchup.incoming?.ko <= 2 || r.speed === 'faster');
-    if (dangerous.length) threats.push({ entry, foe, targetRows, probability: Number(entry.frequency) || 0, score: dangerous.reduce((s, r) => s + (r.maxDamage >= 100 ? 4 : r.maxDamage >= 50 ? 2 : 0) + (r.speed === 'faster' ? 1 : 0), 0) });
+    if (dangerous.length) threats.push({ entry, foe, targetRows, probability: Number(entry.frequency) || 0, score: dangerous.reduce((s, r) => s + (r.maxDamage >= 100 ? 4 : r.maxDamage >= 50 ? 2 : 0) + (r.speed === 'faster' ? 1 : 0), 0), weightedScore: (Number(entry.frequency) || 0) * dangerous.reduce((s, r) => s + (r.maxDamage >= 100 ? 4 : r.maxDamage >= 50 ? 2 : 0) + (r.speed === 'faster' ? 1 : 0), 0) });
   }
-  return threats.sort((a, b) => b.score - a.score || b.probability - a.probability || (b.entry.count || 0) - (a.entry.count || 0)).slice(0, 12);
+  return threats.sort((a, b) => b.weightedScore - a.weightedScore || b.score - a.score || b.probability - a.probability || (b.entry.count || 0) - (a.entry.count || 0)).slice(0, 12);
 }
 
 function matchupSummary(target) {
