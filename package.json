@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "validate:factory": "node scripts/validateFactory.mjs"
+    "validate:factory": "node scripts/validateFactory.mjs",
+    "smoke:evidence": "node scripts/smokeEvidence.mjs"
   },
   "dependencies": {
     "expo": "~54.0.20",
