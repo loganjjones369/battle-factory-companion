@@ -120,6 +120,7 @@ export default function BattleRoom({
   onOpenSummary,
   onScenarioChange,
   onObserveMove,
+  observedMoves = [],
   onObserveItem,
   onObserveAbility,
   onClearClue,
