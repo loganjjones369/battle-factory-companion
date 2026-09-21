@@ -48,9 +48,9 @@ export default function RunFlowV3(){
  const toggleKO=(side,index)=>{const next=setKnockedOut(state||{knockedOut:{team:[],opponent:[]}},side,index,!knockedOut[side].includes(index));setState(next);};
  const recordOpponent=(i,v)=>{setOppText(old=>old.map((x,j)=>j===i?v:x));setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>j===i?{species:v,item:'',moves:['','','','']}:o));setOpponent(old=>{const n=[...old];n[i]={species:v};return n});};
  const updateOppClue=(i,field,value)=>{setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>j===i?{...o,[field]:value}:o));setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));};
- const updateOppMove=(i,m,value)=>{setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>{if(j!==i)return o;const moves=[...(o.moves||['','','',''])];moves[m]=value;return {...o,moves}}));setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));};
+ const updateOppMove=(i,m,value)=>{if(m<0)return;setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>{if(j!==i)return o;const moves=[...(o.moves||[])];if(!moves.includes(value)&&moves.length<4)moves.push(value);return {...o,moves}}));setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));};
  const chooseOppSet=(i,id)=>{const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null});if(!p)return;setOppSets(old=>old.map((x,j)=>j===i?id:x));setOppObs(old=>old.map((o,j)=>j===i?{species:p.species,item:p.item||'',moves:[...(p.moves||[])].slice(0,4)}:o));setOpponent(old=>{const n=[...old];n[i]=p;return n});};
- const observeOpponentMove=(i,move)=>updateOppMove(i,(oppObs[i]?.moves||['','','','']).findIndex(x=>!x),move);
+ const observeOpponentMove=(i,move)=>updateOppMove(i,(oppObs[i]?.moves||[]).length,move);
  const observeOpponentItem=(i,item)=>updateOppClue(i,'item',item||'');
  const observeOpponentAbility=(i,ability)=>updateOppClue(i,'ability',ability||'');
  const observations=oppObs.filter(o=>o?.species).map(o=>({species:o.species,item:o.item,ability:o.ability||'',moves:(o.moves||[]).filter(Boolean)}));
