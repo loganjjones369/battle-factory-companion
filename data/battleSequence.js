@@ -153,6 +153,28 @@ export function getMoveTurnProfile(moveName = '', weather = 'none') {
 }
 
 
+export function buildTurnPlan({ allyMove = '', opponentMove = '', weather = 'none', allySpeed = 0, opponentSpeed = 0 } = {}) {
+  const allyProfile = getMoveTurnProfile(allyMove, weather);
+  const opponentProfile = getMoveTurnProfile(opponentMove, weather);
+  const order = getTurnOrderExplanation({ moveName: allyMove, speed: allySpeed }, { moveName: opponentMove, speed: opponentSpeed });
+  const allyRequiresSetupTurn = Boolean(allyProfile.requiresChargeTurn && !allyProfile.skipsChargeInWeather);
+  const opponentRequiresSetupTurn = Boolean(opponentProfile.requiresChargeTurn && !opponentProfile.skipsChargeInWeather);
+  return {
+    order,
+    ally: {
+      profile: allyProfile,
+      firstTurn: allyRequiresSetupTurn ? 'charge' : 'attack',
+      followUpTurn: allyRequiresSetupTurn ? 'attack' : (allyProfile.requiresRechargeTurn ? 'recharge' : 'ready'),
+    },
+    opponent: {
+      profile: opponentProfile,
+      firstTurn: opponentRequiresSetupTurn ? 'charge' : 'attack',
+      followUpTurn: opponentRequiresSetupTurn ? 'attack' : (opponentProfile.requiresRechargeTurn ? 'recharge' : 'ready'),
+    },
+    exposure: allyRequiresSetupTurn && order === 'Opponent priority moves first' ? 'Ally charge turn is exposed to opponent priority.' : allyRequiresSetupTurn && order === 'Opponent has higher effective Speed' ? 'Ally charge turn is exposed to the faster opponent.' : null,
+  };
+}
+
 export function getTurnOrderExplanation(a = {}, b = {}) {
   const priorityA = getMovePriority(a.moveName);
   const priorityB = getMovePriority(b.moveName);
