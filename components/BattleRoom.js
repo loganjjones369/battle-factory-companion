@@ -59,7 +59,7 @@ function QuickReference({ source, target, side, setId, setProbabilities = {}, on
   const setStage = scenario?.stages?.[ppKey] || {};
   const rows = target && targetSet ? (set.moves || []).map(move => {
     if (!MOVE_DATA[move]) return null;
-    const result = calculateDamage({attacker:source,attackerSet:set,defender:target,defenderSet:targetSet,level,round:1,moveName:move,weather:scenario?.weather||'none',attackerStatus:status,defenderStatus:scenario?.status?.[`${side==='team'?'opponent':'team'}:${target._index ?? 0}`]||'healthy',attackerHP:hp,attackerStages:setStage,defenderStages:scenario?.stages?.[`${side==='team'?'opponent':'team'}:${target._index ?? 0}`]||{}}); 
+    const result = calculateDamage({attacker:source,attackerSet:set,defender:target,defenderSet:targetSet,level,round:1,moveName:move,weather:scenario?.weather||'none',attackerStatus:status,defenderStatus:scenario?.status?.[`${side==='team'?'opponent':'team'}:${target._index ?? 0}`]||'healthy',attackerHP:hp,attackerStages:setStage,defenderStages:scenario?.stages?.[`${side==='team'?'opponent':'team'}:${target._index ?? 0}`]||{},screens:scenario?.screens?.[`${side==='team'?'opponent':'team'}:${target._index ?? 0}`]||{}}); 
     const baseBP=MOVE_DATA[move].power;
     const w=scenario?.weather||'none';
     const effectiveBP=(MOVE_DATA[move].type==='Fire'&&w==='sun')||(MOVE_DATA[move].type==='Water'&&w==='rain')?Math.floor(baseBP*1.5):(MOVE_DATA[move].type==='Fire'&&w==='rain')||(MOVE_DATA[move].type==='Water'&&w==='sun')?Math.floor(baseBP*.5):baseBP;
