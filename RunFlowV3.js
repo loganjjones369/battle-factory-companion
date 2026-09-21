@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { getPokemon } from './data/factoryData';
-import { createRun, completeBattle, updateRunScientist } from './data/runProgress';
+import { createRun, completeBattle } from './data/runProgress';
 import { setKnockedOut } from './data/battleState';
 import { getDraftSlotInfo } from './data/factoryPools';
 import { analyzeFactoryCandidates } from './data/candidateEngine';
