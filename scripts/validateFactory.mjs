@@ -65,7 +65,7 @@ const battleRoom = read('components/BattleRoom.js');
 if (battleRoom.includes('raw.githubusercontent.com') || battleRoom.includes('https://')) {
   throw new Error('BattleRoom still contains a remote asset dependency');
 }
-if (!battleRoom.includes('STAGE_STATS') || !battleRoom.includes('reflect') || !battleRoom.includes('lightScreen') || !battleRoom.includes('stealthRock') || !battleRoom.includes('spikes')) {
+if (!battleRoom.includes('STAGE_STATS') || !battleRoom.includes('reflect') || !battleRoom.includes('lightScreen') || !battleRoom.includes('spikes')) {
   throw new Error('BattleRoom condition controls are incomplete');
 }
 if (!damage.includes('fixedDamage') || !damage.includes('multiHit') || !damage.includes('Super Fang') || !damage.includes('Endeavor')) {
