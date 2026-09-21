@@ -42,7 +42,7 @@ export function getOpponentFactoryIV({ battle = 1, battleTowerStreak = FACTORY_R
   const challengeNum = Math.floor(streak / 7);
   const baseTier = Math.min(7, challengeNum + 1);
   const tier = explicitRound || (b % 7 === 0 ? Math.min(7, baseTier + 1) : baseTier);
-  return getFactoryIVForRound(explicitRound ? derivedRound : tier);
+  return getFactoryIVForRound(explicitRound || (b % 7 === 0 ? Math.min(7, baseTier + 1) : baseTier));
 }
 
 export function getFactoryRoundForBattle(battle = 1) {
