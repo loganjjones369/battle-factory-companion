@@ -7,7 +7,7 @@ export function getFactoryRound(battle = 1) {
 
 export function getBattleMilestone(battle = 1) {
   const n = Number(battle) || 1;
-  return [28, 35, 42].includes(n);
+  return n > 0 && n % 7 === 0;
 }
 
 function speciesName(pokemon) {
