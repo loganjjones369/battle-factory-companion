@@ -1,0 +1,1 @@
+const STORAGE_KEY='bf-companion-active-run-v1'; export const serializeRun=state=>JSON.stringify({...state,savedAt:new Date().toISOString()}); export function hydrateRun(raw){try{return typeof raw==='string'?JSON.parse(raw):raw||null}catch{return null}} export const getRunStorageKey=()=>STORAGE_KEY;
