@@ -38,6 +38,16 @@ export function getNolandFactoryIV({ gold = false } = {}) {
   return gold ? 31 : 15;
 }
 
+export function isNolandBattle(battle = 1) {
+  const b = Math.max(1, Number(battle) || 1);
+  return b % 21 === 0;
+}
+
+export function isNolandGoldBattle(battle = 1) {
+  const b = Math.max(1, Number(battle) || 1);
+  return isNolandBattle(b) && b >= 42;
+}
+
 export function getSwapElevation(swaps = 0) {
   const n = Math.max(0, Number(swaps) || 0);
   return FACTORY_RULES.swapElevation.find((row) => n >= row.min && n <= row.max)?.elevated ?? 0;
