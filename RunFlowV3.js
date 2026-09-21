@@ -11,11 +11,9 @@ import { getFactorySets, getFactorySet, makeSwapReplacement, makeTeamPokemon } f
 import DraftCalculator from './components/DraftCalculator';
 import CandidateAnalysisPanel from './components/CandidateAnalysisPanel';
 import DraftDecisionLab from './components/DraftDecisionLab';
-import LiveOpponentAnalysis from './components/LiveOpponentAnalysis';
 import KOIndicator from './components/KOIndicator';
 import PokemonInfoPanel from './components/PokemonInfoPanel';
 import PokemonHistoryDock from './components/PokemonHistoryDock';
-import BattleScenarioPanel from './components/BattleScenarioPanel';
 import BattleRoom from './components/BattleRoom';
 
 const SPRITES='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
@@ -103,10 +101,8 @@ export default function RunFlowV3(){
    swaps={sw}
    history={state?.previousBattleMemory || draft.filter((_,i)=>!selected.includes(i))}
  />
- <BattleScenarioPanel team={team} opponent={opponent} scenario={scenario} onChange={setScenario}/>
  <CandidateAnalysisPanel draft={draft} blockedSpecies={state?.blockedSpecies||[]} scientist={state?.scientist||{}} levelMode={level} battle={b} revealed={{observations}} noland={state?.noland||false}/>
  <RemainingFactoryPool rankedSets={candidateResult.rankedSets||[]} opponentText={oppText} opponentSets={oppSets} onAddPossible={(species)=>{const i=oppSets.findIndex((set,j)=>set==null && !!oppText[j]); const empty=i<0?oppText.findIndex(x=>!x):-1; const target=i>=0?i:empty; if(target>=0) recordOpponent(target,species);}}/>
- <LiveOpponentAnalysis draft={draft} scientist={state?.scientist||{}} levelMode={level} battle={b} blockedSpecies={state?.blockedSpecies||[]} observations={observations} currentTeam={activeTeam} previousOpponent={state?.previousOpponent||[]} noland={state?.noland||false}/>
  </>{phase==='swap'&&<View style={st.card}><Text style={st.label}>POST-BATTLE SWAP</Text><Text style={st.title}>Keep team or replace one slot</Text><Text style={st.help}>First tap a current party member. Then tap one defeated opponent. The replacement occupies the exact same team slot and is explicitly cleared of draft elevation.</Text><Text style={st.small}>CURRENT TEAM</Text>{team.map((p,i)=><Party key={`out-${i}`} p={p} slot={i} active={swapOut?.teamSlot===i} knockedOut={knockedOut.team.includes(i)} onKO={()=>toggleKO('team',i)} onPress={()=>setSwapOut(p)}/>) }<Text style={st.small}>DEFEATED OPPONENTS</Text>{opponent.map((p,i)=><Party key={`in-${i}`} p={p} slot={i} active={swapIn?.setId===p.setId&&swapIn?.species===p.species} knockedOut={false} onPress={()=>setSwapIn(p)}/>) }<Text style={st.swapText}>{swapOut&&swapIn?`SLOT ${(swapOut.teamSlot??0)+1}: ${swapOut.species} ${swapOut.setId} → ${swapIn.species} ${swapIn.setId}`:'No swap selected — keeping team'}</Text><Button secondary onPress={()=>{setSwapOut(null);setSwapIn(null);finish()}}>KEEP TEAM</Button><Button onPress={finish} disabled={!swapOut||!swapIn}>CONFIRM ONE SWAP</Button></View>}
  <View style={st.card}><Text style={st.title}>Factory memory</Text><Text style={st.help}>Battle {b} • Round {Math.ceil(b/7)} • {state?.swaps||0} swaps • {state?.swapElevation||0} elevated. Team slots persist; elevation is recalculated only from the persistent swap count.</Text></View></>}
  <Text style={st.footer}>Battle Factory Companion • selectable set-aware draft</Text></ScrollView><PokemonInfoPanel visible={!!infoPokemon} pokemon={infoPokemon} kind={infoKind} level={level==='Open Level'?100:50} round={Math.max(1,Math.ceil(b/7))} onClose={()=>setInfoPokemon(null)}/>{celebrate&&<Animated.View pointerEvents="none" style={[st.overlay,{transform:[{scale}]}]}><Text style={st.win}>{celebrate.intensity==='major'?'ROUND COMPLETE!':'BATTLE WON!'}</Text><Text style={st.winSub}>ON TO BATTLE {celebrate.nextBattle}</Text></Animated.View>}</SafeAreaView>
