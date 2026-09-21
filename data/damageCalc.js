@@ -70,6 +70,13 @@ function abilityEffect({ moveType, effectiveness, category, attackerAbility, def
   return { immune: false, multiplier, reason: reasons.join(' • '), attackMultiplier: category === 'physical' && (atk === 'huge power' || atk === 'pure power') ? 2 : 1 };
 }
 
+export function getDamageRolls(result) {
+  if (!result || result.min == null || result.max == null) return [];
+  const values = [];
+  for (let factor = 217; factor <= 255; factor += 1) values.push(Math.floor(Number(result.max) * factor / 255));
+  return [...new Set(values)];
+}
+
 export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP, attackerStages = DEFAULT_STAT_STAGES, defenderStages = DEFAULT_STAT_STAGES, attackerAbility, defenderAbility }) {
   const move = MOVE_DATA[moveName];
   if (!move) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, unsupported: true };
