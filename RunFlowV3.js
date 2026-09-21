@@ -81,6 +81,9 @@ export default function RunFlowV3(){
    onObserveMove={observeOpponentMove}
    onObserveItem={observeOpponentItem}
    onObserveAbility={observeOpponentAbility}
+   onClearClue={clearOpponentClue}
+   observedMoves={oppObs.map(o=>o?.moves||[])}
+   observedItems={oppObs.map(o=>o?.item||'')}
    opponentText={oppText}
    opponentSets={oppSets}
    setProbabilities={setProbabilities}
