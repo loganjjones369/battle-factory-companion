@@ -13,6 +13,11 @@ export function makeObservation(pokemon = {}) {
     setId: pokemon.setId ?? pokemon.factorySetId ?? null,
     item: pokemon.item || '',
     moves: moveNames(pokemon),
+    ability: pokemon.ability || '',
+    observedSpeed: pokemon.observedSpeed ?? null,
+    observedSpeedRelation: pokemon.observedSpeedRelation || '',
+    observedDamage: pokemon.observedDamage ?? null,
+    observedDamageMove: pokemon.observedDamageMove || '',
   };
 }
 
@@ -26,6 +31,11 @@ export function mergeObservationHistory(history = [], observations = []) {
         ...next[existing],
         item: observation.item || next[existing].item || '',
         moves: [...new Set([...(next[existing].moves || []), ...(observation.moves || [])])],
+        ability: observation.ability || next[existing].ability || '',
+        observedSpeed: observation.observedSpeed ?? next[existing].observedSpeed ?? null,
+        observedSpeedRelation: observation.observedSpeedRelation || next[existing].observedSpeedRelation || '',
+        observedDamage: observation.observedDamage ?? next[existing].observedDamage ?? null,
+        observedDamageMove: observation.observedDamageMove || next[existing].observedDamageMove || '',
       };
     } else {
       next.push({ ...observation, moves: [...new Set(observation.moves || [])] });
