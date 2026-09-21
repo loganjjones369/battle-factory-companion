@@ -36,6 +36,8 @@ function bestHit(attacker, attackerSet, defender, defenderSet, level, round, opt
       attackerAbility: options.attackerAbility,
       defenderAbility: options.defenderAbility,
       attackerHP: options.attackerHP,
+      defenderHP: options.defenderHP,
+      screens: options.screens || {},
     });
     if (!result.unsupported && (!best || result.percentMax > best.percentMax)) best = { ...result, moveName };
   }
@@ -61,6 +63,10 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   const allySpeed = getEffectiveSpeed(allyStats, options.allyStatus || 'healthy');
   const hitBack = bestHit(allyPokemon, allySet, opponentPokemon, opponentSet, level, round, {
     ...options,
+    attackerHP: options.allyHP,
+    defenderHP: options.opponentHP,
+    screens: options.opponentScreens || {},
+    ...options,
     attackerStatus: options.allyStatus || 'healthy',
     defenderStatus: options.opponentStatus || 'healthy',
     attackerAbility: options.allyAbility,
@@ -70,6 +76,9 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   });
   const incoming = bestHit(opponentPokemon, opponentSet, allyPokemon, allySet, level, round, {
     ...options,
+    attackerHP: options.opponentHP,
+    defenderHP: options.allyHP,
+    screens: options.allyScreens || {},
     attackerStatus: options.opponentStatus || 'healthy',
     defenderStatus: options.allyStatus || 'healthy',
     attackerAbility: options.opponentAbility,
