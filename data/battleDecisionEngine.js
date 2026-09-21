@@ -1,5 +1,5 @@
 import { analyzeFactoryCandidates } from './candidateEngine';
-import { rankResponses, buildTwoTurnBattlePlan } from './responseAnalysis';
+import { rankResponses, buildTwoTurnBattlePlan, analyzeOpponentMovePool } from './responseAnalysis';
 import { buildBattleSequence } from './battleSequence';
 import { getStats as requireStats } from './damageCalc';
 import { getPokemon } from './factoryData';
@@ -120,6 +120,34 @@ export function analyzeBattleDecision({
     const best = [...responses].sort((a, b) => scoreResponse(b) - scoreResponse(a))[0];
     const teamSide = battleConditions.team || {};
     const oppSide = battleConditions.opponent || {};
+    const movePool = best
+      ? analyzeOpponentMovePool(
+          { ...candidate, setId: candidate.id },
+          best.ally,
+          levelMode === 'Open Level' ? 100 : 50,
+          Math.max(1, Math.ceil(Number(battle) / 7)),
+          {
+            opponentSet: candidate,
+            weather: battleConditions.weather || 'none',
+            allyStatus: teamSide.status || 'healthy',
+            opponentStatus: oppSide.status || 'healthy',
+            allyStages: teamSide.statStages || {},
+            opponentStages: oppSide.statStages || {},
+            allyHP: best.ally?.hp,
+            opponentHP: candidateStats?.hp,
+            allyHPPercent: allyHPPercent,
+            opponentHPPercent: oppHPPercent,
+            allyMove: best.hitBack?.moveName || best.hitBack?.move || '',
+            allySpeed: best.allySpeed || 0,
+            opponentSpeed: best.opponentSpeed || 0,
+            allyDamagePercent: Number(best.hitBack?.percentMax || 0),
+            allyResidualPercent: Number(best.allyResidual?.percent || 0),
+            opponentResidualPercent: Number(best.opponentResidual?.percent || 0),
+            allyScreens: { reflect: Boolean(teamSide.reflect), lightScreen: Boolean(teamSide.lightScreen) },
+            allySubstitute: Boolean(teamSide.substitute),
+          },
+        )
+      : null;
     const bestTwoTurn = best
       ? buildTwoTurnBattlePlan(
           { ...candidate, setId: candidate.id },
@@ -142,6 +170,7 @@ export function analyzeBattleDecision({
       bestResponse: best,
       responseScore: scoreResponse(best),
       twoTurnPlan: bestTwoTurn,
+      movePool,
     });
   });
 
