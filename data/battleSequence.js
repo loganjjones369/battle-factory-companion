@@ -151,3 +151,14 @@ export function getMoveTurnProfile(moveName = '', weather = 'none') {
     skipsChargeInWeather: name === 'SolarBeam' && weather === 'sun',
   };
 }
+
+
+export function getTurnOrderExplanation(a = {}, b = {}) {
+  const priorityA = getMovePriority(a.moveName);
+  const priorityB = getMovePriority(b.moveName);
+  if (priorityA !== priorityB) return priorityA > priorityB ? 'Priority moves first' : 'Opponent priority moves first';
+  const speedA = Number(a.speed) || 0;
+  const speedB = Number(b.speed) || 0;
+  if (speedA === speedB) return 'Speed tie — order is random';
+  return speedA > speedB ? 'Higher effective Speed moves first' : 'Opponent has higher effective Speed';
+}
