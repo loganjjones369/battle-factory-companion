@@ -44,6 +44,13 @@ if (!pkg.dependencies['@react-native-async-storage/async-storage']) {
 if (!scenario.includes('hpPercent') || !scenario.includes('screens') || !scenario.includes('hazards') || !scenario.includes('scenarioSwitchInDamage')) {
   throw new Error('Scenario analysis is not consuming current HP, screens, and hazards');
 }
+const battleRoom = read('components/BattleRoom.js');
+if (battleRoom.includes('raw.githubusercontent.com') || battleRoom.includes('https://')) {
+  throw new Error('BattleRoom still contains a remote asset dependency');
+}
+if (!battleRoom.includes('STAGE_STATS') || !battleRoom.includes('reflect') || !battleRoom.includes('lightScreen') || !battleRoom.includes('stealthRock') || !battleRoom.includes('spikes')) {
+  throw new Error('BattleRoom condition controls are incomplete');
+}
 if (!damage.includes('fixedDamage') || !damage.includes('multiHit') || !damage.includes('Super Fang') || !damage.includes('Endeavor')) {
   throw new Error('Gen III fixed-damage or multi-hit move handling is incomplete');
 }
