@@ -33,13 +33,29 @@ export function getFactoryIVForRound(round = 1) {
   return [0, 3, 6, 9, 12, 15, 21, 31][r];
 }
 
-export function getOpponentFactoryIV({ battle = 1, battleTowerStreak = FACTORY_RULES.defaultBattleTowerStreak } = {}) {
+export function getOpponentFactoryIV({ battle = 1, battleTowerStreak = FACTORY_RULES.defaultBattleTowerStreak, round = null, noland = false } = {}) {
   const b = Math.max(1, Number(battle) || 1);
+  if (noland) return getNolandFactoryIV({ gold: isNolandGoldBattle(b) });
+  const explicitRound = round == null ? null : Math.max(1, Math.min(7, Number(round) || 1));
+  const derivedRound = Math.min(7, Math.ceil(b / 7));
   const streak = Math.max(0, Number(battleTowerStreak) || 0);
   const challengeNum = Math.floor(streak / 7);
   const baseTier = Math.min(7, challengeNum + 1);
-  const tier = b % 7 === 0 ? Math.min(7, baseTier + 1) : baseTier;
-  return getFactoryIVForRound(tier);
+  const tier = explicitRound || (b % 7 === 0 ? Math.min(7, baseTier + 1) : baseTier);
+  return getFactoryIVForRound(explicitRound ? derivedRound : tier);
+}
+
+export function getFactoryRoundForBattle(battle = 1) {
+  return Math.max(1, Math.min(7, Math.ceil(Math.max(1, Number(battle) || 1) / 7)));
+}
+
+export function getNextFactoryRound(battle = 1) {
+  return Math.min(7, getFactoryRoundForBattle(Math.max(1, Number(battle) || 1) + 1));
+}
+
+export function getNextRoundIV({ battle = 1, noland = false, battleTowerStreak = FACTORY_RULES.defaultBattleTowerStreak } = {}) {
+  const nextRound = getNextFactoryRound(battle);
+  return noland ? getNolandFactoryIV({ gold: isNolandGoldBattle(battle) }) : getFactoryIVForRound(nextRound);
 }
 
 export function getNolandFactoryIV({ gold = false } = {}) {
@@ -71,9 +87,20 @@ export function getSwapElevation(swaps = 0) {
 export function getBlockedSpecies({ currentTeam = [], previousOpponent = [], draft = [], battle = 1, noland = false } = {}) {
   if (noland) return [];
   const source = Number(battle) <= 1 ? draft : [...currentTeam, ...previousOpponent];
-  return [...new Set(source
-    .map((p) => typeof p === 'string' ? p : (p?.species || p?.name))
-    .filter(Boolean))];
+  return [...new Set(source.map((p) => typeof p === 'string' ? p : (p?.species || p?.name)).filter(Boolean))];
+}
+
+export function getNextRoundPreview({ currentTeam = [], previousOpponent = [], battle = 1, noland = false } = {}) {
+  const nextBattle = Math.max(1, Number(battle) || 1) + 1;
+  const blockedSpecies = getBlockedSpecies({ currentTeam, previousOpponent, battle: nextBattle, noland });
+  return {
+    nextBattle,
+    nextRound: getNextFactoryRound(battle),
+    nextRoundIV: getNextRoundIV({ battle, noland }),
+    blockedSpecies,
+    blockedCount: blockedSpecies.length,
+    noland: Boolean(noland),
+  };
 }
 
 export function hasDuplicateSpecies(sets = []) {
