@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { getPokemon } from './data/factoryData';
+import { getPokemon, getFactorySpecies } from './data/factoryData';
 import { getStats } from './data/damageCalc';
 import { createRun, completeBattle } from './data/runProgress';
 import { setKnockedOut } from './data/battleState';
