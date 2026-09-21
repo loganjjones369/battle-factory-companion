@@ -30,7 +30,7 @@ function Button({children,onPress,disabled,secondary}){return <TouchableOpacity 
 
 export default function RunFlowV3(){
  const [level,setLevel]=useState('Level 50'),[battle,setBattle]=useState('1'),[swaps,setSwaps]=useState('0');
- const [draftText,setDraftText]=useState(blank6()),[draftSets,setDraftSets]=useState([null,null,null,null,null,null]),[selected,setSelected]=useState([]);
+ const [draftText,setDraftText]=useState(blank6()),[draftSets,setDraftSets]=useState([null,null,null,null,null,null]),[selected,setSelected]=useState([]),[activeDraftIndex,setActiveDraftIndex]=useState(0);
  const [state,setState]=useState(null),[phase,setPhase]=useState('draft');
  const [scientist,setScientist]=useState({type:'',style:null});
  const [team,setTeam]=useState([]),[opponent,setOpponent]=useState([]),[oppText,setOppText]=useState(blank3()),[oppSets,setOppSets]=useState([null,null,null]),[oppObs,setOppObs]=useState(blankObs3());
@@ -39,8 +39,8 @@ export default function RunFlowV3(){
  const knockedOut=state?.knockedOut||{team:[],opponent:[]};
  const draft=useMemo(()=>draftText.map((x,i)=>{if(!x)return null;const p=selectedPokemon(x,draftSets[i]);if(!p)return null;const slot=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw,slotIndex:i});return {...p,draftSlot:i,isElevated:slot.isElevated,factoryIV:slot.iv,poolBucket:slot.poolBucket}}),[draftText,draftSets,level,b,sw]);
  const chosen=selected.map(i=>draft[i]).filter(Boolean);const validSelection=selected.length===3&&chosen.length===3&&new Set(chosen.map(p=>norm(p.species))).size===3&&chosen.every(p=>p?.setId!=null);
- const toggleDraft=i=>{if(!draft[i])return;setSelected(old=>old.includes(i)?old.filter(x=>x!==i):old.length<3?[...old,i]:old)};
- const updateDraft=(i,v)=>{setDraftText(old=>old.map((x,j)=>j===i?v:x));setDraftSets(old=>old.map((x,j)=>j===i?null:x));setSelected(old=>old.filter(x=>x!==i));};
+ const toggleDraft=i=>{if(!draft[i])return;setActiveDraftIndex(i);setSelected(old=>old.includes(i)?old.filter(x=>x!==i):old.length<3?[...old,i]:old)};
+ const updateDraft=(i,v)=>{setDraftText(old=>old.map((x,j)=>j===i?v:x));setDraftSets(old=>old.map((x,j)=>j===i?null:x));setSelected(old=>old.filter(x=>x!==i));setActiveDraftIndex(old=>old===i?0:old);};
  const lockTeam=()=>{if(!validSelection)return;const t=chosen.map((p,i)=>({...p,teamSlot:i}));const next=createRun({level,battle:b,swaps:sw,draft,draftSlots:draft.map((p,i)=>p?{index:i,species:p.species,setId:p.setId,setKey:p.setKey,isElevated:p.isElevated,factoryIV:p.factoryIV,poolBucket:p.poolBucket}:null).filter(Boolean),currentTeam:t,scientist});setTeam(t);setState(next);setPhase('battle');};
  const toggleKO=(side,index)=>{const next=setKnockedOut(state||{knockedOut:{team:[],opponent:[]}},side,index,!knockedOut[side].includes(index));setState(next);};
  const recordOpponent=(i,v)=>{setOppText(old=>old.map((x,j)=>j===i?v:x));setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>j===i?{species:v,item:'',moves:['','','','']}:o));setOpponent(old=>{const n=[...old];n[i]={species:v};return n});};
@@ -82,7 +82,7 @@ export default function RunFlowV3(){
  {phase==='draft'?<><View style={st.card}><Text style={st.label}>STARTING SAVE STATE</Text><View style={st.two}><View style={{flex:1}}><Text style={st.small}>BATTLE</Text><TextInput value={battle} onChangeText={setBattle} keyboardType="number-pad" style={st.input}/></View><View style={{flex:1}}><Text style={st.small}>TOTAL SWAPS</Text><TextInput value={swaps} onChangeText={setSwaps} keyboardType="number-pad" style={st.input}/></View></View><View style={st.row}>{['Open Level','Level 50'].map(x=><TouchableOpacity key={x} onPress={()=>setLevel(x)} style={[st.choice,level===x&&st.choiceOn]}><Text style={st.choiceTxt}>{x}</Text></TouchableOpacity>)}</View></View>
  <ScientistCluePanel scientist={scientist} onChange={setScientist}/>
  <View style={st.card}><View style={st.titleRow}><View><Text style={st.label}>FACTORY RENTAL RACK</Text><Text style={st.title}>SIX-POKÉMON DRAFT</Text></View><Text style={st.elev}>{elevation} ↑</Text></View><Text style={st.help}>Six rentals stay visible like the Factory cart. Tap a filled ball to select it for analysis; exact sets are chosen below each rental.</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.rack}>{[0,1,2,3,4,5].map(i=>{const slot=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw,slotIndex:i});return <View key={i} style={st.rackCell}><Ball p={draft[i]} index={i} elevated={slot.isElevated} selected={selected.includes(i)} onPress={()=>toggleDraft(i)}/><TextInput value={draftText[i]} onChangeText={v=>updateDraft(i,v)} placeholder="SEARCH" placeholderTextColor="#61766f" style={st.rackInput}/><SetPicker species={draftText[i]} setId={draftSets[i]} onChange={id=>setDraftSets(old=>old.map((x,j)=>j===i?id:x))}/>{selected.includes(i)&&<Text style={st.selectedMark}>✓ TESTING</Text>}</View>})}</ScrollView><Text style={st.help}>↑ belongs to the rental slot, not the eventual team slot. A later swap-in is a fresh non-elevated rental.</Text><Button onPress={lockTeam} disabled={!validSelection}>{validSelection?'DRAFT SELECTED 3':'SELECT 3 UNIQUE RENTALS + SETS'}</Button></View>
- <DraftDecisionLab draft={draft} selectedDraftIndices={selected} blockedSpecies={draft.filter(Boolean).map(p=>p.species)} levelMode={level} battle={b} swaps={sw} />
+ <DraftDecisionLab draft={draft} selectedDraftIndices={selected} activeDraftIndex={activeDraftIndex} blockedSpecies={draft.filter(Boolean).map(p=>p.species)} levelMode={level} battle={b} swaps={sw} />
 </>:phase==='battle'?<>
  <BattleRoom
    team={team}
