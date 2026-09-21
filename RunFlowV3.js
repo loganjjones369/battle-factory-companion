@@ -50,7 +50,10 @@ export default function RunFlowV3(){
  const updateOppClue=(i,field,value)=>{setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>j===i?{...o,[field]:value}:o));setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));};
  const updateOppMove=(i,m,value)=>{setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>{if(j!==i)return o;const moves=[...(o.moves||['','','',''])];moves[m]=value;return {...o,moves}}));setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));};
  const chooseOppSet=(i,id)=>{const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null});if(!p)return;setOppSets(old=>old.map((x,j)=>j===i?id:x));setOppObs(old=>old.map((o,j)=>j===i?{species:p.species,item:p.item||'',moves:[...(p.moves||[])].slice(0,4)}:o));setOpponent(old=>{const n=[...old];n[i]=p;return n});};
- const observations=oppObs.filter(o=>o?.species).map(o=>({species:o.species,item:o.item,moves:(o.moves||[]).filter(Boolean)}));
+ const observeOpponentMove=(i,move)=>updateOppMove(i,(oppObs[i]?.moves||['','','','']).findIndex(x=>!x),move);
+ const observeOpponentItem=(i,item)=>updateOppClue(i,'item',item||'');
+ const observeOpponentAbility=(i,ability)=>updateOppClue(i,'ability',ability||'');
+ const observations=oppObs.filter(o=>o?.species).map(o=>({species:o.species,item:o.item,ability:o.ability||'',moves:(o.moves||[]).filter(Boolean)}));
  const finish=()=>{if(opponent.length!==3||opponent.some(p=>!p?.setId))return;let next=team;if(swapOut&&swapIn){const idx=swapOut.teamSlot;next=team.map((p,i)=>i===idx?makeSwapReplacement(swapIn,idx):{...p,teamSlot:i});}const r=completeBattle(state,{won:true,nextCurrentTeam:next,defeatedOpponent:opponent,observations});if(r.state.progressionError)return;setTeam(next);setState(r.state);setSwapOut(null);setSwapIn(null);setOpponent([]);setOppText(blank3());setOppSets([null,null,null]);setOppObs(blankObs3());setScenario({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});setPhase('battle');setCelebrate(r.celebration);scale.setValue(.7);Animated.spring(scale,{toValue:1,useNativeDriver:true}).start(()=>setTimeout(()=>setCelebrate(null),r.celebration?.durationMs||900));};
  const elevation=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw}).elevationCount;
  const activeTeam=team.filter((_,i)=>!knockedOut.team.includes(i));
@@ -74,6 +77,9 @@ export default function RunFlowV3(){
    onMarkKO={(side,i)=>toggleKO(side,i)}
    onOpponentSearch={(i,v)=>recordOpponent(i,v)}
    onOpponentSet={(i,id)=>chooseOppSet(i,id)}
+   onObserveMove={observeOpponentMove}
+   onObserveItem={observeOpponentItem}
+   onObserveAbility={observeOpponentAbility}
    opponentText={oppText}
    opponentSets={oppSets}
    setProbabilities={setProbabilities}
