@@ -136,3 +136,18 @@ export function selectActivePokemon(sequence, side, index) {
   else next.activeOpponentIndex = numericIndex;
   return buildBattleSequence(next);
 }
+
+
+export function getMoveTurnProfile(moveName = '', weather = 'none') {
+  const name = String(moveName || '');
+  const chargeMoves = new Set(['Dig', 'Fly', 'Dive', 'Bounce', 'RazorWind', 'SkyAttack']);
+  const solarBeamCharge = name === 'SolarBeam' && weather !== 'sun';
+  const rechargeMoves = new Set(['HyperBeam']);
+  return {
+    moveName: name,
+    requiresChargeTurn: chargeMoves.has(name) || solarBeamCharge,
+    semiInvulnerableDuringCharge: ['Dig', 'Fly', 'Dive', 'Bounce'].includes(name),
+    requiresRechargeTurn: rechargeMoves.has(name),
+    skipsChargeInWeather: name === 'SolarBeam' && weather === 'sun',
+  };
+}
