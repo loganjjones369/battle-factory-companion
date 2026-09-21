@@ -1,5 +1,5 @@
 import { analyzeFactoryCandidates } from './candidateEngine';
-import { rankResponses } from './responseAnalysis';
+import { rankResponses, rankResponsesAcrossOpponentSets } from './responseAnalysis';
 import { buildBattleSequence } from './battleSequence';
 import { getStats as requireStats } from './damageCalc';
 import { getPokemon } from './factoryData';
@@ -135,29 +135,32 @@ export function analyzeBattleDecision({
   const speciesRecommendations = [...grouped.entries()].map(([species, rows]) => {
     const best = [...rows].sort((a, b) => b.responseScore - a.responseScore)[0];
     const responses = rows.map((row) => row.bestResponse).filter(Boolean);
-    const incomingMax = responses.map((r) => Number(r.incoming?.percentMax || 0)).filter(Number.isFinite);
-    const outgoingMax = responses.map((r) => Number(r.hitBack?.percentMax || 0)).filter(Number.isFinite);
+    const incoming = responses.map((r) => Number(r.incoming?.percentMax || 0)).filter(Number.isFinite);
+    const outgoing = responses.map((r) => Number(r.hitBack?.percentMax || 0)).filter(Number.isFinite);
     const safeCount = responses.filter((r) => r.safeSwitch).length;
+    const fasterCount = responses.filter((r) => r.relation === 'outspeeds').length;
+    const exposureCount = responses.filter((r) => r.turnPlanRisk > 0).length;
+    const worstCaseIncoming = incoming.length ? Math.max(...incoming) : 0;
+    const worstCaseOutgoing = outgoing.length ? Math.min(...outgoing) : 0;
+    const safeShare = responses.length ? safeCount / responses.length : 0;
+    const fasterShare = responses.length ? fasterCount / responses.length : 0;
+    const exposureShare = responses.length ? exposureCount / responses.length : 0;
+    const uncertaintyScore = (fasterShare * 15) + (safeShare * 20) + Math.min(60, worstCaseOutgoing) - Math.min(60, worstCaseIncoming) - (exposureShare * 20);
     return {
-      species,
-      setCount: rows.length,
-      sets: rows.map((row) => row.opponentSet),
-      bestResponse: best.bestResponse,
-      responseRange: {
-        incomingMin: incomingMax.length ? Math.min(...incomingMax) : null,
-        incomingMax: incomingMax.length ? Math.max(...incomingMax) : null,
-        outgoingMin: outgoingMax.length ? Math.min(...outgoingMax) : null,
-        outgoingMax: outgoingMax.length ? Math.max(...outgoingMax) : null,
-      },
-      safeSwitchCount: safeCount,
-      safeSwitchTotal: responses.length,
-      note: `${rows.length} surviving set${rows.length === 1 ? '' : 's'} evaluated against the currently active party.`,
+      species, setCount: rows.length, sets: rows.map((row) => row.opponentSet), bestResponse: best.bestResponse,
+      responseRange: { incomingMin: incoming.length ? Math.min(...incoming) : null, incomingMax: incoming.length ? Math.max(...incoming) : null, outgoingMin: outgoing.length ? Math.min(...outgoing) : null, outgoingMax: outgoing.length ? Math.max(...outgoing) : null },
+      worstCase: { incomingPercent: worstCaseIncoming, outgoingPercent: worstCaseOutgoing, fasterShare, safeShare, exposureShare },
+      safeSwitchCount: safeCount, safeSwitchTotal: responses.length, uncertaintyScore,
+      note: rows.length + ' surviving set' + (rows.length === 1 ? '' : 's') + ' evaluated; ranges show uncertainty across the remaining sets.',
     };
-  }).sort((a, b) => scoreResponse(b.bestResponse) - scoreResponse(a.bestResponse));
+  }).sort((a, b) => b.uncertaintyScore - a.uncertaintyScore);
 
   const activeOpponentSet = sequence.activeOpponent;
+  const activeSpeciesRows = activeOpponentSet
+    ? speciesRecommendations.filter((row) => norm(row.species) === norm(activeOpponentSet.species))
+    : [];
   const activeDecision = activeOpponentSet
-    ? speciesRecommendations.find((row) => norm(row.species) === norm(activeOpponentSet.species)) || null
+    ? activeSpeciesRows.find((row) => activeOpponentSet.setId != null && row.sets.some((set) => Number(set.id) === Number(activeOpponentSet.setId))) || activeSpeciesRows[0] || null
     : null;
 
   return {
