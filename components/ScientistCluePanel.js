@@ -9,10 +9,10 @@ export default function ScientistCluePanel({ scientist = {}, onChange }) {
   const type = scientist.type || 'None';
   const style = scientist.style == null ? null : Number(scientist.style);
   const set = (patch) => onChange?.({ ...scientist, ...patch });
-  return <View style={styles.card}>
-    <Text style={styles.kicker}>SCIENTIST INTELLIGENCE</Text>
-    <Text style={styles.title}>What did the Scientist tell you?</Text>
-    <Text style={styles.help}>Enter the clues you actually received. The app stores them with this run and uses them to filter legal Factory teams. Unknown clues stay unknown — nothing is guessed for you.</Text>
+  return <View style={styles.station}>
+    <Text style={styles.kicker}>FACTORY INTELLIGENCE STATION</Text>
+    <Text style={styles.title}>SCIENTIST BRIEFING</Text>
+    <Text style={styles.help}>Record only the clues you actually received. Unknown information stays unknown.</Text>
     <Text style={styles.label}>TRAINER TYPE</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
       {TYPES.map((x) => <TouchableOpacity key={x} onPress={() => set({ type: x === 'None' ? '' : x })} style={[styles.chip, type === x && styles.chipOn]}><Text style={[styles.chipText, type === x && styles.chipTextOn]}>{x}</Text></TouchableOpacity>)}
@@ -26,4 +26,4 @@ export default function ScientistCluePanel({ scientist = {}, onChange }) {
   </View>;
 }
 
-const styles = StyleSheet.create({ card:{backgroundColor:'#101c20',borderWidth:1,borderColor:'#5a4b36',borderRadius:17,padding:13,marginBottom:11}, kicker:{color:'#d9b979',fontSize:9,fontWeight:'900',letterSpacing:1.3,marginBottom:6}, title:{color:'#f3faf7',fontSize:17,fontWeight:'900',marginBottom:7}, help:{color:'#8d9d97',fontSize:10,lineHeight:15,marginBottom:9}, label:{color:'#927d59',fontSize:8,fontWeight:'900',letterSpacing:1}, scroll:{gap:5,paddingVertical:5}, chip:{borderWidth:1,borderColor:'#3b4a45',backgroundColor:'#0b1513',borderRadius:9,paddingHorizontal:9,paddingVertical:7}, styleChip:{borderWidth:1,borderColor:'#3b4a45',backgroundColor:'#0b1513',borderRadius:9,paddingHorizontal:9,paddingVertical:7,maxWidth:220}, chipOn:{borderColor:'#d9b979',backgroundColor:'#3a3021'}, chipText:{color:'#7e918a',fontSize:9,fontWeight:'800'}, chipTextOn:{color:'#f6e4bb'}, status:{marginTop:7,borderTopWidth:1,borderTopColor:'#332f27',paddingTop:7}, statusTitle:{color:'#8d7854',fontSize:7,fontWeight:'900',letterSpacing:1}, statusText:{color:'#c7b99f',fontSize:10,fontWeight:'800',marginTop:2} });
+const styles = StyleSheet.create({ station:{backgroundColor:'#11191a',borderWidth:1,borderColor:'#5c503c',borderRadius:18,padding:12,marginBottom:11}, kicker:{color:'#c8ad76',fontSize:9,fontWeight:'900',letterSpacing:1.3,marginBottom:6}, title:{color:'#f5f8f5',fontSize:19,fontWeight:'900',marginBottom:7}, help:{color:'#87958f',fontSize:10,lineHeight:15,marginBottom:9}, label:{color:'#927d59',fontSize:8,fontWeight:'900',letterSpacing:1}, scroll:{gap:5,paddingVertical:5}, chip:{borderWidth:1,borderColor:'#3b4a45',backgroundColor:'#0b1513',borderRadius:9,paddingHorizontal:9,paddingVertical:7}, styleChip:{borderWidth:1,borderColor:'#3b4a45',backgroundColor:'#0b1513',borderRadius:9,paddingHorizontal:9,paddingVertical:7,maxWidth:220}, chipOn:{borderColor:'#d9b979',backgroundColor:'#3a3021'}, chipText:{color:'#7e918a',fontSize:9,fontWeight:'800'}, chipTextOn:{color:'#f6e4bb'}, status:{marginTop:9,borderTopWidth:1,borderTopColor:'#332f27',paddingTop:7}, statusTitle:{color:'#8d7854',fontSize:7,fontWeight:'900',letterSpacing:1}, statusText:{color:'#c7b99f',fontSize:10,fontWeight:'800',marginTop:2} });
