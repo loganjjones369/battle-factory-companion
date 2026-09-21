@@ -1,5 +1,31 @@
 const clean = (value) => String(value || '').trim();
 const speciesOf = (value) => clean(value?.species || value?.name || value);
+const PRIORITY_BY_MOVE = {
+  HelpingHand: 5,
+  FollowMe: 3,
+  Protect: 3,
+  Detect: 3,
+  Endure: 3,
+  FakeOut: 3,
+  QuickAttack: 1,
+  MachPunch: 1,
+  ExtremeSpeed: 1,
+};
+
+export function getMovePriority(moveName = '') {
+  return Number(PRIORITY_BY_MOVE[String(moveName || '').replace(/[^A-Za-z]/g, '')] || 0);
+}
+
+export function compareTurnOrder(a = {}, b = {}) {
+  const priorityA = getMovePriority(a.moveName);
+  const priorityB = getMovePriority(b.moveName);
+  if (priorityA !== priorityB) return priorityB - priorityA;
+  const speedA = Number(a.speed) || 0;
+  const speedB = Number(b.speed) || 0;
+  if (speedA !== speedB) return speedB - speedA;
+  return 0;
+}
+
 
 export function getActiveIndexes(slots = [], knockedOut = []) {
   const ko = new Set((knockedOut || []).map(Number));
