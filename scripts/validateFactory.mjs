@@ -11,6 +11,9 @@ const scenario = read('data/scenarioDamage.js');
 const battleState = read('data/battleState.js');
 const rules = read('data/factoryRules.js');
 const candidate = read('data/candidateEngine.js');
+const evidenceInference = read('data/evidenceInference.js');
+const battleRoom = read('components/BattleRoom.js');
+const sprite = read('components/Sprite.js');
 const draft = read('components/DraftDecisionLab.js');
 const pkg = JSON.parse(read('package.json'));
 
@@ -67,10 +70,11 @@ if (!damageCalc.includes("fixedDamage === 'psywave'")) {
   throw new Error('Psywave handling is missing');
 }
 
-const battleRoom = read('components/BattleRoom.js');
 if (battleRoom.includes('raw.githubusercontent.com') || battleRoom.includes('https://')) {
   throw new Error('BattleRoom still contains a remote asset dependency');
 }
+const spriteRequires = sprite.split('require("pokeapi-sprites/sprites/pokemon/versions/generation-iii/emerald/').length - 1;
+if (spriteRequires !== speciesCount) throw new Error(`Sprite coverage mismatch: ${spriteRequires} bundled sprites for ${speciesCount} Factory species`);
 if (!battleRoom.includes('STAGE_STATS') || !battleRoom.includes('reflect') || !battleRoom.includes('lightScreen') || !battleRoom.includes('spikes')) {
   throw new Error('BattleRoom condition controls are incomplete');
 }
