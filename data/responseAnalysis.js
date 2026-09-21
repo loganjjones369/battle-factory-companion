@@ -1,5 +1,6 @@
 import { bestDamagingMoves, calculateDamage, getEffectiveSpeed, getStats } from './damageCalc';
 import { getPokemon } from './factoryData';
+import { scenarioSwitchInDamage } from './scenarioDamage';
 
 function resolvePokemon(value) {
   if (!value) return null;
@@ -94,6 +95,7 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
     defenderStages: options.allyStages,
   });
   const relation = speedRelation(allySpeed, opponentSpeed);
+  const allySwitch = scenarioSwitchInDamage(ally, level, round, { weather: options.weather || 'none', sides: { [String(ally?.species || '').trim().toLowerCase() + '#' + (ally?.setId ?? ally?.id ?? '')]: { spikes: options.allySpikes || 0 } } });
   const damageOut = hitBack?.percentMax ?? 0;
   const damageIn = incoming?.percentMax ?? 0;
   const safeSwitch = damageIn < 50;
@@ -104,7 +106,7 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   else if (relation === 'speed ties') classification = 'Speed tie';
   else if (damageOut >= 50) classification = 'Strong pressure, but exposed';
   else classification = 'Limited pressure';
-  return { ally: allyPokemon, opponent: opponentPokemon, allySet, opponentSet, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, safeSwitch, classification, incomingMove: incoming?.moveName || null, returnMove: hitBack?.moveName || null };
+  return { ally: allyPokemon, opponent: opponentPokemon, allySet, opponentSet, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, safeSwitch, classification, incomingMove: incoming?.moveName || null, returnMove: hitBack?.moveName || null, switchIn: allySwitch };
 }
 
 export function rankResponses(opponent, team = [], level = 100, round = 1, options = {}) {
