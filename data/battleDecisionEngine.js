@@ -114,6 +114,7 @@ export function analyzeBattleDecision({
         allyScreens: { reflect: Boolean(teamSide.reflect), lightScreen: Boolean(teamSide.lightScreen) },
         opponentScreens: { reflect: Boolean(oppSide.reflect), lightScreen: Boolean(oppSide.lightScreen) },
         defenderSubstitute: Boolean(oppSide.substitute),
+        allySpikes,
       });
     }).flat();
     if (!responses.length) return;
@@ -133,8 +134,9 @@ export function analyzeBattleDecision({
             opponentStatus: oppSide.status || 'healthy',
             allyStages: teamSide.statStages || {},
             opponentStages: oppSide.statStages || {},
-            allyHP: best.ally?.hp,
+            allyHP: (() => { const s = best.ally?.setId != null ? getFactorySet(best.ally.species, best.ally.setId) : best.ally; const st = s ? requireStats(best.ally, s, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7))) : null; return st ? Math.max(1, Math.floor(st.hp * allyHPPercent / 100)) : undefined; })(),
             allyHPPercent: allyHPPercent,
+            allySpikes,
             opponentHPPercent: oppHPPercent,
             allyMove: best.hitBack?.moveName || best.hitBack?.move || '',
             allySpeed: best.allySpeed || 0,
