@@ -18,6 +18,7 @@ import KOIndicator from './components/KOIndicator';
 import PokemonInfoPanel from './components/PokemonInfoPanel';
 import BattleRoom from './components/BattleRoom';
 import ScientistCluePanel from './components/ScientistCluePanel';
+import { loadRunSnapshot, saveRunSnapshot, clearRunSnapshot } from './data/runPersistence';
 
 const SPRITES='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
 const norm=v=>String(v||'').trim().toLowerCase();
@@ -44,7 +45,10 @@ export default function RunFlowV3(){
  const [scientist,setScientist]=useState({type:'',style:null});
  const [team,setTeam]=useState([]),[opponent,setOpponent]=useState([]),[oppText,setOppText]=useState(blank3()),[oppSets,setOppSets]=useState([null,null,null]),[oppObs,setOppObs]=useState(blankObs3());
  const [swapOut,setSwapOut]=useState(null),[swapIn,setSwapIn]=useState(null),[pendingBattle,setPendingBattle]=useState(null),[celebrate,setCelebrate]=useState(null);const [activeTeamIndex,setActiveTeamIndex]=useState(0),[activeOpponentIndex,setActiveOpponentIndex]=useState(0);const [scenario,setScenario]=useState({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});const [infoPokemon,setInfoPokemon]=useState(null),[infoKind,setInfoKind]=useState('YOUR POKÉMON');const scale=useRef(new Animated.Value(.7)).current;
+ const [hydrated,setHydrated]=useState(false);
  const b=state?.battle||Math.max(1,Number(battle)||1),sw=state?.swaps??Math.max(0,Number(swaps)||0);
+ useEffect(()=>{let alive=true;(async()=>{const snap=await loadRunSnapshot();if(!alive)return;if(snap?.state){setState(snap.state);setPhase(snap.phase||'battle');setTeam(snap.team||snap.state.currentTeam||[]);setOpponent(snap.opponent||[]);setOppText(snap.oppText||blank3());setOppSets(snap.oppSets||[null,null,null]);setOppObs(snap.oppObs||blankObs3());setScenario(snap.scenario||{hp:{},status:{},stages:{},weather:'none',focus:'team:0'});setBattle(String(snap.state.battle||1));setSwaps(String(snap.state.swaps||0));setLevel(Number(snap.state.level)===100?'Open Level':'Level 50');const savedDraft=(snap.state.draft||[]).map(x=>x?.species||'');setDraftText([...savedDraft,...blank6()].slice(0,6));setDraftSets((snap.state.draft||[]).map(x=>x?.setId??null).concat([null,null,null,null,null,null]).slice(0,6));}setHydrated(true);})();return()=>{alive=false;};},[]);
+ useEffect(()=>{if(!hydrated)return;saveRunSnapshot({state,phase,team,opponent,oppText,oppSets,oppObs,scenario}).catch(()=>{});},[hydrated,state,phase,team,opponent,oppText,oppSets,oppObs,scenario]);
  const knockedOut=state?.knockedOut||{team:[],opponent:[]};
  const draftMatches=useMemo(()=>{const q=norm(draftSearch);if(!q||draftSearchSlot==null)return [];const slot=getDraftSlotMetadata({levelMode:level,battle:b,swaps:sw,slotIndex:draftSearchSlot});const used=new Set(draftText.map(norm).filter(Boolean));return getFactorySpecies().filter(name=>!used.has(norm(name))&&norm(name).startsWith(q)&&getFactorySets(name).some(set=>norm(set.pool)===norm(slot.poolBucket))).slice(0,8);},[draftSearch,draftSearchSlot,level,b,sw,draftText]);
  const draft=useMemo(()=>draftText.map((x,i)=>{if(!x)return null;const slot=getDraftSlotMetadata({levelMode:level,battle:b,swaps:sw,slotIndex:i});const allowedSets=getFactorySets(x).filter(set=>norm(set.pool)===norm(slot.poolBucket));const p=allowedSets.some(set=>Number(set.id)===Number(draftSets[i]))?selectedPokemon(x,draftSets[i]):null;if(!p)return null;return {...p,draftSlot:i,isElevated:slot.isElevated,factoryIV:slot.iv,factoryIVSource:slot.isElevated?'ELEVATED RENTAL':'STANDARD RENTAL',poolBucket:slot.poolBucket}}),[draftText,draftSets,level,b,sw]);
@@ -129,7 +133,7 @@ export default function RunFlowV3(){
    opponentSets={oppSets}
    setProbabilities={setProbabilities}
    observedAbilities={oppObs.map(o=>o?.ability||'')}
-   onEndBattle={(outcome)=>{if(outcome==='win'){beginBattleEnd(outcome);}else if(outcome==='loss'){setState(null);setTeam([]);setOpponent([]);setPendingBattle(null);setPhase('draft');setActiveTeamIndex(0);setActiveOpponentIndex(0);}}}
+   onEndBattle={(outcome)=>{if(outcome==='win'){beginBattleEnd(outcome);}else if(outcome==='loss'){clearRunSnapshot();setState(null);setTeam([]);setOpponent([]);setPendingBattle(null);setPhase('draft');setActiveTeamIndex(0);setActiveOpponentIndex(0);}}}
    onOpenSummary={(p,k)=>openInfo(p,k)}
    onScenarioChange={setScenario}
    scenario={scenario}
