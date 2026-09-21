@@ -43,30 +43,6 @@ function bestHit(attacker, attackerSet, defender, defenderSet, level, round, opt
 }
 
 
-function koSummary(hit, hp) {
-  if (!hit || !Number.isFinite(Number(hp)) || Number(hp) <= 0) return { guaranteed: null, possible: null, minHits: null, maxHits: null };
-  const min = Math.max(0, Number(hit.min) || 0);
-  const max = Math.max(0, Number(hit.max) || 0);
-  return {
-    guaranteed: min >= hp ? 1 : Math.ceil(hp / Math.max(1, max)),
-    possible: max >= hp ? 1 : Math.ceil(hp / Math.max(1, min)),
-    minHits: Math.ceil(hp / Math.max(1, max)),
-    maxHits: Math.ceil(hp / Math.max(1, min))
-  };
-}
-
-export function summarizeKO(hit, hp, currentHP = hp) {
-  const h = Math.max(1, Number(currentHP) || Number(hp) || 1);
-  const min = Math.max(0, Number(hit?.min) || 0);
-  const max = Math.max(0, Number(hit?.max) || 0);
-  if (!hit || !Number(hp)) return { label: 'No damage data', minHits: null, maxHits: null, guaranteed: false };
-  if (max === 0) return { label: 'No damage', minHits: Infinity, maxHits: Infinity, guaranteed: false };
-  const minHits = Math.ceil(h / max);
-  const maxHits = min ? Math.ceil(h / min) : Infinity;
-  let label = minHits === 1 ? 'OHKO' : minHits === 2 ? (maxHits === 2 ? 'Guaranteed 2HKO' : 'Possible 2HKO') : minHits === 3 ? (maxHits === 3 ? 'Guaranteed 3HKO' : 'Possible 3HKO') : `${minHits}-${maxHits === Infinity ? '+' : maxHits}HKO`;
-  return { label, minHits, maxHits, guaranteed: minHits === maxHits };
-}
-
 function speedRelation(allySpeed, opponentSpeed) {
   if (allySpeed > opponentSpeed) return 'outspeeds';
   if (allySpeed < opponentSpeed) return 'slower than';
@@ -104,29 +80,20 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   const relation = speedRelation(allySpeed, opponentSpeed);
   const damageOut = hitBack?.percentMax ?? 0;
   const damageIn = incoming?.percentMax ?? 0;
-  const hitBackKO = summarizeKO(hitBack, hitBack?.hp, hitBack?.hp);
-  const incomingKO = summarizeKO(incoming, incoming?.hp, allyStats.hp);
-  const guaranteedTwoHKO = hitBack ? hitBack.percentMin >= 50 : false;
-  const guaranteedOHKO = hitBack ? hitBack.percentMin >= 100 : false;
-  const possibleOHKO = hitBack ? hitBack.percentMax >= 100 : false;
-  const dangerousIncoming = incoming ? incoming.percentMin >= 50 : false;
   const safeSwitch = damageIn < 50;
   let classification = 'Neutral';
-  if (guaranteedOHKO && relation === 'outspeeds') classification = 'OHKO + outspeeds';
-  else if (possibleOHKO && relation === 'outspeeds') classification = 'Possible OHKO + outspeeds';
-  else if (guaranteedTwoHKO && relation === 'outspeeds') classification = 'Guaranteed 2HKO + outspeeds';
-  else if (safeSwitch && damageOut >= 50) classification = 'Safe switch + strong pressure';
+  if (safeSwitch && damageOut >= 50) classification = 'Safe switch + strong pressure';
   else if (safeSwitch) classification = 'Safer switch-in';
   else if (relation === 'outspeeds' && damageOut >= 50) classification = 'Outspeeds + strong pressure';
   else if (relation === 'speed ties') classification = 'Speed tie';
   else if (damageOut >= 50) classification = 'Strong pressure, but exposed';
   else classification = 'Limited pressure';
-  return { ally: allyPokemon, hitBackKO, incomingKO, opponent: opponentPokemon, allySet, opponentSet, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, guaranteedTwoHKO, guaranteedOHKO, possibleOHKO, dangerousIncoming, safeSwitch, classification, incomingMove: incoming?.moveName || null, returnMove: hitBack?.moveName || null };
+  return { ally: allyPokemon, opponent: opponentPokemon, allySet, opponentSet, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, safeSwitch, classification, incomingMove: incoming?.moveName || null, returnMove: hitBack?.moveName || null };
 }
 
 export function rankResponses(opponent, team = [], level = 100, round = 1, options = {}) {
   return team.map((ally) => analyzeResponse(opponent, ally, level, round, options)).filter(Boolean).sort((a, b) => {
-    const score = (x) => (x.guaranteedOHKO ? 100 : 0) + (x.possibleOHKO ? 35 : 0) + (x.guaranteedTwoHKO ? 25 : 0) + (x.relation === 'outspeeds' ? 15 : x.relation === 'speed ties' ? 5 : 0) + (x.safeSwitch ? 20 : 0) + Math.min(20, x.damageOut / 5) - Math.min(30, x.damageIn / 3);
+    const score = (x) => (x.relation === 'outspeeds' ? 15 : x.relation === 'speed ties' ? 5 : 0) + (x.safeSwitch ? 20 : 0) + Math.min(60, x.damageOut) - Math.min(60, x.damageIn);
     return score(b) - score(a);
   });
 }
