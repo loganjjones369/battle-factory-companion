@@ -23,7 +23,7 @@ function possibleSets(pokemon) {
 
 function SetDetails({ set, pokemon, level, round }) {
   const source = set || pokemon;
-  const stats = source ? getStats(source, source, level, round) : {};
+  const stats = source && pokemon ? getStats(pokemon, source, level, round) : {};
   const evs = source?.evs || {};
   const moves = Array.isArray(source?.moves) ? source.moves : [];
   return <View style={styles.setCard}>
