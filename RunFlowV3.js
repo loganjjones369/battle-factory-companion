@@ -13,6 +13,7 @@ import LiveOpponentAnalysis from './components/LiveOpponentAnalysis';
 import KOIndicator from './components/KOIndicator';
 import PokemonInfoPanel from './components/PokemonInfoPanel';
 import PokemonHistoryDock from './components/PokemonHistoryDock';
+import BattleScenarioPanel from './components/BattleScenarioPanel';
 
 const SPRITES='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
 const norm=v=>String(v||'').trim().toLowerCase();
@@ -34,7 +35,7 @@ export default function RunFlowV3(){
  const [draftText,setDraftText]=useState(blank6()),[draftSets,setDraftSets]=useState([null,null,null,null,null,null]),[selected,setSelected]=useState([]);
  const [state,setState]=useState(null),[phase,setPhase]=useState('draft');
  const [team,setTeam]=useState([]),[opponent,setOpponent]=useState([]),[oppText,setOppText]=useState(blank3()),[oppSets,setOppSets]=useState([null,null,null]),[oppObs,setOppObs]=useState(blankObs3());
- const [swapOut,setSwapOut]=useState(null),[swapIn,setSwapIn]=useState(null),[celebrate,setCelebrate]=useState(null);const [infoPokemon,setInfoPokemon]=useState(null),[infoKind,setInfoKind]=useState('YOUR POKÉMON');const scale=useRef(new Animated.Value(.7)).current;
+ const [swapOut,setSwapOut]=useState(null),[swapIn,setSwapIn]=useState(null),[celebrate,setCelebrate]=useState(null);const [scenario,setScenario]=useState({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});const [infoPokemon,setInfoPokemon]=useState(null),[infoKind,setInfoKind]=useState('YOUR POKÉMON');const scale=useRef(new Animated.Value(.7)).current;
  const b=state?.battle||Math.max(1,Number(battle)||1),sw=state?.swaps??Math.max(0,Number(swaps)||0);
  const knockedOut=state?.knockedOut||{team:[],opponent:[]};
  const draft=useMemo(()=>draftText.map((x,i)=>{if(!x)return null;const p=selectedPokemon(x,draftSets[i]);if(!p)return null;const slot=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw,slotIndex:i});return {...p,draftSlot:i,isElevated:slot.isElevated,factoryIV:slot.iv,poolBucket:slot.poolBucket}}),[draftText,draftSets,level,b,sw]);
@@ -48,7 +49,7 @@ export default function RunFlowV3(){
  const updateOppMove=(i,m,value)=>{setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>{if(j!==i)return o;const moves=[...(o.moves||['','','',''])];moves[m]=value;return {...o,moves}}));setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));};
  const chooseOppSet=(i,id)=>{const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null});if(!p)return;setOppSets(old=>old.map((x,j)=>j===i?id:x));setOppObs(old=>old.map((o,j)=>j===i?{species:p.species,item:p.item||'',moves:[...(p.moves||[])].slice(0,4)}:o));setOpponent(old=>{const n=[...old];n[i]=p;return n});};
  const observations=oppObs.filter(o=>o?.species).map(o=>({species:o.species,item:o.item,moves:(o.moves||[]).filter(Boolean)}));
- const finish=()=>{if(opponent.length!==3||opponent.some(p=>!p?.setId))return;let next=team;if(swapOut&&swapIn){const idx=swapOut.teamSlot;next=team.map((p,i)=>i===idx?makeSwapReplacement(swapIn,idx):{...p,teamSlot:i});}const r=completeBattle(state,{won:true,nextCurrentTeam:next,defeatedOpponent:opponent,observations});if(r.state.progressionError)return;setTeam(next);setState(r.state);setSwapOut(null);setSwapIn(null);setOpponent([]);setOppText(blank3());setOppSets([null,null,null]);setOppObs(blankObs3());setPhase('battle');setCelebrate(r.celebration);scale.setValue(.7);Animated.spring(scale,{toValue:1,useNativeDriver:true}).start(()=>setTimeout(()=>setCelebrate(null),r.celebration?.durationMs||900));};
+ const finish=()=>{if(opponent.length!==3||opponent.some(p=>!p?.setId))return;let next=team;if(swapOut&&swapIn){const idx=swapOut.teamSlot;next=team.map((p,i)=>i===idx?makeSwapReplacement(swapIn,idx):{...p,teamSlot:i});}const r=completeBattle(state,{won:true,nextCurrentTeam:next,defeatedOpponent:opponent,observations});if(r.state.progressionError)return;setTeam(next);setState(r.state);setSwapOut(null);setSwapIn(null);setOpponent([]);setOppText(blank3());setOppSets([null,null,null]);setOppObs(blankObs3());setScenario({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});setPhase('battle');setCelebrate(r.celebration);scale.setValue(.7);Animated.spring(scale,{toValue:1,useNativeDriver:true}).start(()=>setTimeout(()=>setCelebrate(null),r.celebration?.durationMs||900));};
  const elevation=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw}).elevationCount;
  const activeTeam=team.filter((_,i)=>!knockedOut.team.includes(i));
  const activeOpponents=opponent.filter((_,i)=>!knockedOut.opponent.includes(i));
@@ -60,6 +61,7 @@ export default function RunFlowV3(){
  <DraftCalculator draft={draft} level={level} battle={b}/><CandidateAnalysisPanel draft={draft} blockedSpecies={draft.filter(Boolean).map(p=>p.species)} scientist={state?.scientist||{}} levelMode={level} battle={b} revealed={state?.revealed||{}} noland={state?.noland||false}/></>:<>
  <View style={st.partyDock}><View style={st.partyHeader}><Text style={st.label}>YOUR PARTY • FIXED TEAM SLOTS</Text><Text style={st.activeCount}>{activeTeam.length}/3 ACTIVE</Text></View>{team.map((p,i)=><Party key={`${p.species}-${p.setId}-${i}`} p={p} slot={i} active={!!swapOut&&swapOut.teamSlot===i} knockedOut={knockedOut.team.includes(i)} onKO={()=>toggleKO('team',i)} onPress={()=>phase==='swap'?setSwapOut(p):openInfo(p,'YOUR POKÉMON')}/>)}</View>
  <PokemonHistoryDock pokemon={state?.previousBattleMemory || draft.filter((_,i)=>!selected.includes(i))} level={level==='Open Level'?100:50} round={Math.max(1,Math.ceil(b/7))}/>
+ <BattleScenarioPanel team={team} opponent={opponent} scenario={scenario} onChange={setScenario}/>
  {phase==='battle'&&<><View style={st.card}><Text style={st.label}>OPPONENT TRACKING</Text><Text style={st.title}>What could still be out there?</Text><Text style={st.help}>Tap the small KO button on a Pokémon after it goes down. The X animation marks it out, and the same button becomes UNDO KO if you tapped it by mistake.</Text>
  {[0,1,2].map(i=><View key={i} style={st.oppBox}><OpponentSlot p={opponent[i]} index={i} knockedOut={knockedOut.opponent.includes(i)} onKO={()=>toggleKO('opponent',i)} onPress={()=>openInfo(opponent[i],'OPPONENT')}/><View style={st.oppFields}><TextInput value={oppText[i]} onChangeText={v=>recordOpponent(i,v)} placeholder="Species" placeholderTextColor="#61766f" style={st.input}/>
  <Text style={st.clueLabel}>HELD ITEM</Text><TextInput value={oppObs[i].item} onChangeText={v=>updateOppClue(i,'item',v)} placeholder="Unknown / enter item when seen" placeholderTextColor="#61766f" style={st.input}/>
