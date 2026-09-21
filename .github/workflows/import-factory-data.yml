@@ -20,6 +20,7 @@ jobs:
           curl -L --fail --retry 3 -o /tmp/allpkmn.csv 'https://raw.githubusercontent.com/DaveGlorbus/BattleFactoryBuddy/main/BattleFactoryBuddy/InputData/allpkmn.csv'
           curl -L --fail --retry 3 -o /tmp/pokemon.csv 'https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon.csv'
           curl -L --fail --retry 3 -o /tmp/pokemon_stats.csv 'https://raw.githubusercontent.com/veekun/pokedex/master/pokedex/data/csv/pokemon_stats.csv'
+          curl -L --fail --retry 3 -o /tmp/early_factory.csv 'https://raw.githubusercontent.com/LapsusIcarus/BattleFactoryAssistant/main/FactoryPokemon.csv'
 
       - name: Build local JavaScript dataset
         run: |
@@ -79,7 +80,42 @@ jobs:
                       'sourceId': source_id, 'styleDataComplete': True,
                   })
 
-          js = '''// Generated from BattleFactoryBuddy's canonical Emerald Factory set dataset.\n// Do not edit manually; the import workflow regenerates this file.\n\nexport const DATASET_META = { source: 'BattleFactoryBuddy/allpkmn.csv', generated: 'github-actions', speciesCount: %d, setCount: %d, group3SetCount: %d, earlyLevel50SetCount: 0, earlyStyleDataComplete: false };\nexport const FACTORY_RULES = { rentalIVsByRound: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 } };\nexport const POKEMON = %s;\nexport function normalizePokemonName(value) { const cleaned = String(value || '').trim().toLowerCase(); return Object.keys(POKEMON).find((name) => name.toLowerCase() === cleaned) || null; }\nexport function getPokemon(value) { const name = normalizePokemonName(value); return name ? { name, ...POKEMON[name] } : null; }\nexport function getSets(value) { return getPokemon(value)?.sets || []; }\n''' % (len(pokemon), sum(len(x['sets']) for x in pokemon.values()), sum(len(x['sets']) for x in pokemon.values()), json.dumps(pokemon, ensure_ascii=False, separators=(',', ':')))
+          # Merge the verified Level 50 early Factory pools. The source uses 1.0 for round 1,
+          # 1.5 for round 2 (Group 2 set 1), and 2.0 for round 3 (Group 2 set 2).
+          early_count = 0
+          with open('/tmp/early_factory.csv', newline='', encoding='utf-8') as f:
+              for row in csv.DictReader(f):
+                  marker = float(row['Round'])
+                  if marker not in (1.0, 1.5, 2.0):
+                      continue
+                  pool = {1.0: 'l50-1', 1.5: 'l50-2', 2.0: 'l50-3'}[marker]
+                  species = row['Species'].strip()
+                  pid = find_species_id(species)
+                  if species not in pokemon:
+                      base = stats[pid]
+                      pokemon[species] = {
+                          'id': pid, 'types': row['Type'].split(),
+                          'baseStats': dict(zip(['hp','atk','def','spa','spd','spe'], [base[1],base[2],base[3],base[4],base[5],base[6]])),
+                          'sets': [],
+                      }
+                  ev_parts = [int(x.strip() or 0) for x in row['EV Spread'].split('/')]
+                  ev_parts += [0] * (6 - len(ev_parts))
+                  set_number = int(float(row['Set#']))
+                  # Unique internal ID prevents collisions with Group 3 set 1-8 while setNumber
+                  # preserves the actual Factory-facing variant number.
+                  internal_id = 10000 + early_count
+                  early_count += 1
+                  pokemon[species]['sets'].append({
+                      'id': internal_id, 'setNumber': set_number, 'species': species,
+                      'item': row['Item'].strip(), 'nature': row['Nature'].strip(), 'ability': row['Possible Ability'].strip(),
+                      'evs': dict(zip(['hp','atk','def','spa','spd','spe'], ev_parts[:6])),
+                      'moves': [row['Move 1'],row['Move 2'],row['Move 3'],row['Move 4']],
+                      'style': ['0','0','0','0'], 'round': marker === 1.0 ? 1 : marker === 1.5 ? 2 : 3,
+                      'pool': pool, 'baseSpeed': int(float(row['Base Speed'])), 'sourceId': internal_id,
+                      'styleDataComplete': false, 'earlyLevel50': true,
+                  })
+
+          js = '''// Generated from BattleFactoryBuddy's canonical Emerald Factory set dataset.\n// Do not edit manually; the import workflow regenerates this file.\n\nexport const DATASET_META = { source: 'BattleFactoryBuddy/allpkmn.csv', generated: 'github-actions', speciesCount: %d, setCount: %d, group3SetCount: %d, earlyLevel50SetCount: %d, earlyStyleDataComplete: false };\nexport const FACTORY_RULES = { rentalIVsByRound: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 } };\nexport const POKEMON = %s;\nexport function normalizePokemonName(value) { const cleaned = String(value || '').trim().toLowerCase(); return Object.keys(POKEMON).find((name) => name.toLowerCase() === cleaned) || null; }\nexport function getPokemon(value) { const name = normalizePokemonName(value); return name ? { name, ...POKEMON[name] } : null; }\nexport function getSets(value) { return getPokemon(value)?.sets || []; }\n''' % (len(pokemon), sum(len(x['sets']) for x in pokemon.values()), sum(1 for x in pokemon.values() for s in x['sets'] if s.get('earlyLevel50')), json.dumps(pokemon, ensure_ascii=False, separators=(',', ':')))
           Path('data/factoryData.js').write_text(js, encoding='utf-8')
           PY
 
