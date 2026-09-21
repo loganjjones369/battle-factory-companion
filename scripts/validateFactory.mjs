@@ -96,6 +96,9 @@ if (!damageCalc.includes('hitDistribution')) {
 if (!damageCalc.includes('defenderSubstitute') || !damageCalc.includes('substituteBreaks') || !scenario.includes('defenderSubstitute')) {
   throw new Error('Gen III Substitute state is not wired into scenario damage');
 }
+if (!damageCalc.includes('getGen3MoveTurnProfile') || !damageCalc.includes('requiresRechargeTurn') || !sequence.includes('getMoveTurnProfile')) {
+  throw new Error('Gen III multi-turn move profiles are missing');
+}
 
 for (const required of [
   'data/candidateEngine.js',
