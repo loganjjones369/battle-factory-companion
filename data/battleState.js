@@ -84,7 +84,6 @@ export function normalizeBattleConditions(input = {}) {
     reflect: Boolean(side.reflect),
     lightScreen: Boolean(side.lightScreen),
     spikes: Math.max(0, Math.min(3, Number(side.spikes) || 0)),
-    stealthRock: Boolean(side.stealthRock),
   });
   return {
     weather: WEATHER_STATES.includes(String(input.weather || 'none').toLowerCase()) ? String(input.weather || 'none').toLowerCase() : 'none',
