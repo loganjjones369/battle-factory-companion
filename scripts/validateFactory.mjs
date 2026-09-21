@@ -90,6 +90,9 @@ if (!damageCalc.includes('getGen3Priority') || !damageCalc.includes("'Fake Out':
 if (!damageCalc.includes('GEN3_MULTI_HIT_COUNTS') || !damageCalc.includes('{ hits: 2, probability: 35 }') || !damageCalc.includes('{ hits: 5, probability: 15 }')) {
   throw new Error('Gen III multi-hit distribution metadata is missing');
 }
+if (!damageCalc.includes('hitDistribution')) {
+  throw new Error('Multi-hit damage distribution is not exposed by the damage engine');
+}
 
 for (const required of [
   'data/candidateEngine.js',
