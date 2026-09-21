@@ -59,8 +59,6 @@ export default function PokemonInfoPanel({ visible, pokemon, kind = 'YOUR POKÉM
   const pages = 6;
   const title = pokemon?.species || 'UNKNOWN';
   const setCount = useMemo(() => possibleSets(pokemon).length, [pokemon]);
-  useEffect(() => { setPage(0); setSummary(false); }, [pokemon?.species, pokemon?.setId]);
-  if (!visible || !pokemon) return null;
   const previous = () => setPage(p => Math.max(0, p - 1));
   const next = () => setPage(p => Math.min(pages - 1, p + 1));
   const summarySwipe = useMemo(() => PanResponder.create({
@@ -70,6 +68,8 @@ export default function PokemonInfoPanel({ visible, pokemon, kind = 'YOUR POKÉM
       else if (gesture.dx > 45) previous();
     },
   }), []);
+  useEffect(() => { setPage(0); setSummary(false); }, [pokemon?.species, pokemon?.setId]);
+  if (!visible || !pokemon) return null;
   return <View style={styles.overlay} pointerEvents="box-none">
     <View style={[styles.panel, history ? styles.panelPurple : kind.includes('OPPONENT') ? styles.panelRed : styles.panelBlue]}>
       <View style={styles.header}><View style={{ flex: 1 }}><Text style={styles.kicker}>{kind}</Text><Text style={styles.title}>{title}</Text><Text style={styles.quickMeta}>{pokemon?.isElevated ? '↑ ELEVATED • ' : ''}{pokemon?.setId != null ? `SET ${pokemon.setId} — CONFIRMED` : `${setCount || '?'} POSSIBLE SETS`}</Text></View><TouchableOpacity onPress={onClose} style={styles.close}><Text style={styles.closeText}>×</Text></TouchableOpacity></View>
