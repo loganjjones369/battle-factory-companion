@@ -38,12 +38,19 @@ function bestHit(attacker, attackerSet, defender, defenderSet, level, round, opt
       attackerHP: options.attackerHP,
       defenderHP: options.defenderHP,
       screens: options.screens || {},
+      defenderSubstitute: Boolean(options.defenderSubstitute),
     });
     if (!result.unsupported && (!best || result.percentMax > best.percentMax)) best = { ...result, moveName };
   }
   return best;
 }
 
+
+function applyStagesForResponse(stats, stages) {
+  const s = stages || {};
+  const mult = (value) => { const n = Number(value) || 0; return n >= 0 ? (2 + n) / 2 : 2 / (2 - n); };
+  return { ...stats, spe: Math.floor(stats.spe * mult(s.spe || 0)) };
+}
 
 function speedRelation(allySpeed, opponentSpeed) {
   if (allySpeed > opponentSpeed) return 'outspeeds';
@@ -59,8 +66,8 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   const allySet = resolveSet(ally, options.allySet);
   const opponentStats = getStats(opponentPokemon, opponentSet, level, round);
   const allyStats = getStats(allyPokemon, allySet, level, round);
-  const opponentSpeed = getEffectiveSpeed(opponentStats, options.opponentStatus || 'healthy');
-  const allySpeed = getEffectiveSpeed(allyStats, options.allyStatus || 'healthy');
+  const opponentSpeed = getEffectiveSpeed(applyStagesForResponse(opponentStats, options.opponentStages), options.opponentStatus || 'healthy');
+  const allySpeed = getEffectiveSpeed(applyStagesForResponse(allyStats, options.allyStages), options.allyStatus || 'healthy');
   const hitBack = bestHit(allyPokemon, allySet, opponentPokemon, opponentSet, level, round, {
     ...options,
     attackerHP: options.allyHP,
