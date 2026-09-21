@@ -22,6 +22,22 @@ export const FACTORY_RULES = {
   ],
 };
 
+export function getFactoryIVForRound(round = 1) {
+  const r = Math.max(1, Math.min(7, Number(round) || 1));
+  return [0, 3, 6, 9, 12, 15, 21, 31][r];
+}
+
+export function getOpponentFactoryIV({ battle = 1, round = null } = {}) {
+  const b = Math.max(1, Number(battle) || 1);
+  const currentRound = round == null ? Math.ceil(b / 7) : Math.max(1, Number(round) || 1);
+  const effectiveRound = b % 7 === 0 ? currentRound + 1 : currentRound;
+  return getFactoryIVForRound(effectiveRound);
+}
+
+export function getNolandFactoryIV({ gold = false } = {}) {
+  return gold ? 31 : 15;
+}
+
 export function getSwapElevation(swaps = 0) {
   const n = Math.max(0, Number(swaps) || 0);
   return FACTORY_RULES.swapElevation.find((row) => n >= row.min && n <= row.max)?.elevated ?? 0;
