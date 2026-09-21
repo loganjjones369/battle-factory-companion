@@ -12,6 +12,9 @@ export const FACTORY_RULES = {
   itemClause: true,
   speciesClause: true,
   defaultBattleTowerStreak: 0,
+  nolandEveryBattles: 21,
+  nolandSilverIV: 15,
+  nolandGoldIV: 31,
   rentalIVsByRound: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 },
   swapElevation: [
     { min: 0, max: 14, elevated: 0 },
@@ -38,7 +41,7 @@ export function getOpponentFactoryIV({ battle = 1, battleTowerStreak = FACTORY_R
 }
 
 export function getNolandFactoryIV({ gold = false } = {}) {
-  return gold ? 31 : 15;
+  return gold ? FACTORY_RULES.nolandGoldIV : FACTORY_RULES.nolandSilverIV;
 }
 
 export function isNolandBattle(battle = 1) {
