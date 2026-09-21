@@ -1,16 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getPokemon, POKEMON } from '../data/factoryData';
 import { getFactorySets, getFactorySet } from '../data/setIdentity';
 import { calculateDamage, getStats, getEffectiveSpeed, MOVE_DATA, getDamageRolls, getDamageRollDistribution } from '../data/damageCalc';
+import Sprite from './Sprite';
 
-const SPRITES = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
 const STATUS = ['HEALTHY', 'PAR', 'BRN', 'PSN', 'TOX', 'SLP', 'FRZ'];
-
-function Sprite({ pokemon, size = 72 }) {
-  const id = pokemon?.id || pokemon?.nationalDexId;
-  return id ? <Image source={{ uri: `${SPRITES}${id}.png` }} style={{ width: size, height: size }} resizeMode="contain" /> : <Text style={styles.unknownSprite}>?</Text>;
-}
+const STAGE_STATS = ['atk', 'def', 'spa', 'spd', 'spe'];
+const DEFAULT_STAGES = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
 
 function PokeBall({ size = 48 }) {
   return <View style={[styles.pokeBall, { width: size, height: size * 0.72, borderRadius: size }]}>
@@ -207,6 +204,59 @@ export default function BattleRoom({
         <View style={styles.weatherQuick}>
           {['none','sun','rain','sand','hail'].map(w => <TouchableOpacity key={w} onPress={() => onScenarioChange?.({...scenario,weather:w})} style={[styles.weatherQuickButton, (scenario?.weather||'none')===w && styles.weatherQuickOn]}><Text style={styles.weatherQuickText}>{w==='none'?'CLEAR':w.toUpperCase()}</Text></TouchableOpacity>)}
         </View>
+        <View style={styles.conditionEditor}>
+          <Text style={styles.conditionTitle}>BATTLE CONDITIONS</Text>
+          <View style={styles.conditionRow}>
+            <Text style={styles.conditionLabel}>{viewedSide==='team' ? 'YOU' : 'FOE'} STAGES</Text>
+            {STAGE_STATS.map(stat => {
+              const key=(viewedSide==='team'?'team':'opponent')+':'+(viewedSide==='team'?activeTeamIndex:activeOpponentIndex);
+              const stages={...DEFAULT_STAGES,...(scenario?.stages?.[key]||{})};
+              return <View key={stat} style={styles.stageCell}>
+                <Text style={styles.stageStat}>{stat.toUpperCase()}</Text>
+                <View style={styles.stageButtons}>
+                  <TouchableOpacity onPress={() => onScenarioChange?.({...scenario,stages:{...(scenario.stages||{}),[key]:{...stages,[stat]:Math.max(-6,Number(stages[stat]||0)-1)}}})}><Text style={styles.stageBtn}>−</Text></TouchableOpacity>
+                  <Text style={styles.stageValue}>{stages[stat]}</Text>
+                  <TouchableOpacity onPress={() => onScenarioChange?.({...scenario,stages:{...(scenario.stages||{}),[key]:{...stages,[stat]:Math.min(6,Number(stages[stat]||0)+1)}}})}><Text style={styles.stageBtn}>+</Text></TouchableOpacity>
+                </View>
+              </View>;
+            })}
+          </View>
+          <View style={styles.conditionRow}>
+            {['reflect','lightScreen','substitute'].map(field => {
+              const key=(viewedSide==='team'?'team':'opponent')+':'+(viewedSide==='team'?activeTeamIndex:activeOpponentIndex);
+              const value=Boolean(scenario?.screens?.[key]?.[field]);
+              return <TouchableOpacity key={field} onPress={() => onScenarioChange?.({...scenario,screens:{...(scenario.screens||{}),[key]:{...(scenario.screens?.[key]||{}),[field]:!value}}})} style={[styles.conditionChip,value&&styles.conditionChipOn]}>
+                <Text style={styles.conditionChipText}>{value?'✓ ':''}{field==='lightScreen'?'LIGHT SCREEN':field.toUpperCase()}</Text>
+              </TouchableOpacity>;
+            })}
+          </View>
+          <View style={styles.conditionRow}>
+            <Text style={styles.conditionLabel}>ENTRY HAZARDS</Text>
+            <TouchableOpacity onPress={() => {
+              const key=(viewedSide==='team'?'team':'opponent')+':'+(viewedSide==='team'?activeTeamIndex:activeOpponentIndex);
+              const value=Boolean(scenario?.hazards?.[key]?.stealthRock);
+              onScenarioChange?.({...scenario,hazards:{...(scenario.hazards||{}),[key]:{...(scenario.hazards?.[key]||{}),stealthRock:!value}}});
+            }} style={[styles.conditionChip,Boolean(scenario?.hazards?.[(viewedSide==='team'?'team':'opponent')+':'+(viewedSide==='team'?activeTeamIndex:activeOpponentIndex)]?.stealthRock)&&styles.conditionChipOn]}>
+              <Text style={styles.conditionChipText}>STEALTH ROCK</Text>
+            </TouchableOpacity>
+            <View style={styles.hazardCell}>
+              <Text style={styles.stageStat}>SPIKES</Text>
+              <View style={styles.stageButtons}>
+                <TouchableOpacity onPress={() => {
+                  const key=(viewedSide==='team'?'team':'opponent')+':'+(viewedSide==='team'?activeTeamIndex:activeOpponentIndex);
+                  const value=Number(scenario?.hazards?.[key]?.spikes||0);
+                  onScenarioChange?.({...scenario,hazards:{...(scenario.hazards||{}),[key]:{...(scenario.hazards?.[key]||{}),spikes:Math.max(0,value-1)}}});
+                }}><Text style={styles.stageBtn}>−</Text></TouchableOpacity>
+                <Text style={styles.stageValue}>{Number(scenario?.hazards?.[(viewedSide==='team'?'team':'opponent')+':'+(viewedSide==='team'?activeTeamIndex:activeOpponentIndex)]?.spikes||0)}</Text>
+                <TouchableOpacity onPress={() => {
+                  const key=(viewedSide==='team'?'team':'opponent')+':'+(viewedSide==='team'?activeTeamIndex:activeOpponentIndex);
+                  const value=Number(scenario?.hazards?.[key]?.spikes||0);
+                  onScenarioChange?.({...scenario,hazards:{...(scenario.hazards||{}),[key]:{...(scenario.hazards?.[key]||{}),spikes:Math.min(3,value+1)}}});
+                }}><Text style={styles.stageBtn}>+</Text></TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
       </View>    </View>
 
     <View style={styles.console}>
@@ -242,7 +292,7 @@ const styles = StyleSheet.create({
   center:{position:'absolute',left:115,right:115,top:18,bottom:104,alignItems:'center',justifyContent:'center'},arenaLabel:{fontSize:7,fontWeight:'900',letterSpacing:1.2,color:'#5e7771'},centerFloor:{position:'absolute',left:10,right:10,bottom:28,height:95,borderWidth:1,borderColor:'#3a4c4e',borderRadius:50,justifyContent:'space-around',paddingVertical:20},floorLine:{height:1,backgroundColor:'#354749',marginHorizontal:20},
   entryPanel:{width:'100%',backgroundColor:'#0b1514',borderWidth:1,borderColor:'#4b7065',borderRadius:14,padding:12,zIndex:10},entryTitle:{fontSize:12,fontWeight:'900',color:'#eafff5',letterSpacing:.5},searchInput:{marginTop:8,backgroundColor:'#08100f',borderWidth:1,borderColor:'#2f4944',borderRadius:9,padding:9,color:'#effff9',fontSize:11},results:{marginTop:5,borderWidth:1,borderColor:'#29413d',borderRadius:9,overflow:'hidden'},result:{flexDirection:'row',alignItems:'center',padding:6,borderBottomWidth:1,borderBottomColor:'#1f302d'},resultText:{color:'#edf7f3',fontSize:10,fontWeight:'900'},possible:{color:'#71d2b0',fontSize:9,fontWeight:'900',marginTop:7},setStrip:{flexDirection:'row',flexWrap:'wrap',gap:4,marginTop:5},setButton:{paddingHorizontal:7,paddingVertical:5,borderRadius:6,borderWidth:1,borderColor:'#304840'},setButtonOn:{backgroundColor:'#365846',borderColor:'#72d3b2'},setText:{fontSize:8,fontWeight:'900',color:'#6f8881'},setTextOn:{color:'#fff'},
   quick:{position:'absolute',left:115,right:115,bottom:10,backgroundColor:'#10201d',borderWidth:1,borderColor:'#3e6057',borderRadius:12,padding:8},quickHeader:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},quickNav:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:3},navArrow:{fontSize:22,color:'#79d8b6',paddingHorizontal:5},quickSetRail:{flexDirection:'row',flexWrap:'wrap',gap:3,marginTop:4},quickSetChip:{paddingHorizontal:5,paddingVertical:3,borderRadius:5,borderWidth:1,borderColor:'#29433b'},quickSetChipOn:{backgroundColor:'#315b4b',borderColor:'#78d6b4'},quickSetChipText:{fontSize:6,fontWeight:'900',color:'#6f8f86'},quickSetChipTextOn:{color:'#f2fff9'},quickStats:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:4,color:'#9eb9b1',fontSize:7},quickMoves:{marginTop:4},quickMove:{flexDirection:'row',alignItems:'center',paddingVertical:4,borderTopWidth:1,borderTopColor:'#20332f'},quickMoveName:{flex:1,color:'#eaf7f2',fontSize:8,fontWeight:'900'},quickDamage:{width:58,textAlign:'right',color:'#e0f5ed',fontSize:8,fontWeight:'900'},quickPP:{width:42,textAlign:'right',color:'#78928b',fontSize:7},quickBP:{width:36,textAlign:'right',color:'#78928b',fontSize:7},ppMenu:{position:'absolute',right:6,top:42,backgroundColor:'#0b1514',borderWidth:1,borderColor:'#4b7065',borderRadius:8,padding:6,zIndex:30},ppTitle:{color:'#cfeee2',fontSize:8,fontWeight:'900'},ppOption:{color:'#9fe0c9',fontSize:8,fontWeight:'900',paddingVertical:5},rollPanel:{position:'absolute',left:8,right:8,top:35,backgroundColor:'#101d1a',borderWidth:1,borderColor:'#638a7c',borderRadius:8,padding:8,zIndex:40},rollTitle:{color:'#a9e3cf',fontSize:8,fontWeight:'900'},rollRange:{color:'#fff',fontSize:15,fontWeight:'900',marginTop:3},rollHint:{color:'#78928b',fontSize:7,marginTop:3},rollClose:{color:'#9fe0c9',fontSize:7,fontWeight:'900',marginTop:5},observeBox:{marginTop:6,padding:6,borderRadius:8,backgroundColor:'#152823',borderWidth:1,borderColor:'#34584b'},observeTitle:{fontSize:7,fontWeight:'900',letterSpacing:.9,color:'#9fd8c3'},observeHint:{fontSize:7,color:'#789a90',lineHeight:11,marginTop:2},observeRows:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:3,marginTop:4},abilityChoices:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:3,marginTop:3},observeChipOn:{backgroundColor:'#315b4b',borderColor:'#78d6b4'},observeLabel:{fontSize:6,fontWeight:'900',color:'#6f8c84',marginRight:2},observeChip:{paddingHorizontal:5,paddingVertical:3,borderRadius:5,borderWidth:1,borderColor:'#3a5e51'},observeChipText:{fontSize:6.5,fontWeight:'900',color:'#cfe9df'},observeButton:{marginTop:3,paddingVertical:4,borderRadius:5,backgroundColor:'#1b3029'},observeButtonText:{fontSize:6.5,fontWeight:'900',color:'#a9d8c8'},quickSet:{fontSize:7,fontWeight:'900',color:'#7fa69a'},quickTitle:{fontSize:7,fontWeight:'900',letterSpacing:1.2,color:'#69c7aa'},quickLead:{fontSize:11,fontWeight:'900',color:'#eef8f4',marginTop:2},quickHint:{fontSize:8,color:'#78928b',marginTop:2},quickActions:{flexDirection:'row',gap:5,marginTop:5},quickButton:{flex:1,padding:6,borderRadius:7,borderWidth:1,borderColor:'#36534c',alignItems:'center'},quickButtonText:{fontSize:7,fontWeight:'900',color:'#dff7ee'},
-  weatherQuick:{flexDirection:'row',flexWrap:'wrap',gap:3,marginLeft:5,flex:1},weatherQuickButton:{borderWidth:1,borderColor:'#29403a',borderRadius:5,paddingHorizontal:5,paddingVertical:4},weatherQuickOn:{backgroundColor:'#31483f',borderColor:'#9dd5c2'},weatherQuickText:{fontSize:6,fontWeight:'900',color:'#9dd5c2'},  statusArea:{position:'absolute',left:12,bottom:10,flexDirection:'row',alignItems:'center',gap:5},hpText:{fontSize:8,fontWeight:'900',color:'#9eb9b1'},statusButton:{paddingHorizontal:6,paddingVertical:4,borderRadius:6,borderWidth:1,borderColor:'#3e5a54',backgroundColor:'#0c1715'},statusText:{fontSize:8,fontWeight:'900',color:'#dff8ee'},statusMenu:{position:'absolute',left:0,bottom:30,flexDirection:'row',flexWrap:'wrap',width:220,backgroundColor:'#0b1514',borderWidth:1,borderColor:'#4b7065',borderRadius:9,padding:4},statusOption:{paddingHorizontal:7,paddingVertical:6},statusOptionText:{fontSize:8,fontWeight:'900',color:'#e6f7f1'},
+  weatherQuick:{flexDirection:'row',flexWrap:'wrap',gap:3,marginLeft:5,flex:1},weatherQuickButton:{borderWidth:1,borderColor:'#29403a',borderRadius:5,paddingHorizontal:5,paddingVertical:4},weatherQuickOn:{backgroundColor:'#31483f',borderColor:'#9dd5c2'},conditionEditor:{marginTop:7,borderTopWidth:1,borderTopColor:'#243b35',paddingTop:7},conditionTitle:{color:'#587067',fontSize:7,fontWeight:'900',letterSpacing:1,marginBottom:5},conditionRow:{flexDirection:'row',flexWrap:'wrap',gap:5,alignItems:'center',marginBottom:5},conditionLabel:{color:'#688078',fontSize:7,fontWeight:'900',marginRight:2},stageCell:{minWidth:43,alignItems:'center'},hazardCell:{minWidth:65,alignItems:'center'},stageStat:{color:'#526a61',fontSize:6,fontWeight:'900'},stageButtons:{flexDirection:'row',alignItems:'center',gap:3},stageBtn:{color:'#9bc7b8',fontSize:14,fontWeight:'900'},stageValue:{color:'#d9eee6',fontSize:8,fontWeight:'900',minWidth:13,textAlign:'center'},conditionChip:{borderWidth:1,borderColor:'#30483f',borderRadius:7,paddingHorizontal:6,paddingVertical:5},conditionChipOn:{backgroundColor:'#214d3d',borderColor:'#71d3b0'},conditionChipText:{color:'#8da99f',fontSize:7,fontWeight:'900'},weatherQuickText:{fontSize:6,fontWeight:'900',color:'#9dd5c2'},  statusArea:{position:'absolute',left:12,bottom:10,flexDirection:'row',alignItems:'center',gap:5},hpText:{fontSize:8,fontWeight:'900',color:'#9eb9b1'},statusButton:{paddingHorizontal:6,paddingVertical:4,borderRadius:6,borderWidth:1,borderColor:'#3e5a54',backgroundColor:'#0c1715'},statusText:{fontSize:8,fontWeight:'900',color:'#dff8ee'},statusMenu:{position:'absolute',left:0,bottom:30,flexDirection:'row',flexWrap:'wrap',width:220,backgroundColor:'#0b1514',borderWidth:1,borderColor:'#4b7065',borderRadius:9,padding:4},statusOption:{paddingHorizontal:7,paddingVertical:6},statusOptionText:{fontSize:8,fontWeight:'900',color:'#e6f7f1'},
   console:{backgroundColor:'#0b1213',borderTopWidth:2,borderTopColor:'#38504e',padding:9},consoleScreen:{backgroundColor:'#18332b',borderWidth:1,borderColor:'#4e796c',padding:7,borderRadius:7},screenText:{fontFamily:'monospace',fontSize:8,fontWeight:'900',color:'#a6e6d1'},consoleButtons:{flexDirection:'row',gap:6,marginTop:7},consoleButton:{flex:1,minHeight:42,borderRadius:8,borderWidth:1,borderColor:'#49645e',backgroundColor:'#253532',alignItems:'center',justifyContent:'center'},consoleText:{fontSize:8,fontWeight:'900',color:'#ecfaf5',textAlign:'center'},disabled:{opacity:.35},endMenu:{marginTop:7,borderWidth:1,borderColor:'#58756d',borderRadius:9,backgroundColor:'#111d1b',padding:8},endTitle:{fontSize:9,fontWeight:'900',color:'#bfeadf'},endButtons:{flexDirection:'row',gap:5,marginTop:5},endButton:{flex:1,padding:8,borderRadius:6,backgroundColor:'#284c40',alignItems:'center'},endButtonText:{fontSize:8,fontWeight:'900',color:'#fff'},endCancel:{flex:1,padding:8,borderRadius:6,borderWidth:1,borderColor:'#40534f',alignItems:'center'},endCancelText:{fontSize:8,fontWeight:'900',color:'#b4c8c1'},
   history:{height:58,backgroundColor:'#281b39',borderTopWidth:1,borderTopColor:'#5b4076',flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:10},historyTitle:{fontSize:7,fontWeight:'900',color:'#c5a8df',letterSpacing:1},historyItem:{width:48,height:48,alignItems:'center',justifyContent:'center'},unknownSprite:{fontSize:28,color:'#6f8881'}
 });
