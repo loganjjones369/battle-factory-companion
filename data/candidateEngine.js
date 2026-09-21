@@ -2,6 +2,8 @@ import { POKEMON, getPokemon } from './factoryData';
 import { calculateTeamStyle, calculateTeamType, getScientistStyleLabel } from './scientistAnalysis';
 import { isNolandBattle, isNolandGoldBattle } from './factoryRules';
 import { inferSpeedCandidates } from './evidenceInference';
+import { getStats, calculateDamage } from './damageCalc';
+import { getFactorySet } from './setIdentity';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 const itemKey = (v) => norm(v).replace(/[^a-z0-9]/g, '');
@@ -23,9 +25,9 @@ function observedDamageMatches(set, observation, currentTeam = [], levelMode = '
   if (observation?.observedDamagePercent == null || !observation?.observedDamageMove || !currentTeam.length) return true;
   const attacker = getPokemon(set.species);
   const level = levelMode === 'Open Level' ? 100 : 50;
-  const round = Math.max(1, Number(set.round) || 1);
+  const round = Math.max(1, Number(observation.round) || Number(set.round) || 1);
   return currentTeam.some(target => {
-    const targetSet = target?.setId != null ? target : target;
+    const targetSet = target?.setId != null ? getFactorySet(target.species, target.setId) : target;
     const defender = getPokemon(target?.species);
     if (!attacker || !defender || !targetSet) return false;
     const d = calculateDamage({ attacker, attackerSet: set, defender, defenderSet: targetSet, level, round, moveName: observation.observedDamageMove, weather: observation.weather || 'none' });
@@ -37,7 +39,7 @@ function observedDamageMatches(set, observation, currentTeam = [], levelMode = '
 }
 function setMatchesObservation(set, observation, currentTeam = [], levelMode = 'Open Level') { if (!observation?.species || norm(set.species) !== norm(observation.species)) return false; if (observation.item && itemKey(set.item) !== itemKey(observation.item)) return false; if (observation.ability && !abilityNames(set).includes(norm(observation.ability))) return false; const moves = moveNames(set).map(norm); if (!(observation.moves || []).filter(Boolean).map(norm).every((move) => moves.includes(move))) return false; if (!observedDamageMatches(set, observation, currentTeam, levelMode)) return false; if (observation.observedSpeed != null) { const speed = inferSpeedCandidates({ pokemon: getPokemon(set.species), sets: [set], level: 50, round: Math.max(1, Number(set.round) || 1), observedSpeed: Number(observation.observedSpeed), observedRelation: observation.observedSpeedRelation || 'equal' }); if (!speed.possible.length) return false; } return true; }
 function teamMatchesClue(team, scientist, allowStyle = true) { if (scientist.type && norm(calculateTeamType(team)) !== norm(scientist.type)) return false; if (allowStyle && scientist.style !== undefined && scientist.style !== null && Number(scientist.style) >= 0 && calculateTeamStyle(team) !== Number(scientist.style)) return false; return true; }
-function cacheKey({ draft, blockedSpecies, scientist, levelMode, battleNumber, revealed, noland, currentTeam, previousOpponent }) { const sets = (xs) => (xs || []).map((x) => setKey(x)).sort().join(','); const obs = observedList(revealed).map((o) => `${norm(o.species)}|${itemKey(o.item)}|${norm(o.ability)}|${o.observedSpeed ?? ''}|${norm(o.observedSpeedRelation)}|${o.observedDamage ?? ''}|${norm(o.observedDamageMove)}|${(o.moves || []).map(norm).sort().join('/')}`).sort().join(';'); return [levelMode, battleNumber, JSON.stringify(scientist || {}), (blockedSpecies || []).map(norm).sort().join(','), obs, noland ? 'N' : 'O', sets(currentTeam), sets(previousOpponent), sets(draft)].join('||'); }
+function cacheKey({ draft, blockedSpecies, scientist, levelMode, battleNumber, revealed, noland, currentTeam, previousOpponent }) { const sets = (xs) => (xs || []).map((x) => setKey(x)).sort().join(','); const obs = observedList(revealed).map((o) => `${norm(o.species)}|${itemKey(o.item)}|${norm(o.ability)}|${o.observedSpeed ?? ''}|${norm(o.observedSpeedRelation)}|${o.observedDamagePercent ?? ''}|${norm(o.observedDamageMove)}|${(o.moves || []).map(norm).sort().join('/')}`).sort().join(';'); return [levelMode, battleNumber, JSON.stringify(scientist || {}), (blockedSpecies || []).map(norm).sort().join(','), obs, noland ? 'N' : 'O', sets(currentTeam), sets(previousOpponent), sets(draft)].join('||'); }
 function remember(key, value) { if (ANALYSIS_CACHE.has(key)) ANALYSIS_CACHE.delete(key); ANALYSIS_CACHE.set(key, value); while (ANALYSIS_CACHE.size > CACHE_LIMIT) ANALYSIS_CACHE.delete(ANALYSIS_CACHE.keys().next().value); return value; }
 
 export function analyzeFactoryCandidates({ draft = [], blockedSpecies, scientist = {}, levelMode = 'Open Level', round = 1, battle = null, revealed = {}, noland = false, currentTeam = [], previousOpponent = [] } = {}) {
