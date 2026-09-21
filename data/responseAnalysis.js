@@ -296,31 +296,27 @@ export function analyzeDecisionBranches(opponent, team = [], opponentSets = [], 
 export function analyzeInformationValue(sets = [], pokemon = null, level = 100, round = 1, options = {}) {
   const pool = sets.filter(Boolean);
   if (!pool.length) return { setCount: 0, clues: [], bestClue: null };
-  const normalizeValues = (values) => [...new Set(values.filter(Boolean).map((v) => String(v).trim().toLowerCase()))];
-  const partitions = (values) => {
-    const groups = new Map();
-    values.forEach((value, index) => {
+  const group = (values) => {
+    const counts = new Map();
+    values.forEach((value) => {
       const key = String(value || 'unknown').trim().toLowerCase();
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(index);
+      counts.set(key, (counts.get(key) || 0) + 1);
     });
-    const sizes = [...groups.values()].map((g) => g.length);
+    const sizes = [...counts.values()];
     const largest = sizes.length ? Math.max(...sizes) : pool.length;
-    return { distinct: groups.size, largest, eliminatedIfUnique: Math.max(0, pool.length - largest) };
+    return { distinct: counts.size, largest, eliminatedIfUnique: Math.max(0, pool.length - largest) };
   };
-  const movePartitions = partitions(pool.flatMap((set, index) => {
-    const moves = bestDamagingMoves(set).filter(Boolean);
-    return moves.map((move) => ({ key: move, index }));
-  }).map((row) => row.key));
+  const moveUniverse = [...new Set(pool.flatMap((set) => bestDamagingMoves(set).filter(Boolean)))];
+  const moveClue = moveUniverse.map((move) => ({ move, present: pool.filter((set) => bestDamagingMoves(set).includes(move)).length }))
+    .filter((row) => row.present > 0 && row.present < pool.length)
+    .sort((a, b) => Math.min(a.present, pool.length - a.present) - Math.min(b.present, pool.length - b.present))[0];
   const clues = [
-    { type: 'ITEM', ...partitions(pool.map((set) => set.item)), action: 'Record the held item if it is revealed.' },
-    { type: 'ABILITY', ...partitions(pool.map((set) => String(set.ability || '').split('/')[0])), action: 'Record the ability if it is revealed.' },
-    { type: 'MOVE', ...movePartitions, action: 'Record the first damaging move you see.' },
-    { type: 'SPEED', ...partitions(pool.map((set) => {
-      if (!pokemon) return '';
-      return getEffectiveSpeed(getStats(pokemon, set, level, round), options.status || 'healthy');
-    })), action: 'Record the observed Speed, or whether it is faster/slower/equal.' },
-  ].filter((clue) => clue.distinct > 1).sort((a, b) => b.eliminatedIfUnique - a.eliminatedIfUnique || b.distinct - a.distinct);
+    { type: 'ITEM', ...group(pool.map((set) => set.item)), action: 'Record the held item if it is revealed.' },
+    { type: 'ABILITY', ...group(pool.map((set) => set.ability)), action: 'Record the ability if it is revealed.' },
+    { type: 'MOVE', distinct: moveClue ? 2 : 1, largest: moveClue ? Math.max(moveClue.present, pool.length - moveClue.present) : pool.length, eliminatedIfUnique: moveClue ? Math.min(moveClue.present, pool.length - moveClue.present) : 0, action: moveClue ? 'Record whether this distinguishing move is revealed.' : 'Record the first damaging move you see.' },
+    { type: 'SPEED', ...group(pool.map((set) => pokemon ? getEffectiveSpeed(getStats(pokemon, set, level, round), options.status || 'healthy') : '')), action: 'Record the observed Speed, or whether it is faster/slower/equal.' },
+  ].filter((clue) => clue.distinct > 1 && clue.eliminatedIfUnique > 0)
+    .sort((a, b) => b.eliminatedIfUnique - a.eliminatedIfUnique || b.distinct - a.distinct);
   return {
     setCount: pool.length,
     clues,
