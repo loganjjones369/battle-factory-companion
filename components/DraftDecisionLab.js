@@ -12,9 +12,9 @@ import AbilitySelector, { optionsFor } from './AbilitySelector';
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 const key = (p) => `${norm(p?.species)}#${p?.setId ?? ''}`;
-const STATUS_ORDER = ['healthy', 'paralyzed', 'burned', 'poisoned', 'asleep'];
-const STATUS_LABELS = { healthy: 'HEALTHY', paralyzed: 'PARALYZED', burned: 'BURNED', poisoned: 'POISONED', asleep: 'ASLEEP' };
-const STATUS_ICONS = { healthy: '○', paralyzed: '⚡', burned: '🔥', poisoned: '☠', asleep: 'Zz' };
+const STATUS_ORDER = ['healthy', 'paralyzed', 'burned', 'poisoned', 'toxic', 'asleep', 'frozen'];
+const STATUS_LABELS = { healthy: 'HEALTHY', paralyzed: 'PARALYZED', burned: 'BURNED', poisoned: 'POISONED', toxic: 'TOXIC', asleep: 'ASLEEP', frozen: 'FROZEN' };
+const STATUS_ICONS = { healthy: '○', paralyzed: '⚡', burned: '🔥', poisoned: '☠', toxic: '☠', asleep: 'Zz', frozen: '❄' };
 const WEATHER_ORDER = ['none', 'sun', 'rain', 'sand', 'hail'];
 const WEATHER_LABELS = { none: 'CLEAR', sun: '☀ SUN', rain: '☔ RAIN', sand: '⌁ SAND', hail: '❄ HAIL' };
 const WEATHER_HELP = { none: 'No weather', sun: 'Fire ×1.5 • Water ×0.5 • recovery = ⅔ HP', rain: 'Water ×1.5 • Fire ×0.5 • recovery = ¼ HP', sand: 'Recovery = ¼ HP', hail: 'Recovery = ¼ HP' };
