@@ -1,4 +1,5 @@
-import {getStats,getEffectiveSpeed,applyStatStages,calculateDamage} from './damageCalc'; const norm=v=>String(v||'').trim().toLowerCase();
+import {getStats,getEffectiveSpeed,applyStatStages,calculateDamage} from './damageCalc';
+import {getFactorySet} from './setIdentity'; const norm=v=>String(v||'').trim().toLowerCase();
 const movesOf=s=>(s?.moves||[]).map(m=>typeof m==='string'?m:m?.name).filter(Boolean);
 export function inferSetEvidence({pokemon,sets=[],observation={}}={}){return sets.map(set=>{const reasons=[];let compatible=true;if(observation.item&&norm(set.item)!==norm(observation.item)){compatible=false;reasons.push('held item mismatch');}const moves=movesOf(set).map(norm);for(const move of observation.moves||[])if(!moves.includes(norm(move))){compatible=false;reasons.push('move mismatch: '+move);}if(observation.ability&&!String(set.ability||'').toLowerCase().split('/').map(norm).includes(norm(observation.ability))){compatible=false;reasons.push('ability mismatch');}return {set,compatible,reasons};});}
 export function inferSpeedCandidates({pokemon,sets=[],level=50,round=1,observedSpeed,observedRelation,status='healthy',stages={}}={}){if(observedSpeed==null&&!observedRelation)return {possible:sets,eliminated:[]};const possible=[],eliminated=[];for(const set of sets){const base=getStats(pokemon,set,level,round);const effective=getEffectiveSpeed(applyStatStages(base,stages),status);let ok=true;if(observedRelation==='equal')ok=effective===Number(observedSpeed);if(observedRelation==='at least')ok=effective>=Number(observedSpeed);if(observedRelation==='at most')ok=effective<=Number(observedSpeed);(ok?possible:eliminated).push({set,speed:effective});}return {possible,eliminated};}
@@ -27,7 +28,7 @@ export function inferObservationBranches({ observations = [], sets = [], level =
               attacker,
               defender: { name: target?.species },
               attackerSets: [set],
-              defenderSets: [target?.setId != null ? target : null].filter(Boolean),
+              defenderSets: [target?.setId != null ? getFactorySet(target.species, target.setId) : target].filter(Boolean),
               moveName: observation.observedDamageMove,
               observedDamage: Number(observation.observedDamagePercent),
               level,
