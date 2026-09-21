@@ -4,6 +4,7 @@ import { getFactorySet } from './setIdentity';
 import { getMoveTurnProfile, getMovePriority, getTurnOrderExplanation, buildTurnPlan, buildTurnOutcomes } from './battleSequence';
 import { scenarioSwitchInDamage } from './scenarioDamage';
 
+
 function resolvePokemon(value) {
   if (!value) return null;
   if (value.types && value.baseStats) return value;
@@ -145,6 +146,68 @@ export function buildTwoTurnBattlePlan(opponent, ally, level = 100, round = 1, o
       opponentHPRemainingPercent: [outcome.turnTwo.opponentHPRemaining, outcome.turnTwo.opponentHPRemaining],
     },
     note: 'Two-turn projection uses the currently selected best damaging moves and the surviving set assumptions; it is a planning aid, not an exact future script.',
+  };
+}
+
+
+export function analyzeMoveOptions(opponent, ally, level = 100, round = 1, options = {}) {
+  const opponentPokemon = resolvePokemon(opponent);
+  const opponentSet = resolveSet(opponent, options.opponentSet);
+  const allyPokemon = resolvePokemon(ally);
+  const allySet = resolveSet(ally, options.allySet);
+  if (!opponentPokemon || !allyPokemon || !opponentSet) return [];
+  const moves = bestDamagingMoves(opponentSet).filter(Boolean);
+  return moves.map((moveName) => {
+    const incoming = calculateDamage({
+      attacker: opponentPokemon,
+      attackerSet: opponentSet,
+      defender: allyPokemon,
+      defenderSet: allySet,
+      level,
+      round,
+      moveName,
+      weather: options.weather || 'none',
+      attackerStatus: options.opponentStatus || 'healthy',
+      defenderStatus: options.allyStatus || 'healthy',
+      attackerStages: options.opponentStages,
+      defenderStages: options.allyStages,
+      attackerAbility: options.opponentAbility,
+      defenderAbility: options.allyAbility,
+      attackerHP: options.opponentHP,
+      defenderHP: options.allyHP,
+      screens: options.allyScreens || {},
+      defenderSubstitute: Boolean(options.allySubstitute),
+    });
+    if (incoming?.unsupported) return null;
+    return { moveName, damage: incoming, priority: getMovePriority(moveName), profile: getMoveTurnProfile(moveName, options.weather || 'none') };
+  }).filter(Boolean);
+}
+
+export function analyzeOpponentMovePool(opponent, ally, level = 100, round = 1, options = {}) {
+  const moves = analyzeMoveOptions(opponent, ally, level, round, options);
+  if (!moves.length) return null;
+  const damages = moves.map((row) => Number(row.damage?.percentMax || 0));
+  const fastestPriority = Math.max(...moves.map((row) => row.priority));
+  const projected = moves.map((row) => buildTurnOutcomes({
+    allyMove: options.allyMove || '',
+    opponentMove: row.moveName,
+    allySpeed: options.allySpeed || 0,
+    opponentSpeed: options.opponentSpeed || 0,
+    allyHPPercent: options.allyHPPercent ?? 100,
+    opponentHPPercent: options.opponentHPPercent ?? 100,
+    allyDamagePercent: options.allyDamagePercent || 0,
+    opponentDamagePercent: row.damage?.percentMax || 0,
+    allyResidualPercent: options.allyResidualPercent || 0,
+    opponentResidualPercent: options.opponentResidualPercent || 0,
+    weather: options.weather || 'none',
+  }));
+  return {
+    moves,
+    moveCount: moves.length,
+    damageMin: Math.min(...damages),
+    damageMax: Math.max(...damages),
+    priorityMax: fastestPriority,
+    projected,
   };
 }
 
