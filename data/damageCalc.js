@@ -265,7 +265,10 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
       const attackerCurrentHP = attackerHP == null ? rawAtkStats.hp : Math.max(0, Math.min(rawAtkStats.hp, Number(attackerHP) || 0));
       min = max = Math.max(0, attackerCurrentHP - defenderCurrentHP);
     } else if (move.fixedDamage === 'psywave') {
+      // Gen III Psywave uses one of 11 rolls: floor(Level * (50+r*10) / 100), r=0..10.
       min = Math.max(1, Math.floor(level * 0.5)); max = Math.max(min, Math.floor(level * 1.5));
+      const psywaveRolls = Array.from({ length: 11 }, (_, r) => Math.max(1, Math.floor(level * (50 + r * 10) / 100)));
+      return { min, max, percentMin: Math.floor((min * 100) / rawDefStats.hp * 10) / 10, percentMax: Math.floor((max * 100) / rawDefStats.hp * 10) / 10, effectiveness: 1, hp: rawDefStats.hp, fixedDamage: true, psywave: true, rolls: [...new Set(psywaveRolls)], attackerStats: rawAtkStats, defenderStats: rawDefStats };
     } else return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: fixedEffectiveness, unsupported: true };
     return { min, max, percentMin: Math.floor((min * 100) / rawDefStats.hp * 10) / 10, percentMax: Math.floor((max * 100) / rawDefStats.hp * 10) / 10, effectiveness: 1, hp: rawDefStats.hp, fixedDamage: true, attackerStats: rawAtkStats, defenderStats: rawDefStats };
   }
