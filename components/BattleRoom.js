@@ -107,6 +107,7 @@ export default function BattleRoom({
   const [endOpen, setEndOpen] = useState(false);
   const [search, setSearch] = useState(opponentText[activeOpponentIndex] || '');
   const [selectedResult, setSelectedResult] = useState(null);
+  const [viewedSide, setViewedSide] = useState('team');
 
   const activeYou = team[activeTeamIndex] ? {...team[activeTeamIndex], _index:activeTeamIndex} : null;
   const activeFoe = opponent[activeOpponentIndex] ? {...opponent[activeOpponentIndex], _index:activeOpponentIndex} : null;
@@ -144,7 +145,7 @@ export default function BattleRoom({
       <View style={styles.catwalk} />
       <View style={styles.pipes}><View /><View /><View /></View>
       <View style={styles.foeRail}>
-        {[0,1,2].map(i => <Slot key={i} pokemon={opponent[i]} side="foe" index={i} active={activeOpponentIndex === i && !!opponent[i]} knockedOut={knockedOut.opponent.includes(i)} onPress={() => opponent[i] && onSelectOpponent?.(i)} scenario={scenario} onScenarioChange={onScenarioChange} />)}
+        {[0,1,2].map(i => <Slot key={i} pokemon={opponent[i]} side="foe" index={i} active={activeOpponentIndex === i && !!opponent[i]} knockedOut={knockedOut.opponent.includes(i)} onPress={() => { if (opponent[i]) { setViewedSide('opponent'); onSelectOpponent?.(i); } }} scenario={scenario} onScenarioChange={onScenarioChange} />)}
       </View>
 
       <View style={styles.center}>
@@ -159,10 +160,10 @@ export default function BattleRoom({
       </View>
 
       <View style={styles.youRail}>
-        {[0,1,2].map(i => <Slot key={i} pokemon={team[i]} side="you" index={i} active={activeTeamIndex === i && !!team[i]} knockedOut={knockedOut.team.includes(i)} onPress={() => team[i] && onSelectTeam?.(i)} scenario={scenario} onScenarioChange={onScenarioChange} />)}
+        {[0,1,2].map(i => <Slot key={i} pokemon={team[i]} side="you" index={i} active={activeTeamIndex === i && !!team[i]} knockedOut={knockedOut.team.includes(i)} onPress={() => { if (team[i]) { setViewedSide('team'); onSelectTeam?.(i); } }} scenario={scenario} onScenarioChange={onScenarioChange} />)}
       </View>
 
-      <QuickReference source={activeYou} target={activeFoe} side="team" setId={activeYou?.setId} onSet={(id)=>onSelectTeam?.(activeTeamIndex, id)} scenario={scenario} onScenarioChange={onScenarioChange}/>
+      <QuickReference source={viewedSide === 'team' ? activeYou : activeFoe} target={viewedSide === 'team' ? activeFoe : activeYou} side={viewedSide} setId={viewedSide === 'team' ? activeYou?.setId : setId} onSet={(id)=>viewedSide === 'team' ? onSelectTeam?.(activeTeamIndex, id) : onOpponentSet?.(activeOpponentIndex, id)} scenario={scenario} onScenarioChange={onScenarioChange}/>
 
 
       <View style={styles.statusArea}>
