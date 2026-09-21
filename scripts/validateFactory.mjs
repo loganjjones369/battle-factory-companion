@@ -99,6 +99,10 @@ if (!damageCalc.includes('defenderSubstitute') || !damageCalc.includes('substitu
 if (!damageCalc.includes('getGen3MoveTurnProfile') || !damageCalc.includes('requiresRechargeTurn') || !sequence.includes('getMoveTurnProfile')) {
   throw new Error('Gen III multi-turn move profiles are missing');
 }
+const responseAnalysis = read('data/responseAnalysis.js');
+if (!responseAnalysis.includes('defenderSubstitute') || !responseAnalysis.includes('applyStagesForResponse') || !responseAnalysis.includes('opponentStages')) {
+  throw new Error('Response analysis is not consuming live battle stages/Substitute state');
+}
 
 for (const required of [
   'data/candidateEngine.js',
