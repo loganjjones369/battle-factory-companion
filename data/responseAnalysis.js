@@ -247,11 +247,15 @@ export function analyzeDecisionBranches(opponent, team = [], opponentSets = [], 
       }
       movePool.forEach((moveRow) => {
         const incomingPercent = Number(moveRow.damage?.percentMax) || 0;
+        const residualEdge = Number(response.residualDelta) || 0;
+        const switchInPercent = Number(response.switchIn?.percent || 0);
         const branchScore =
           (Number(response.hitBack?.percentMax) || 0) * 1.15 -
           incomingPercent * 1.05 +
+          Math.max(-15, Math.min(15, residualEdge)) +
           (response.relation === 'outspeeds' ? 12 : response.relation === 'speed ties' ? 5 : 0) +
           (response.safeSwitch ? 10 : 0) -
+          switchInPercent * 0.35 -
           (Number(moveRow.priority) > Number(getMovePriority(response.hitBack?.moveName)) ? 8 : 0);
         branches.push({
           set: opponentSet,
