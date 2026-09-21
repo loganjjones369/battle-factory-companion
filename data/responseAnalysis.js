@@ -118,6 +118,63 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   return { ally: allyPokemon, opponent: opponentPokemon, allySet, opponentSet, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, safeSwitch, classification, incomingMove: incoming?.moveName || null, returnMove: hitBack?.moveName || null, switchIn: allySwitch, turnOrder, turnPlanRisk, allyResidual, opponentResidual, residualDelta };
 }
 
+export function analyzeOpponentSetPool(opponent, ally, opponentSets = [], level = 100, round = 1, options = {}) {
+  const sets = opponentSets.filter(Boolean);
+  const checks = sets.map((opponentSet) =>
+    analyzeResponse(
+      { ...opponent, setId: opponentSet.id },
+      ally,
+      level,
+      round,
+      { ...options, opponentSet }
+    )
+  ).filter(Boolean);
+  if (!checks.length) return null;
+  const bySpecies = (rows, key) => rows.map((row) => Number(row?.[key]) || 0);
+  const damageOut = bySpecies(checks, 'damageOut');
+  const damageIn = bySpecies(checks, 'damageIn');
+  const safeCount = checks.filter((row) => row.safeSwitch).length;
+  const fasterCount = checks.filter((row) => row.relation === 'outspeeds').length;
+  const tieCount = checks.filter((row) => row.relation === 'speed ties').length;
+  const exposureCount = checks.filter((row) => row.turnPlanRisk > 0).length;
+  const residualDelta = checks.map((row) => Number(row.residualDelta) || 0);
+  return {
+    checks,
+    setCount: checks.length,
+    damageOutMin: Math.min(...damageOut),
+    damageOutMax: Math.max(...damageOut),
+    damageInMin: Math.min(...damageIn),
+    damageInMax: Math.max(...damageIn),
+    safeCount,
+    safeShare: safeCount / checks.length,
+    fasterCount,
+    fasterShare: fasterCount / checks.length,
+    tieCount,
+    tieShare: tieCount / checks.length,
+    exposureCount,
+    exposureShare: exposureCount / checks.length,
+    residualDeltaMin: Math.min(...residualDelta),
+    residualDeltaMax: Math.max(...residualDelta),
+    worstCase: checks.reduce((best, row) => !best || row.damageIn > best.damageIn ? row : best, null),
+    bestCase: checks.reduce((best, row) => !best || row.damageOut > best.damageOut ? row : best, null),
+  };
+}
+
+export function rankResponsesAcrossOpponentSets(opponent, team = [], opponentSets = [], level = 100, round = 1, options = {}) {
+  return team.map((ally) => {
+    const pool = analyzeOpponentSetPool(opponent, ally, opponentSets, level, round, options);
+    if (!pool) return null;
+    const score =
+      (pool.fasterShare * 15) +
+      (pool.safeShare * 20) +
+      Math.min(60, pool.damageOutMin) -
+      Math.min(60, pool.damageInMax) +
+      Math.min(15, pool.residualDeltaMin) -
+      (pool.exposureShare * 20);
+    return { ally, pool, score };
+  }).filter(Boolean).sort((a, b) => b.score - a.score);
+}
+
 export function rankResponses(opponent, team = [], level = 100, round = 1, options = {}) {
   return team.map((ally) => analyzeResponse(opponent, ally, level, round, options)).filter(Boolean).sort((a, b) => {
     const score = (x) => (x.relation === 'outspeeds' ? 15 : x.relation === 'speed ties' ? 5 : 0) + (x.safeSwitch ? 20 : 0) + Math.min(60, x.damageOut) - Math.min(60, x.damageIn) + Math.min(15, x.residualDelta) - x.turnPlanRisk;
