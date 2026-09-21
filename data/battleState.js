@@ -1,4 +1,4 @@
-import { buildBattleState, getBlockedSpecies, getSwapElevation } from './factoryRules';
+import { buildBattleState, getBlockedSpecies, getSwapElevation, isNolandBattle } from './factoryRules';
 import { makeSwapReplacement } from './setIdentity';
 
 export function getFactoryRound(battle = 1) {
@@ -115,6 +115,7 @@ export function advanceAfterBattle(state, { nextCurrentTeam = [], defeatedOppone
     progressionError: null,
     swapAttempt: detected,
     knockedOut: { team: [], opponent: [] },
+    noland: isNolandBattle(nextBattle),
   };
   return {
     ...next,
