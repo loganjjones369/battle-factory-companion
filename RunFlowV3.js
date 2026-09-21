@@ -30,13 +30,14 @@ function Button({children,onPress,disabled,secondary}){return <TouchableOpacity 
 
 export default function RunFlowV3(){
  const [level,setLevel]=useState('Level 50'),[battle,setBattle]=useState('1'),[swaps,setSwaps]=useState('0');
- const [draftText,setDraftText]=useState(blank6()),[draftSets,setDraftSets]=useState([null,null,null,null,null,null]),[selected,setSelected]=useState([]),[activeDraftIndex,setActiveDraftIndex]=useState(0);
+ const [draftText,setDraftText]=useState(blank6()),[draftSets,setDraftSets]=useState([null,null,null,null,null,null]),[selected,setSelected]=useState([]),[activeDraftIndex,setActiveDraftIndex]=useState(0),[draftSearchSlot,setDraftSearchSlot]=useState(null),[draftSearch,setDraftSearch]=useState('');
  const [state,setState]=useState(null),[phase,setPhase]=useState('draft');
  const [scientist,setScientist]=useState({type:'',style:null});
  const [team,setTeam]=useState([]),[opponent,setOpponent]=useState([]),[oppText,setOppText]=useState(blank3()),[oppSets,setOppSets]=useState([null,null,null]),[oppObs,setOppObs]=useState(blankObs3());
  const [swapOut,setSwapOut]=useState(null),[swapIn,setSwapIn]=useState(null),[pendingBattle,setPendingBattle]=useState(null),[celebrate,setCelebrate]=useState(null);const [activeTeamIndex,setActiveTeamIndex]=useState(0),[activeOpponentIndex,setActiveOpponentIndex]=useState(0);const [scenario,setScenario]=useState({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});const [infoPokemon,setInfoPokemon]=useState(null),[infoKind,setInfoKind]=useState('YOUR POKÉMON');const scale=useRef(new Animated.Value(.7)).current;
  const b=state?.battle||Math.max(1,Number(battle)||1),sw=state?.swaps??Math.max(0,Number(swaps)||0);
  const knockedOut=state?.knockedOut||{team:[],opponent:[]};
+ const draftMatches=useMemo(()=>{const q=norm(draftSearch);if(!q)return [];return getFactorySpecies().filter(name=>norm(name).startsWith(q)).slice(0,8);},[draftSearch]);
  const draft=useMemo(()=>draftText.map((x,i)=>{if(!x)return null;const p=selectedPokemon(x,draftSets[i]);if(!p)return null;const slot=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw,slotIndex:i});return {...p,draftSlot:i,isElevated:slot.isElevated,factoryIV:slot.iv,poolBucket:slot.poolBucket}}),[draftText,draftSets,level,b,sw]);
  const chosen=selected.map(i=>draft[i]).filter(Boolean);const validSelection=selected.length===3&&chosen.length===3&&new Set(chosen.map(p=>norm(p.species))).size===3&&chosen.every(p=>p?.setId!=null);
  const toggleDraft=i=>{if(!draft[i])return;setActiveDraftIndex(i);setSelected(old=>old.includes(i)?old.filter(x=>x!==i):old.length<3?[...old,i]:old)};
