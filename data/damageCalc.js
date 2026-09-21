@@ -274,8 +274,8 @@ export function calculateResidualDamage({ pokemon, set, level = 50, round = 1, h
   const currentHP = Math.max(0, Math.min(maxHP, Number(hp == null ? maxHP : hp)));
   const normalized = normalizeStatus(status);
   let damage = 0;
-  if (normalized === 'burned' || normalized === 'poisoned' || normalized === 'toxic') damage += Math.max(1, Math.floor(maxHP / (normalized === 'burned' ? 8 : 8)));
-  if (normalized === 'toxic') damage += Math.max(0, Math.floor(maxHP / 16));
+  if (normalized === 'burned' || normalized === 'poisoned') damage += Math.max(1, Math.floor(maxHP / 8));
+  if (normalized === 'toxic') damage += Math.max(1, Math.floor(maxHP / 16));
   if (weather === 'sand' && !pokemon.types.includes('Rock') && !pokemon.types.includes('Ground') && !pokemon.types.includes('Steel')) damage += Math.max(1, Math.floor(maxHP / 16));
   if (weather === 'hail' && !pokemon.types.includes('Ice')) damage += Math.max(1, Math.floor(maxHP / 16));
   if (curse) damage += Math.max(1, Math.floor(maxHP / 4));
