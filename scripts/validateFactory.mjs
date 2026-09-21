@@ -44,6 +44,9 @@ if (!pkg.dependencies['@react-native-async-storage/async-storage']) {
 if (!scenario.includes('hpPercent') || !scenario.includes('screens') || !scenario.includes('hazards') || !scenario.includes('scenarioSwitchInDamage')) {
   throw new Error('Scenario analysis is not consuming current HP, screens, and hazards');
 }
+if (!scenario.includes('getFactorySet') || !scenario.includes('defenderHP') || scenario.includes('stealthRock')) {
+  throw new Error('Scenario analysis is not using exact Factory sets or still contains Emerald-incompatible Stealth Rock');
+}
 const damageCalc = read('data/damageCalc.js');
 if (!damageCalc.includes("moveName === 'Explosion'")) {
   throw new Error('Gen III Explosion defense handling is missing');
