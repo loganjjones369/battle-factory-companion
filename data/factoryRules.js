@@ -15,6 +15,8 @@ export const FACTORY_RULES = {
   nolandEveryBattles: 21,
   nolandSilverIV: 15,
   nolandGoldIV: 31,
+  nolandLevel50LateLegendaryMaxSet: 4,
+  nolandLevel50LateLegendarySpecies: ['Articuno', 'Zapdos', 'Moltres', 'Raikou', 'Entei', 'Suicune'],
   rentalIVsByRound: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 21, 7: 31 },
   swapElevation: [
     { min: 0, max: 14, elevated: 0 },
