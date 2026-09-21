@@ -1,16 +1,17 @@
 import { advanceAfterBattle, createInitialBattleState, getBattleMilestone } from './battleState';
 import { recordBattleHistory, getHistoricalObservations } from './battleHistory';
 import { getCurrentScientist } from './scientistSession';
+import { FACTORY_RULES } from './factoryRules';
 
 let ACTIVE_RUN_CONTEXT = {
-  currentTeam: [], previousOpponent: [], previousBattleMemory: [], battle: 1, round: 1, level: 50, swaps: 0, battleHistory: [], historicalObservations: [], knockedOut: { team: [], opponent: [] }, scientist: {}, revealed: {}, noland: false,
+  currentTeam: [], previousOpponent: [], previousBattleMemory: [], battle: 1, round: 1, level: 50, swaps: 0, battleTowerStreak: FACTORY_RULES.defaultBattleTowerStreak, battleHistory: [], historicalObservations: [], knockedOut: { team: [], opponent: [] }, scientist: {}, revealed: {}, noland: false,
 };
 
 function syncActiveContext(state = {}) {
   ACTIVE_RUN_CONTEXT = {
     currentTeam: state.currentTeam || [], previousOpponent: state.previousOpponent || [], previousBattleMemory: state.previousBattleMemory || [],
     battle: Number(state.battle) || 1, round: Number(state.round) || 1,
-    level: Number(state.level) || 50, swaps: Number(state.swaps) || 0, battleHistory: state.battleHistory || [], historicalObservations: getHistoricalObservations(state.battleHistory || []),
+    level: Number(state.level) || 50, swaps: Number(state.swaps) || 0, battleTowerStreak: Number(state.battleTowerStreak) || FACTORY_RULES.defaultBattleTowerStreak, battleHistory: state.battleHistory || [], historicalObservations: getHistoricalObservations(state.battleHistory || []),
     knockedOut: state.knockedOut || { team: [], opponent: [] }, scientist: state.scientist || {}, revealed: state.revealed || {}, noland: Boolean(state.noland),
   };
 }
@@ -33,6 +34,7 @@ export function createRun(options = {}) {
   const scientist = Object.keys(options.scientist || {}).length ? options.scientist : getCurrentScientist();
   const state = createInitialBattleState({
     level: options.level || '50', battle: options.battle || 1, round: options.round, swaps: options.swaps || 0,
+    battleTowerStreak: options.battleTowerStreak ?? FACTORY_RULES.defaultBattleTowerStreak,
     currentTeam: options.currentTeam || [], previousTeam: options.previousTeam || [], previousOpponent: options.previousOpponent || [], previousBattleMemory: options.previousBattleMemory || [],
     draft: options.draft || [], draftSlots: options.draftSlots || undefined, scientist, noland: options.noland || false,
     revealed: options.revealed || {}, knockedOut: options.knockedOut || { team: [], opponent: [] },
@@ -60,7 +62,7 @@ export function completeBattle(state, outcome = {}) {
 
 export function getRunSummary(state = {}) {
   return {
-    battle: Number(state.battle) || 1, round: Number(state.round) || 1, level: Number(state.level) || 50, swaps: Number(state.swaps) || 0, swapElevation: Number(state.swapElevation) || 0,
+    battle: Number(state.battle) || 1, round: Number(state.round) || 1, level: Number(state.level) || 50, swaps: Number(state.swaps) || 0, battleTowerStreak: Number(state.battleTowerStreak) || FACTORY_RULES.defaultBattleTowerStreak, swapElevation: Number(state.swapElevation) || 0,
     currentTeam: state.currentTeam || [], previousOpponent: state.previousOpponent || [], previousBattleMemory: state.previousBattleMemory || [], draft: state.draft || [], draftSlots: state.draftSlots || [], scientist: state.scientist || {},
     blockedSpecies: state.blockedSpecies || [], battleHistory: state.battleHistory || [], historicalObservations: state.historicalObservations || [], knockedOut: state.knockedOut || { team: [], opponent: [] }, revealed: state.revealed || {}, noland: Boolean(state.noland),
   };
