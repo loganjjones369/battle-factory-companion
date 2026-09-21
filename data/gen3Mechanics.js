@@ -1,0 +1,5 @@
+export const GEN3=Object.freeze({generation:3,damageRandomMin:217,damageRandomMax:255,physicalTypes:['Normal','Fighting','Flying','Poison','Ground','Rock','Bug','Ghost','Steel'],specialTypes:['Fire','Water','Grass','Electric','Psychic','Ice','Dragon','Dark']});
+export const isPhysicalType=t=>GEN3.physicalTypes.includes(t); export const isSpecialType=t=>GEN3.specialTypes.includes(t);
+export const damageRolls=max=>{const m=Math.max(0,Math.floor(max||0));return Array.from({length:39},(_,i)=>Math.floor(m*(217+i)/255));};
+export const damageRange=max=>{const rolls=damageRolls(max);return {min:Math.min(...rolls,0),max:Math.max(...rolls,0),rolls};};
+export const hitsToKO=(damageMin,hp)=>!damageMin||!hp?Infinity:Math.ceil(Number(hp)/Number(damageMin)); export const twoHitGuaranteed=(damageMin,hp)=>Number(damageMin)*2>=Number(hp);
