@@ -106,6 +106,10 @@ if (!responseAnalysis.includes('defenderSubstitute') || !responseAnalysis.includ
 if (!responseAnalysis.includes('scenarioSwitchInDamage') || !responseAnalysis.includes('switchIn')) {
   throw new Error('Response analysis is missing switch-in hazard damage');
 }
+const candidateEngine = read('data/candidateEngine.js');
+if (!candidateEngine.includes('observedDamagePercent') || !candidateEngine.includes('observedDamageMove') || !candidateEngine.includes('observedDamageMatches')) {
+  throw new Error('Factory candidate engine is missing observed damage evidence filtering');
+}
 
 for (const required of [
   'data/candidateEngine.js',
