@@ -3,6 +3,7 @@ import { rankResponses } from './responseAnalysis';
 import { buildBattleSequence } from './battleSequence';
 import { getStats as requireStats } from './damageCalc';
 import { getPokemon } from './factoryData';
+import { getFactorySet } from './setIdentity';
 
 const norm = (value) => String(value || '').trim().toLowerCase();
 const setKey = (set) => `${norm(set?.species)}#${set?.id ?? set?.setId ?? set?.sourceId ?? ''}`;
@@ -99,7 +100,8 @@ export function analyzeBattleDecision({
       const allyHPPercent = teamSide.hpPercent == null ? 100 : teamSide.hpPercent;
       const oppHPPercent = oppSide.hpPercent == null ? 100 : oppSide.hpPercent;
       const candidateStats = candidate ? requireStats(getPokemon(candidate.species), candidate, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7))) : null;
-      const allyStats = ally ? requireStats(ally, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7))) : null;
+      const allySet = ally?.setId != null ? getFactorySet(ally.species, ally.setId) : ally;
+      const allyStats = ally && allySet ? requireStats(ally, allySet, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7))) : null;
       return rankResponses(candidate, [ally], levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7)), {
         opponentSet: candidate,
         allyStatus: teamSide.status || 'healthy',
