@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { getPokemon, getFactorySpecies } from './data/factoryData';
 import { getStats } from './data/damageCalc';
 import { createRun, completeBattle } from './data/runProgress';
-import { setKnockedOut } from './data/battleState';
+import { setKnockedOut, normalizeBattleConditions } from './data/battleState';
 import { getDraftSlotMetadata } from './data/draftSlots';
 import { getOpponentFactoryIV, getNolandFactoryIV, getFactoryIVSource, isNolandGoldBattle } from './data/factoryRules';
 import { analyzeFactoryCandidates } from './data/candidateEngine';
@@ -48,6 +48,24 @@ export default function RunFlowV3(){
  const b=state?.battle||Math.max(1,Number(battle)||1),sw=state?.swaps??Math.max(0,Number(swaps)||0);
  useEffect(()=>{let alive=true;(async()=>{const snap=await loadRunSnapshot();if(!alive)return;if(snap?.state){setState(snap.state);setPhase(snap.phase||'battle');setTeam(snap.team||snap.state.currentTeam||[]);setOpponent(snap.opponent||[]);setOppText(snap.oppText||blank3());setOppSets(snap.oppSets||[null,null,null]);setOppObs(snap.oppObs||blankObs3());setScenario(snap.scenario||{hp:{},status:{},stages:{},weather:'none',focus:'team:0'});setBattle(String(snap.state.battle||1));setSwaps(String(snap.state.swaps||0));setLevel(Number(snap.state.level)===100?'Open Level':'Level 50');const savedDraft=(snap.state.draft||[]).map(x=>x?.species||'');setDraftText([...savedDraft,...blank6()].slice(0,6));setDraftSets((snap.state.draft||[]).map(x=>x?.setId??null).concat([null,null,null,null,null,null]).slice(0,6));}setHydrated(true);})();return()=>{alive=false;};},[]);
  useEffect(()=>{if(!hydrated)return;saveRunSnapshot({state,phase,team,opponent,oppText,oppSets,oppObs,scenario}).catch(()=>{});},[hydrated,state,phase,team,opponent,oppText,oppSets,oppObs,scenario]);
+ useEffect(()=>{
+   if(!hydrated || !state) return;
+   const teamKey=`team:${activeTeamIndex}`;
+   const opponentKey=`opponent:${activeOpponentIndex}`;
+   const side=(key)=>({
+     hpPercent: (()=>{ const p=scenario?.hp?.[key]; const party=key.startsWith('team:')?team[Number(key.split(':')[1])]:opponent[Number(key.split(':')[1])]; const set=party?.setId!=null?getFactorySet(party.species,party.setId):null; const max=set&&party?getStats(party,set,party.level||50,Math.max(1,Math.ceil(b/7))).hp:null; return p==null||!max?100:Number(p)/max*100; })(),
+     status: scenario?.status?.[key] || 'healthy',
+     statStages: scenario?.stages?.[key] || {},
+     substitute: Boolean(scenario?.screens?.[key]?.substitute),
+     reflect: Boolean(scenario?.screens?.[key]?.reflect),
+     lightScreen: Boolean(scenario?.screens?.[key]?.lightScreen),
+     spikes: Number(scenario?.hazards?.[key]?.spikes||0),
+     stealthRock: Boolean(scenario?.hazards?.[key]?.stealthRock),
+   });
+   const next=normalizeBattleConditions({weather:scenario?.weather||'none',team:side(teamKey),opponent:side(opponentKey)});
+   const prev=state.battleConditions||{};
+   if(JSON.stringify(prev)!==JSON.stringify(next)) setState(s=>s?{...s,battleConditions:next}:s);
+ },[hydrated,scenario,activeTeamIndex,activeOpponentIndex,team,opponent,b,state?.battleConditions]);
  const knockedOut=state?.knockedOut||{team:[],opponent:[]};
  const draftMatches=useMemo(()=>{const q=norm(draftSearch);if(!q||draftSearchSlot==null)return [];const slot=getDraftSlotMetadata({levelMode:level,battle:b,swaps:sw,slotIndex:draftSearchSlot});const used=new Set(draftText.map(norm).filter(Boolean));return getFactorySpecies().filter(name=>!used.has(norm(name))&&norm(name).startsWith(q)&&getFactorySets(name).some(set=>norm(set.pool)===norm(slot.poolBucket))).slice(0,8);},[draftSearch,draftSearchSlot,level,b,sw,draftText]);
  const draft=useMemo(()=>draftText.map((x,i)=>{if(!x)return null;const slot=getDraftSlotMetadata({levelMode:level,battle:b,swaps:sw,slotIndex:i});const allowedSets=getFactorySets(x).filter(set=>norm(set.pool)===norm(slot.poolBucket));const p=allowedSets.some(set=>Number(set.id)===Number(draftSets[i]))?selectedPokemon(x,draftSets[i]):null;if(!p)return null;return {...p,draftSlot:i,isElevated:slot.isElevated,factoryIV:slot.iv,factoryIVSource:slot.isElevated?'ELEVATED RENTAL':'STANDARD RENTAL',poolBucket:slot.poolBucket}}),[draftText,draftSets,level,b,sw]);
