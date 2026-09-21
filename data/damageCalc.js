@@ -181,6 +181,17 @@ export function getGen3Priority(moveName = '') {
   const priorities = { 'Fake Out': 3, 'Protect': 3, 'Detect': 3, 'Endure': 3, 'Follow Me': 3, 'Helping Hand': 5, 'Quick Attack': 1, 'Mach Punch': 1, 'ExtremeSpeed': 1 };
   return priorities[String(moveName || '')] ?? 0;
 }
+
+export const GEN3_MULTI_HIT_COUNTS = [
+  { hits: 2, probability: 35 },
+  { hits: 3, probability: 35 },
+  { hits: 4, probability: 15 },
+  { hits: 5, probability: 15 },
+];
+
+export function getGen3MultiHitDistribution() {
+  return GEN3_MULTI_HIT_COUNTS.map((entry) => ({ ...entry }));
+}
 export function getEffectiveSpeed(stats, status = 'healthy') { const raw = Number(stats?.spe) || 0; return normalizeStatus(status) === 'paralyzed' ? Math.floor(raw / 4) : raw; }
 export function typeEffectiveness(moveType, defenderTypes) { return defenderTypes.reduce((multiplier, type) => multiplier * (TYPE_CHART[moveType]?.[type] ?? 1), 1); }
 export function getWeatherDamageMultiplier(moveType, weather = 'none', moveName = '') { if (moveName === 'SolarBeam' && ['rain', 'sand', 'hail'].includes(weather)) return 0.5; if (weather === 'sun') { if (moveType === 'Fire') return 1.5; if (moveType === 'Water') return 0.5; } if (weather === 'rain') { if (moveType === 'Water') return 1.5; if (moveType === 'Fire') return 0.5; } return 1; }
