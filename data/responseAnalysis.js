@@ -4,6 +4,9 @@ import { getFactorySet } from './setIdentity';
 import { getMoveTurnProfile, getMovePriority, getTurnOrderExplanation, buildTurnPlan, buildTurnOutcomes } from './battleSequence';
 import { scenarioSwitchInDamage } from './scenarioDamage';
 
+const norm = (value) => String(value || '').trim().toLowerCase();
+const setKey = (set) => `${norm(set?.species)}#${set?.id ?? set?.setId ?? set?.sourceId ?? ''}`;
+
 
 function resolvePokemon(value) {
   if (!value) return null;
