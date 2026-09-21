@@ -86,7 +86,7 @@ export default function DraftDecisionLab({ draft = [], selectedDraftIndices = []
 
   return <View style={st.card}>
     <View style={st.header}><View style={{ flex: 1 }}><Text style={st.label}>DRAFT DECISION LAB</Text><Text style={st.title}>Try the team before locking it</Text></View><Text style={st.badge}>{selected.length}/3</Text></View>
-    <Text style={st.help}>Select up to three rentals to test. Deeper tools stay tucked into the workstation.</Text>
+    <Text style={st.help}>Tap a rental above to make it the active test instrument. Select up to three for team analysis.</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.toolRow}>
       {[['lineup','LINEUP'],['spread','SET PRESSURE'],['scenario','SCENARIO'],['threats','THREATS']].map(([id,label]) => <TouchableOpacity key={id} onPress={() => setTool(id)} style={[st.toolTab, tool === id && st.toolTabOn]}><Text style={[st.toolTabText, tool === id && st.toolTabTextOn]}>{label}</Text></TouchableOpacity>)}
     </ScrollView>
