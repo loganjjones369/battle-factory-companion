@@ -1,5 +1,5 @@
 import { analyzeFactoryCandidates } from './candidateEngine';
-import { rankResponses, buildTwoTurnBattlePlan, analyzeOpponentMovePool, analyzeDecisionBranches } from './responseAnalysis';
+import { rankResponses, buildTwoTurnBattlePlan, analyzeOpponentMovePool, analyzeDecisionBranches, analyzeInformationValue } from './responseAnalysis';
 import { buildBattleSequence } from './battleSequence';
 import { getStats as requireStats } from './damageCalc';
 import { getPokemon } from './factoryData';
@@ -148,6 +148,7 @@ export function analyzeBattleDecision({
         )
       : null;
     const sameSpeciesSets = futureCandidateSets.filter((set) => norm(set?.species) === norm(candidate?.species));
+    const informationValue = analyzeInformationValue(sameSpeciesSets, getPokemon(candidate.species), levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7)), { status: oppSide.status || 'healthy' });
     const branchAnalysis = analyzeDecisionBranches(
       { ...candidate, setId: candidate.id },
       activeTeam,
@@ -190,6 +191,7 @@ export function analyzeBattleDecision({
       twoTurnPlan: bestTwoTurn,
       movePool,
       branchAnalysis,
+      informationValue,
     });
   });
 
