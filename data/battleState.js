@@ -91,7 +91,7 @@ export function createInitialBattleState(options = {}) {
   const initialHistory = options.previousBattleMemory?.length
     ? options.previousBattleMemory
     : (options.draft || []).filter((pokemon) => !currentTeam.some((teamPokemon) => setIdentityKey(teamPokemon) === setIdentityKey(pokemon))).slice(0, 3);
-  return { ...state, currentTeam, previousBattleMemory: initialHistory, round: getFactoryRound(state.battle), swapElevation: getSwapElevation(state.swaps), knockedOut: normalizeKO(options.knockedOut || state.knockedOut) };
+  return { ...state, currentTeam, previousBattleMemory: initialHistory, round: getFactoryRound(state.battle), swapElevation: getSwapElevation(state.swaps), noland: isNolandBattle(state.battle), knockedOut: normalizeKO(options.knockedOut || state.knockedOut) };
 }
 
 export function advanceAfterBattle(state, { nextCurrentTeam = [], defeatedOpponent = [], didSwap = null } = {}) {
