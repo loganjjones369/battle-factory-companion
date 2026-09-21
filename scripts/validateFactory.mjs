@@ -93,6 +93,9 @@ if (!damageCalc.includes('GEN3_MULTI_HIT_COUNTS') || !damageCalc.includes('{ hit
 if (!damageCalc.includes('hitDistribution')) {
   throw new Error('Multi-hit damage distribution is not exposed by the damage engine');
 }
+if (!damageCalc.includes('defenderSubstitute') || !damageCalc.includes('substituteBreaks') || !scenario.includes('defenderSubstitute')) {
+  throw new Error('Gen III Substitute state is not wired into scenario damage');
+}
 
 for (const required of [
   'data/candidateEngine.js',
