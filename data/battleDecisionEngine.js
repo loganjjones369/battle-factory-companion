@@ -4,6 +4,7 @@ import { buildBattleSequence } from './battleSequence';
 import { getStats as requireStats } from './damageCalc';
 import { getPokemon } from './factoryData';
 import { getFactorySet } from './setIdentity';
+import { getNextRoundPreview } from './factoryRules';
 
 const norm = (value) => String(value || '').trim().toLowerCase();
 const setKey = (set) => `${norm(set?.species)}#${set?.id ?? set?.setId ?? set?.sourceId ?? ''}`;
@@ -230,6 +231,16 @@ export function analyzeBattleDecision({
   }).sort((a, b) => b.uncertaintyScore - a.uncertaintyScore);
 
   const activeOpponentSet = sequence.activeOpponent;
+  const nextRoundPreview = getNextRoundPreview({
+    currentTeam,
+    previousOpponent,
+    battle,
+    noland,
+  });
+  const futureSpecies = [...new Set(futureCandidateSets.map((set) => set.species).filter(Boolean))];
+  const blockedFutureSpecies = new Set((nextRoundPreview.blockedSpecies || []).map(norm));
+  const nextRoundCandidateSpecies = futureSpecies.filter((species) => !blockedFutureSpecies.has(norm(species)));
+
   const activeSpeciesRows = activeOpponentSet
     ? speciesRecommendations.filter((row) => norm(row.species) === norm(activeOpponentSet.species))
     : [];
@@ -247,6 +258,7 @@ export function analyzeBattleDecision({
     speciesRecommendations,
     nextChoices: sequence.playerChoices,
     futureCandidateSets,
+    nextRoundPreview: { ...nextRoundPreview, candidateSpecies: nextRoundCandidateSpecies, candidateSpeciesCount: nextRoundCandidateSpecies.length },
     knownDefeatedSpecies: sequence.opponentEvidence.defeatedSpecies,
     decisionState: sequence.battleOver
       ? (sequence.playerWon ? 'WON' : 'LOST')
