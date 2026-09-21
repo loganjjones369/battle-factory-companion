@@ -57,7 +57,7 @@ export default function DraftDecisionLab({ draft = [], selectedDraftIndices = []
   const candidateResult = useMemo(() => analyzeFactoryCandidates({ draft: usable, blockedSpecies, scientist, levelMode, battle, revealed, noland }), [usable, blockedSpecies, scientist, levelMode, battle, revealed, noland]);
   const opponentMatches = useMemo(() => { const q = norm(opponentText); if (!q) return []; return getFactorySpecies().filter((name) => norm(name).startsWith(q)).slice(0, 8); }, [opponentText]);
   const opponent = useMemo(() => { if (!opponentText || opponentSetId == null) return null; const base = getFactorySet(opponentText, opponentSetId); const entry = getPokemon(opponentText); return base && entry ? {...entry,...base,species:entry.name,setId:base.id,factorySetId:base.id} : null; }, [opponentText, opponentSetId]);
-  const activeRental = usable.find((p) => Number(p?.draftSlot) === Number(activeDraftIndex)) || usable[0] || null;
+  const activeRental = usable.find((p) => Number(p?.draftSlot) === Number(activeDraftIndex)) || usable.find((p) => p?.setId != null) || usable[0] || null;
  const activeRentalMeta = useMemo(() => activeRental ? ({ ...activeRental, factoryIV: activeRental.factoryIV, factoryIVSource: activeRental.factoryIVSource, isElevated: Boolean(activeRental.isElevated), poolBucket: activeRental.poolBucket }) : null, [activeRental]);
   const scenario = useMemo(() => ({ statuses, stages, abilities, weather }), [statuses, stages, abilities, weather]);
   const opponentSetRows = useMemo(() => {
