@@ -75,7 +75,7 @@ function QuickReference({ source, target, side, setId, setProbabilities = {}, on
     <View style={styles.quickNav}><TouchableOpacity disabled={currentIndex<=0} onPress={()=>changeSet(-1)}><Text style={styles.navArrow}>‹</Text></TouchableOpacity><Text style={styles.quickLead}>{source.species} → {target?.species || 'OPPONENT'}</Text><TouchableOpacity disabled={currentIndex>=setList.length-1} onPress={()=>changeSet(1)}><Text style={styles.navArrow}>›</Text></TouchableOpacity></View>
     <View style={styles.quickSetRail}>{setList.map(id => <TouchableOpacity key={id} onPress={()=>onSet?.(id)} style={[styles.quickSetChip, Number(id)===Number(setId)&&styles.quickSetChipOn]}><Text style={[styles.quickSetChipText, Number(id)===Number(setId)&&styles.quickSetChipTextOn]}>{id}{side==='opponent' && setProbabilities?.[id] != null ? ` · ${setProbabilities[id]}%` : ''}</Text></TouchableOpacity>)}</View>
     <View style={styles.quickStats}><Text>HP {hp}/{stats.hp}</Text><Text>SPD {Math.floor(getEffectiveSpeed(stats,status))}</Text><Text>ITEM {set.item || '—'}</Text><Text>ABILITY {set.ability || '—'}</Text></View>
-    {side==='opponent' && <View style={styles.observeBox}><Text style={styles.observeTitle}>OBSERVED</Text><Text style={styles.observeHint}>Tap a clue as soon as you see it. It immediately narrows the remaining sets.</Text><View style={styles.observeRows}><Text style={styles.observeLabel}>MOVE</Text>{[...new Set(getFactorySets(source.species).flatMap(s=>s.moves||[]))].map(move=><TouchableOpacity key={move} onPress={()=>onObserveMove?.(source._index, move)} style={[styles.observeChip,observedMoves.includes(move)&&styles.observeChipOn]}><Text style={styles.observeChipText}>{observedMoves.includes(move)?'✓ ':''}{move}</Text></TouchableOpacity>)}</View><View style={styles.observeRows}><Text style={styles.observeLabel}>ITEM</Text>{[...new Set(getFactorySets(source.species).map(s=>s.item).filter(Boolean))].map(item=><TouchableOpacity key={item} onPress={()=>observedItem===item?onClearClue?.(source._index,'item',item):onObserveItem?.(source._index,item)} style={[styles.observeChip,observedItem===item&&styles.observeChipOn]}><Text style={styles.observeChipText}>{observedItem===item?'✓ ':''}{item}</Text></TouchableOpacity>)}</View>{side==='opponent' && <View style={styles.abilityChoices}><Text style={styles.observeLabel}>ABILITY</Text>{[...new Set(getFactorySets(source.species).flatMap(s=>String(s.ability||'').split('/').map(a=>a.trim()).filter(Boolean)))].map(a=><TouchableOpacity key={a} onPress={()=>onObserveAbility?.(source._index,a)} style={[styles.observeChip, observedAbility===a&&styles.observeChipOn]}><Text style={styles.observeChipText}>{a}</Text></TouchableOpacity>)}</View>}</View>}
+    {side==='opponent' && <View style={styles.observeBox}><Text style={styles.observeTitle}>OBSERVED</Text><Text style={styles.observeHint}>Tap a clue as soon as you see it. It immediately narrows the remaining sets.</Text><View style={styles.observeRows}><Text style={styles.observeLabel}>MOVE</Text>{[...new Set(getFactorySets(source.species).filter(s=>setProbabilities?.[s.id] == null || Number(setProbabilities[s.id]) > 0).flatMap(s=>s.moves||[]))].map(move=><TouchableOpacity key={move} onPress={()=>observedMoves.includes(move)?onClearClue?.(source._index,'move',move):onObserveMove?.(source._index, move)} style={[styles.observeChip,observedMoves.includes(move)&&styles.observeChipOn]}><Text style={styles.observeChipText}>{observedMoves.includes(move)?'✓ ':''}{move}</Text></TouchableOpacity>)}</View><View style={styles.observeRows}><Text style={styles.observeLabel}>ITEM</Text>{[...new Set(getFactorySets(source.species).filter(s=>setProbabilities?.[s.id] == null || Number(setProbabilities[s.id]) > 0).map(s=>s.item).filter(Boolean))].map(item=><TouchableOpacity key={item} onPress={()=>observedItem===item?onClearClue?.(source._index,'item',item):onObserveItem?.(source._index,item)} style={[styles.observeChip,observedItem===item&&styles.observeChipOn]}><Text style={styles.observeChipText}>{observedItem===item?'✓ ':''}{item}</Text></TouchableOpacity>)}</View>{side==='opponent' && <View style={styles.abilityChoices}><Text style={styles.observeLabel}>ABILITY</Text>{[...new Set(getFactorySets(source.species).filter(s=>setProbabilities?.[s.id] == null || Number(setProbabilities[s.id]) > 0).flatMap(s=>String(s.ability||'').split('/').map(a=>a.trim()).filter(Boolean)))].map(a=><TouchableOpacity key={a} onPress={()=>onObserveAbility?.(source._index,a)} style={[styles.observeChip, observedAbility===a&&styles.observeChipOn]}><Text style={styles.observeChipText}>{a}</Text></TouchableOpacity>)}</View>}</View>}
     <View style={styles.quickMoves}>{rows.length ? rows.map(({move,result,effectiveBP})=><TouchableOpacity key={move} onPress={()=>changePP(move,-1)} onLongPress={()=>setPpMenu(move)} style={styles.quickMove}>
       <Text style={styles.quickMoveName}>{move}</Text><Text style={styles.quickDamage}>{result.immune?'0%':`${result.percentMin}–${result.percentMax}%`}</Text><Text style={styles.quickPP}>PP {pp[move] ?? 4}</Text><Text style={styles.quickBP}>BP {effectiveBP}</Text>
     </TouchableOpacity>) : <Text style={styles.quickHint}>No confirmed target set yet.</Text>}</View>
@@ -103,9 +103,6 @@ export default function BattleRoom({
   onObserveItem,
   onObserveAbility,
   onClearClue,
-  observedAbility,
-  observedMoves = [],
-  observedItem = '',
   scenario = {},
   round = 1,
   battle = 1,
@@ -113,9 +110,7 @@ export default function BattleRoom({
   history = [],
   setProbabilities = {},
   observedAbilities = [],
-  observedMoves = [],
   observedItems = [],
-  onClearClue,
 }) {
   const [statusOpen, setStatusOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
