@@ -48,6 +48,7 @@ export function getDraftSlotMetadata({ levelMode = 'Open Level', battle = 1, swa
     poolBucket,
     iv,
     label: elevated ? 'ELEVATED' : 'STANDARD',
+    factoryIVSource: elevated ? 'ELEVATED RENTAL' : 'STANDARD RENTAL',
   };
 }
 
