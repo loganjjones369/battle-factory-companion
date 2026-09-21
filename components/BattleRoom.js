@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { getPokemon } from '../data/factoryData';
+import { getPokemon, POKEMON } from '../data/factoryData';
 import { getFactorySets, getFactorySet } from '../data/setIdentity';
 
 const SPRITES = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
@@ -77,7 +77,7 @@ export default function BattleRoom({
     const q = search.trim().toLowerCase();
     if (!q) return [];
     const all = [];
-    for (const name of Object.keys(require('../data/factoryData').POKEMON || {})) {
+    for (const name of Object.keys(POKEMON || {})) {
       if (name.toLowerCase().startsWith(q)) all.push(name);
       if (all.length >= 8) break;
     }
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   topBar:{padding:10,backgroundColor:'#172629',borderBottomWidth:1,borderBottomColor:'#33484a',flexDirection:'row',justifyContent:'space-between',alignItems:'center'},
   eyebrow:{fontSize:8,fontWeight:'900',letterSpacing:1.6,color:'#6fd0b0'},round:{fontSize:16,fontWeight:'900',color:'#edf8f3',marginTop:2},counter:{fontSize:8,fontWeight:'900',color:'#7faaa0'},
   arena:{minHeight:500,backgroundColor:'#172124',position:'relative',padding:12,overflow:'hidden'},
-  catwalk:{position:'absolute',top:115,left:0,right:0,height:1,backgroundColor:'#3c5153'},pipes:{position:'absolute',right:12,top:60,width:70,gap:8},pipes:{position:'absolute',right:12,top:60,width:70},
+  catwalk:{position:'absolute',top:115,left:0,right:0,height:1,backgroundColor:'#3c5153'},pipes:{position:'absolute',right:12,top:60,width:70,gap:8},
   foeRail:{position:'absolute',right:8,top:12,width:105,gap:7},youRail:{position:'absolute',left:8,bottom:94,width:105,gap:7},
   slot:{height:104,borderRadius:12,borderWidth:1,alignItems:'center',justifyContent:'center',overflow:'hidden',position:'relative',backgroundColor:'rgba(6,12,13,.78)'},youSlot:{borderColor:'#386f9d'},foeSlot:{borderColor:'#91484f'},activeSlot:{borderColor:'#7ee0bd',backgroundColor:'#1d302c',transform:[{scale:1.04}]},koSlot:{opacity:.45},slotName:{fontSize:9,fontWeight:'900',color:'#edf7f3',maxWidth:94},slotMeta:{fontSize:7,fontWeight:'900',color:'#78928b',marginTop:2},slotNumber:{position:'absolute',left:5,top:4,fontSize:7,fontWeight:'900',color:'#58716b'},arenaLight:{position:'absolute',bottom:0,left:'18%',right:'18%',height:4,backgroundColor:'#79d8b6',borderRadius:4},koMark:{position:'absolute',right:5,top:3,fontSize:17,color:'#d9e5df'},
   pokeBall:{overflow:'hidden',borderWidth:1,borderColor:'#2a3536'},ballTop:{position:'absolute',left:0,right:0,top:0,height:'50%',backgroundColor:'#b64b4f'},ballBottom:{position:'absolute',left:0,right:0,bottom:0,height:'50%',backgroundColor:'#d9ded8'},ballLine:{position:'absolute',left:0,right:0,top:'46%',height:'8%',backgroundColor:'#222a2b'},ballButton:{position:'absolute',backgroundColor:'#edf2ec',borderWidth:2,borderColor:'#27302f'},
