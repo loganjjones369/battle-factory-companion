@@ -1,5 +1,5 @@
 import { analyzeFactoryCandidates } from './candidateEngine';
-import { rankResponses } from './responseAnalysis';
+import { rankResponses, buildTwoTurnBattlePlan } from './responseAnalysis';
 import { buildBattleSequence } from './battleSequence';
 import { getStats as requireStats } from './damageCalc';
 import { getPokemon } from './factoryData';
@@ -118,10 +118,30 @@ export function analyzeBattleDecision({
     }).flat();
     if (!responses.length) return;
     const best = [...responses].sort((a, b) => scoreResponse(b) - scoreResponse(a))[0];
+    const teamSide = battleConditions.team || {};
+    const oppSide = battleConditions.opponent || {};
+    const bestTwoTurn = best
+      ? buildTwoTurnBattlePlan(
+          { ...candidate, setId: candidate.id },
+          best.ally,
+          levelMode === 'Open Level' ? 100 : 50,
+          Math.max(1, Math.ceil(Number(battle) / 7)),
+          {
+            weather: battleConditions.weather || 'none',
+            allyStatus: teamSide.status || 'healthy',
+            opponentStatus: oppSide.status || 'healthy',
+            allyStages: teamSide.statStages || {},
+            opponentStages: oppSide.statStages || {},
+            allyHPPercent: teamSide.hpPercent == null ? 100 : teamSide.hpPercent,
+            opponentHPPercent: oppSide.hpPercent == null ? 100 : oppSide.hpPercent,
+          },
+        )
+      : null;
     responseByOpponentSet.push({
       opponentSet: candidate,
       bestResponse: best,
       responseScore: scoreResponse(best),
+      twoTurnPlan: bestTwoTurn,
     });
   });
 
@@ -147,7 +167,7 @@ export function analyzeBattleDecision({
     const exposureShare = responses.length ? exposureCount / responses.length : 0;
     const uncertaintyScore = (fasterShare * 15) + (safeShare * 20) + Math.min(60, worstCaseOutgoing) - Math.min(60, worstCaseIncoming) - (exposureShare * 20);
     return {
-      species, setCount: rows.length, sets: rows.map((row) => row.opponentSet), bestResponse: best.bestResponse,
+      species, setCount: rows.length, sets: rows.map((row) => row.opponentSet), bestResponse: best.bestResponse, twoTurnPlan: best.twoTurnPlan || null,
       responseRange: { incomingMin: incoming.length ? Math.min(...incoming) : null, incomingMax: incoming.length ? Math.max(...incoming) : null, outgoingMin: outgoing.length ? Math.min(...outgoing) : null, outgoingMax: outgoing.length ? Math.max(...outgoing) : null },
       worstCase: { incomingPercent: worstCaseIncoming, outgoingPercent: worstCaseOutgoing, fasterShare, safeShare, exposureShare },
       safeSwitchCount: safeCount, safeSwitchTotal: responses.length, uncertaintyScore,
