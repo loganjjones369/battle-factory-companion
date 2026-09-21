@@ -1,6 +1,7 @@
 import { analyzeFactoryCandidates } from './candidateEngine';
 import { rankResponses } from './responseAnalysis';
 import { buildBattleSequence } from './battleSequence';
+import { getStats as requireStats } from './damageCalc';
 
 const norm = (value) => String(value || '').trim().toLowerCase();
 const setKey = (set) => `${norm(set?.species)}#${set?.id ?? set?.setId ?? set?.sourceId ?? ''}`;
@@ -48,6 +49,7 @@ export function analyzeBattleDecision({
   activeTeamIndex = null,
   activeOpponentIndex = null,
   noland = false,
+  battleConditions = {},
 } = {}) {
   const sequence = buildBattleSequence({
     team: currentTeam,
@@ -90,7 +92,24 @@ export function analyzeBattleDecision({
 
   const responseByOpponentSet = [];
   futureCandidateSets.forEach((candidate) => {
-    const responses = activeTeam.flatMap((ally) => rankResponses(candidate, [ally], levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7)), { opponentSet: candidate }) || []);
+    const responses = activeTeam.flatMap((ally, allyIndex) => {
+      const teamSide = battleConditions.team || {};
+      const oppSide = battleConditions.opponent || {};
+      const allyHPPercent = teamSide.hpPercent == null ? 100 : teamSide.hpPercent;
+      const oppHPPercent = oppSide.hpPercent == null ? 100 : oppSide.hpPercent;
+      const allyStats = ally ? requireStats(ally, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7))) : null;
+      return rankResponses(candidate, [ally], levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7)), {
+        opponentSet: candidate,
+        allyStatus: teamSide.status || 'healthy',
+        opponentStatus: oppSide.status || 'healthy',
+        allyHP: allyStats ? Math.max(1, Math.floor(allyStats.hp * allyHPPercent / 100)) : undefined,
+        opponentHP: Math.max(1, Math.floor((candidate.hp || 1) * oppHPPercent / 100)),
+        allyStages: teamSide.statStages || {},
+        opponentStages: oppSide.statStages || {},
+        allyScreens: { reflect: Boolean(teamSide.reflect), lightScreen: Boolean(teamSide.lightScreen) },
+        opponentScreens: { reflect: Boolean(oppSide.reflect), lightScreen: Boolean(oppSide.lightScreen) },
+      });
+    }).flat();
     if (!responses.length) return;
     const best = [...responses].sort((a, b) => scoreResponse(b) - scoreResponse(a))[0];
     responseByOpponentSet.push({
