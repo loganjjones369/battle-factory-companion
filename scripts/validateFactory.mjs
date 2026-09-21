@@ -80,6 +80,10 @@ if (!damage.includes("toxicCounter") || !damage.includes("bindFraction") || !dam
 if (!damage.includes('calculateResidualDamage') || !damage.includes('weather === ' + "'sand'") || !damage.includes('weather === ' + "'hail'") || damage.includes('stealthRock')) {
   throw new Error('Gen III residual damage analysis is incomplete');
 }
+const sequence = read('data/battleSequence.js');
+if (!sequence.includes('getMovePriority') || !sequence.includes('compareTurnOrder') || !sequence.includes('QuickAttack') || !sequence.includes('ExtremeSpeed')) {
+  throw new Error('Gen III priority-aware turn ordering helpers are missing');
+}
 
 for (const required of [
   'data/candidateEngine.js',
