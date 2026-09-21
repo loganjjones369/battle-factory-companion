@@ -73,12 +73,14 @@ export function analyzeFactoryCandidates({ draft = [], blockedSpecies, scientist
     return { species: observation.species, eliminatedSets: eliminatedForSpecies.length, reasons: [...new Set(reasons)] };
   });
   const evidenceTimeline = [];
+  const evidenceSummary = [];
   observations.forEach((observation) => {
     const history = Array.isArray(observation.evidenceHistory) ? observation.evidenceHistory : [];
     if (!history.length) return;
-    const basePokemon = pools.find(p => norm(p.name) === norm(observation.species));
+    const basePokemon = getPokemon(observation.species);
     if (!basePokemon) return;
-    let surviving = basePokemon.sets.filter(set => !blocked.has(norm(set.species)));
+    const startingSets = basePokemon.sets.filter((set) => (noland ? nolandFilter(set) : poolKey(set) === String(targetBucket)) && !blocked.has(norm(set.species)));
+    let surviving = [...startingSets];
     history.forEach((event, index) => {
       const clue = {
         species: observation.species,
@@ -94,10 +96,30 @@ export function analyzeFactoryCandidates({ draft = [], blockedSpecies, scientist
       };
       const before = surviving.length;
       surviving = surviving.filter(set => setMatchesObservation(set, clue, currentTeam, levelMode));
-      evidenceTimeline.push({ species: observation.species, index: index + 1, type: event.type, value: event.value ?? event.move ?? event.percent ?? '', round: event.round || battleNumber, before, after: surviving.length, eliminated: Math.max(0, before - surviving.length) });
+      evidenceTimeline.push({
+        species: observation.species,
+        index: index + 1,
+        type: event.type,
+        value: event.value ?? event.move ?? event.percent ?? '',
+        round: event.round || battleNumber,
+        before,
+        after: surviving.length,
+        eliminated: Math.max(0, before - surviving.length),
+        remainingSetIds: surviving.map((set) => set.id),
+      });
+    });
+    evidenceSummary.push({
+      species: observation.species,
+      startingSets: startingSets.length,
+      survivingSets: surviving.length,
+      eliminatedSets: Math.max(0, startingSets.length - surviving.length),
+      cluesRecorded: history.length,
+      latestClue: history[history.length - 1]?.type || null,
+      setIds: surviving.map((set) => set.id),
     });
   });
-  return remember(key, { matchingTeams, rankedSets, possibleSpecies, eliminatedSets, observationImpact, evidenceTimeline, blockedSpecies: [...blocked], roundBucket: targetBucket, observations, exact: true, supported: true, styleDataAvailable, battle: battleNumber, noland: Boolean(noland), nolandIV: noland ? (isNolandGoldBattle(battleNumber) ? 31 : 15) : null, rankingNote: 'Ranked by frequency among surviving legal teams. This is candidate frequency, not guaranteed in-game probability because Factory generation uses rejection sampling rather than uniform selection from all legal teams.' });
+  evidenceSummary.sort((a, b) => b.eliminatedSets - a.eliminatedSets || a.species.localeCompare(b.species));
+  return remember(key, { matchingTeams, rankedSets, possibleSpecies, eliminatedSets, observationImpact, evidenceTimeline, evidenceSummary, blockedSpecies: [...blocked], roundBucket: targetBucket, observations, exact: true, supported: true, styleDataAvailable, battle: battleNumber, noland: Boolean(noland), nolandIV: noland ? (isNolandGoldBattle(battleNumber) ? 31 : 15) : null, rankingNote: 'Ranked by frequency among surviving legal teams. This is candidate frequency, not guaranteed in-game probability because Factory generation uses rejection sampling rather than uniform selection from all legal teams.' });
 }
 
 export function getPossibleSets({ species, blockedSpecies = [], occupiedItems = [], revealed = {}, roundBucket } = {}) { const pokemon = getPokemon(species); if (!pokemon) return { pokemon: null, possible: [], eliminated: [] }; const blocked = new Set(blockedSpecies.map(norm)); const occupied = new Set(occupiedItems.map(itemKey)); const observed = observedList(revealed).find((o) => norm(o.species) === norm(pokemon.name)); const pool = roundBucket == null ? pokemon.sets : pokemon.sets.filter((set) => poolKey(set) === String(roundBucket)); const possible = pool.filter((set) => !blocked.has(norm(pokemon.name)) && !occupied.has(itemKey(set.item)) && (!observed || setMatchesObservation(set, observed))); return { pokemon, possible, eliminated: pool.filter((set) => !possible.includes(set)).map((set) => ({ set, reason: blocked.has(norm(pokemon.name)) ? 'Blocked species' : 'Item, move, round, or team-constraint mismatch' })) }; }
