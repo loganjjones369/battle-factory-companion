@@ -84,6 +84,9 @@ const sequence = read('data/battleSequence.js');
 if (!sequence.includes('getMovePriority') || !sequence.includes('compareTurnOrder') || !sequence.includes('QuickAttack') || !sequence.includes('ExtremeSpeed')) {
   throw new Error('Gen III priority-aware turn ordering helpers are missing');
 }
+if (!damageCalc.includes('getGen3Priority') || !damageCalc.includes("'Fake Out': 3") || !damageCalc.includes("'Helping Hand': 5")) {
+  throw new Error('Damage engine is missing Gen III move priority metadata');
+}
 
 for (const required of [
   'data/candidateEngine.js',
