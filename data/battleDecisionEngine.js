@@ -98,6 +98,7 @@ export function analyzeBattleDecision({
       const teamSide = battleConditions.team || {};
       const oppSide = battleConditions.opponent || {};
       const allyHPPercent = teamSide.hpPercent == null ? 100 : teamSide.hpPercent;
+      const allySpikes = Math.max(0, Math.min(3, Number(teamSide.spikes) || 0));
       const oppHPPercent = oppSide.hpPercent == null ? 100 : oppSide.hpPercent;
       const candidateStats = candidate ? requireStats(getPokemon(candidate.species), candidate, levelMode === 'Open Level' ? 100 : 50, Math.max(1, Math.ceil(Number(battle) / 7))) : null;
       const allySet = ally?.setId != null ? getFactorySet(ally.species, ally.setId) : ally;
@@ -112,6 +113,7 @@ export function analyzeBattleDecision({
         opponentStages: oppSide.statStages || {},
         allyScreens: { reflect: Boolean(teamSide.reflect), lightScreen: Boolean(teamSide.lightScreen) },
         opponentScreens: { reflect: Boolean(oppSide.reflect), lightScreen: Boolean(oppSide.lightScreen) },
+        defenderSubstitute: Boolean(oppSide.substitute),
       });
     }).flat();
     if (!responses.length) return;
