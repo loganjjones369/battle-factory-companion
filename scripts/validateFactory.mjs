@@ -137,6 +137,12 @@ if (!candidateEngine.includes('evidenceHistory') || !candidateEngine.includes('s
 if (!battleDecisionEngine.includes('allySpikes') || !battleDecisionEngine.includes('Math.floor(st.hp * allyHPPercent / 100)')) {
   throw new Error('Battle decision engine is not propagating live hazard and HP state');
 }
+if (!rules.includes('getNextRoundPreview') || !rules.includes('getNextFactoryRound') || !rules.includes('getNextRoundIV')) {
+  throw new Error('Next-battle Factory preview helpers are missing');
+}
+if (!draft.includes('getNextRoundPreview') || !draft.includes('nextRoundResult') || !draft.includes('nextRoundThreats') || !draft.includes('NEXT BATTLE POOL')) {
+  throw new Error('Draft Decision Lab is not connected to the next-battle Factory exposure preview');
+}
 
 for (const required of [
   'data/candidateEngine.js',
