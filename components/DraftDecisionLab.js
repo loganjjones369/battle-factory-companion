@@ -155,7 +155,7 @@ export default function DraftDecisionLab({ draft = [], selectedDraftIndices = []
       <View style={st.nextRoundBox}>
         <Text style={st.coverageLabel}>NEXT BATTLE POOL</Text>
         <Text style={st.nextRoundTitle}>What the next battle can realistically contain</Text>
-        <Text style={st.nextRoundMeta}>Battle {nextRoundPreview.nextBattle} • Pool round {nextPoolRound} • IV {nextRoundPreview.nextRoundIV} • {nextRoundResult?.rankedSets?.length || 0} surviving sets across {nextRoundResult?.possibleSpecies?.length || 0} species.</Text>
+        <Text style={st.nextRoundMeta}>Battle {nextRoundPreview.nextBattle} • Pool round {nextPoolRound} • {nextRoundResult?.rankedSets?.length || 0} surviving sets across {nextRoundResult?.possibleSpecies?.length || 0} species.</Text>
         <Text style={st.nextRoundMeta}>Blocked by Factory rules: {nextRoundPreview.blockedCount ? nextRoundPreview.blockedSpecies.join(' • ') : 'none recorded'}.</Text>
         {selected.length === 3 ? <Text style={st.nextRoundMeta}>{nextRoundThreats.length} surviving sets create at least 50% incoming pressure or a speed advantage against the tested lineup.</Text> : <Text style={st.nextRoundMeta}>Select three rentals to test the next-battle exposure of the final lineup.</Text>}
         {selected.length === 3 && nextRoundThreats.slice(0, 6).map((row) => <View key={'next-'+key(row.foe)} style={st.nextRoundThreatRow}><View style={{flex:1}}><Text style={st.nextRoundName}>{row.foe.species} SET {row.foe.id ?? row.foe.setId}</Text><Text style={st.nextRoundMeta}>{row.rows.map(x => `${x.ally.species} ${x.incoming.toFixed(0)}% • ${x.speed}`).join('  ·  ')}</Text></View><Text style={st.nextRoundPct}>{row.maxIncoming.toFixed(0)}%</Text></View>)}
