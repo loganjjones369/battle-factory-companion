@@ -299,27 +299,40 @@ export function analyzeDecisionBranches(opponent, team = [], opponentSets = [], 
 export function analyzeInformationValue(sets = [], pokemon = null, level = 100, round = 1, options = {}) {
   const pool = sets.filter(Boolean);
   if (!pool.length) return { setCount: 0, clues: [], bestClue: null };
-  const group = (values) => {
-    const counts = new Map();
-    values.forEach((value) => {
-      const key = String(value || 'unknown').trim().toLowerCase();
-      counts.set(key, (counts.get(key) || 0) + 1);
+  const partition = (values) => {
+    const groups = new Map();
+    values.forEach((value, index) => {
+      const key = String(value ?? 'unknown').trim().toLowerCase();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(index);
     });
-    const sizes = [...counts.values()];
+    const sizes = [...groups.values()].map((group) => group.length);
     const largest = sizes.length ? Math.max(...sizes) : pool.length;
-    return { distinct: counts.size, largest, eliminatedIfUnique: Math.max(0, pool.length - largest) };
+    return { distinct: groups.size, largest, eliminatedIfUnique: Math.max(0, pool.length - largest), groups };
   };
-  const moveUniverse = [...new Set(pool.flatMap((set) => bestDamagingMoves(set).filter(Boolean)))];
-  const moveClue = moveUniverse.map((move) => ({ move, present: pool.filter((set) => bestDamagingMoves(set).includes(move)).length }))
-    .filter((row) => row.present > 0 && row.present < pool.length)
-    .sort((a, b) => Math.min(a.present, pool.length - a.present) - Math.min(b.present, pool.length - b.present))[0];
+  const moveNamesForSet = (set) => bestDamagingMoves(set).filter(Boolean).map((move) => String(move));
+  const moveUniverse = [...new Set(pool.flatMap(moveNamesForSet))];
+  const moveClues = moveUniverse.map((move) => {
+    const present = pool.filter((set) => moveNamesForSet(set).some((candidate) => norm(candidate) === norm(move))).length;
+    return {
+      type: 'MOVE',
+      move,
+      distinct: 2,
+      largest: Math.max(present, pool.length - present),
+      eliminatedIfUnique: Math.min(present, pool.length - present),
+      action: 'Record whether this move is revealed.',
+    };
+  }).filter((clue) => clue.eliminatedIfUnique > 0);
+  const item = partition(pool.map((set) => set.item));
+  const ability = partition(pool.map((set) => set.ability));
+  const speed = partition(pool.map((set) => pokemon ? getEffectiveSpeed(getStats(pokemon, set, level, round), options.status || 'healthy') : ''));
   const clues = [
-    { type: 'ITEM', ...group(pool.map((set) => set.item)), action: 'Record the held item if it is revealed.' },
-    { type: 'ABILITY', ...group(pool.map((set) => set.ability)), action: 'Record the ability if it is revealed.' },
-    { type: 'MOVE', distinct: moveClue ? 2 : 1, largest: moveClue ? Math.max(moveClue.present, pool.length - moveClue.present) : pool.length, eliminatedIfUnique: moveClue ? Math.min(moveClue.present, pool.length - moveClue.present) : 0, action: moveClue ? 'Record whether this distinguishing move is revealed.' : 'Record the first damaging move you see.' },
-    { type: 'SPEED', ...group(pool.map((set) => pokemon ? getEffectiveSpeed(getStats(pokemon, set, level, round), options.status || 'healthy') : '')), action: 'Record the observed Speed, or whether it is faster/slower/equal.' },
+    { type: 'ITEM', distinct: item.distinct, largest: item.largest, eliminatedIfUnique: item.eliminatedIfUnique, action: 'Record the held item if it is revealed.' },
+    { type: 'ABILITY', distinct: ability.distinct, largest: ability.largest, eliminatedIfUnique: ability.eliminatedIfUnique, action: 'Record the ability if it is revealed.' },
+    { type: 'SPEED', distinct: speed.distinct, largest: speed.largest, eliminatedIfUnique: speed.eliminatedIfUnique, action: 'Record the observed Speed, or whether it is faster/slower/equal.' },
+    ...moveClues,
   ].filter((clue) => clue.distinct > 1 && clue.eliminatedIfUnique > 0)
-    .sort((a, b) => b.eliminatedIfUnique - a.eliminatedIfUnique || b.distinct - a.distinct);
+    .sort((a, b) => b.eliminatedIfUnique - a.eliminatedIfUnique || b.distinct - a.distinct || String(a.type).localeCompare(String(b.type)));
   return {
     setCount: pool.length,
     clues,
