@@ -108,6 +108,7 @@ export default function BattleRoom({
   swaps = 0,
   history = [],
   setProbabilities = {},
+  observedAbilities = [],
 }) {
   const [statusOpen, setStatusOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
@@ -172,7 +173,7 @@ export default function BattleRoom({
         {[0,1,2].map(i => <Slot key={i} pokemon={team[i]} side="you" index={i} active={activeTeamIndex === i && !!team[i]} knockedOut={knockedOut.team.includes(i)} onPress={() => { if (team[i]) { setViewedSide('team'); onSelectTeam?.(i); } }} scenario={scenario} onScenarioChange={onScenarioChange} />)}
       </View>
 
-      <QuickReference source={viewedSide === 'team' ? activeYou : activeFoe} target={viewedSide === 'team' ? activeFoe : activeYou} side={viewedSide} setId={viewedSide === 'team' ? activeYou?.setId : setId} setProbabilities={viewedSide === 'opponent' ? opponentProbability : {}} onSet={(id)=>viewedSide === 'team' ? onSelectTeam?.(activeTeamIndex, id) : onOpponentSet?.(activeOpponentIndex, id)} onObserveMove={onObserveMove} onObserveItem={onObserveItem} onObserveAbility={onObserveAbility} observedAbility={oppObs?.[activeOpponentIndex]?.ability || ''} scenario={scenario} onScenarioChange={onScenarioChange}/>
+      <QuickReference source={viewedSide === 'team' ? activeYou : activeFoe} target={viewedSide === 'team' ? activeFoe : activeYou} side={viewedSide} setId={viewedSide === 'team' ? activeYou?.setId : setId} setProbabilities={viewedSide === 'opponent' ? opponentProbability : {}} onSet={(id)=>viewedSide === 'team' ? onSelectTeam?.(activeTeamIndex, id) : onOpponentSet?.(activeOpponentIndex, id)} onObserveMove={onObserveMove} onObserveItem={onObserveItem} onObserveAbility={onObserveAbility} observedAbility={observedAbilities?.[activeOpponentIndex] || ''} scenario={scenario} onScenarioChange={onScenarioChange}/>
 
 
       <View style={styles.statusArea}>
