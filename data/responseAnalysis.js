@@ -1,7 +1,7 @@
 import { bestDamagingMoves, calculateDamage, calculateResidualDamage, getEffectiveSpeed, getStats } from './damageCalc';
 import { getPokemon } from './factoryData';
 import { getFactorySet } from './setIdentity';
-import { getMoveTurnProfile, getMovePriority, getTurnOrderExplanation, buildTurnPlan } from './battleSequence';
+import { getMoveTurnProfile, getMovePriority, getTurnOrderExplanation, buildTurnPlan, buildTurnOutcomes } from './battleSequence';
 import { scenarioSwitchInDamage } from './scenarioDamage';
 
 function resolvePokemon(value) {
@@ -116,6 +116,36 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   const turnPlanRisk = turnOrder?.plan?.exposure ? 20 : 0;
   const residualDelta = opponentResidual.percent - allyResidual.percent;
   return { ally: allyPokemon, opponent: opponentPokemon, allySet, opponentSet, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, safeSwitch, classification, incomingMove: incoming?.moveName || null, returnMove: hitBack?.moveName || null, switchIn: allySwitch, turnOrder, turnPlanRisk, allyResidual, opponentResidual, residualDelta };
+}
+
+
+export function buildTwoTurnBattlePlan(opponent, ally, level = 100, round = 1, options = {}) {
+  const response = analyzeResponse(opponent, ally, level, round, options);
+  if (!response) return null;
+  const allyHP = Number(options.allyHPPercent ?? 100);
+  const opponentHP = Number(options.opponentHPPercent ?? 100);
+  const outcome = buildTurnOutcomes({
+    allyMove: response.returnMove || '',
+    opponentMove: response.incomingMove || '',
+    allySpeed: response.allySpeed,
+    opponentSpeed: response.opponentSpeed,
+    allyHPPercent: allyHP,
+    opponentHPPercent: opponentHP,
+    allyDamagePercent: Number(response.hitBack?.percentMax || 0),
+    opponentDamagePercent: Number(response.incoming?.percentMax || 0),
+    allyResidualPercent: Number(response.allyResidual?.percent || 0),
+    opponentResidualPercent: Number(response.opponentResidual?.percent || 0),
+    weather: options.weather || 'none',
+  });
+  return {
+    ...outcome,
+    response,
+    twoTurnRange: {
+      allyHPRemainingPercent: [outcome.turnTwo.allyHPRemaining, outcome.turnTwo.allyHPRemaining],
+      opponentHPRemainingPercent: [outcome.turnTwo.opponentHPRemaining, outcome.turnTwo.opponentHPRemaining],
+    },
+    note: 'Two-turn projection uses the currently selected best damaging moves and the surviving set assumptions; it is a planning aid, not an exact future script.',
+  };
 }
 
 export function analyzeOpponentSetPool(opponent, ally, opponentSets = [], level = 100, round = 1, options = {}) {
