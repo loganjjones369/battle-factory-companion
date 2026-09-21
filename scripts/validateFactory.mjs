@@ -33,8 +33,11 @@ if (!battleState.includes('normalizeBattleConditions') || !battleState.includes(
 if (!rules.includes('nolandSilverIV: 15') || !rules.includes('nolandGoldIV: 31')) {
   throw new Error('Noland IV rules are missing');
 }
-if (!candidate.includes("String(set.pool) === 'g3-5'") || !candidate.includes("Dragonite', 'Tyranitar")) {
-  throw new Error('Noland late Level 50 exclusions are missing');
+if (!candidate.includes("String(set.pool).startsWith('g3-')") || !candidate.includes("Dragonite', 'Tyranitar") || !candidate.includes("Articuno', 'Zapdos', 'Moltres', 'Raikou', 'Entei', 'Suicune") || !candidate.includes("Number(set?.id) <= 4")) {
+  throw new Error('Noland late Level 50 pool/exclusion rules are missing');
+}
+if (!rules.includes('nolandLevel50LateLegendaryMaxSet: 4') || !rules.includes('nolandLevel50LateLegendarySpecies')) {
+  throw new Error('Late Level 50 Noland legendary restrictions are not documented');
 }
 
 if (!pkg.dependencies['@react-native-async-storage/async-storage']) {
