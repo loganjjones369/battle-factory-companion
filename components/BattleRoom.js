@@ -102,6 +102,10 @@ export default function BattleRoom({
   onObserveMove,
   onObserveItem,
   onObserveAbility,
+  onClearClue,
+  observedAbility,
+  observedMoves = [],
+  observedItem = '',
   scenario = {},
   round = 1,
   battle = 1,
@@ -109,6 +113,9 @@ export default function BattleRoom({
   history = [],
   setProbabilities = {},
   observedAbilities = [],
+  observedMoves = [],
+  observedItems = [],
+  onClearClue,
 }) {
   const [statusOpen, setStatusOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
