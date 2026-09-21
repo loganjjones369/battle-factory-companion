@@ -292,6 +292,43 @@ export function analyzeDecisionBranches(opponent, team = [], opponentSets = [], 
   };
 }
 
+
+export function analyzeInformationValue(sets = [], pokemon = null, level = 100, round = 1, options = {}) {
+  const pool = sets.filter(Boolean);
+  if (!pool.length) return { setCount: 0, clues: [], bestClue: null };
+  const normalizeValues = (values) => [...new Set(values.filter(Boolean).map((v) => String(v).trim().toLowerCase()))];
+  const partitions = (values) => {
+    const groups = new Map();
+    values.forEach((value, index) => {
+      const key = String(value || 'unknown').trim().toLowerCase();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(index);
+    });
+    const sizes = [...groups.values()].map((g) => g.length);
+    const largest = sizes.length ? Math.max(...sizes) : pool.length;
+    return { distinct: groups.size, largest, eliminatedIfUnique: Math.max(0, pool.length - largest) };
+  };
+  const movePartitions = partitions(pool.flatMap((set, index) => {
+    const moves = bestDamagingMoves(set).filter(Boolean);
+    return moves.map((move) => ({ key: move, index }));
+  }).map((row) => row.key));
+  const clues = [
+    { type: 'ITEM', ...partitions(pool.map((set) => set.item)), action: 'Record the held item if it is revealed.' },
+    { type: 'ABILITY', ...partitions(pool.map((set) => String(set.ability || '').split('/')[0])), action: 'Record the ability if it is revealed.' },
+    { type: 'MOVE', ...movePartitions, action: 'Record the first damaging move you see.' },
+    { type: 'SPEED', ...partitions(pool.map((set) => {
+      if (!pokemon) return '';
+      return getEffectiveSpeed(getStats(pokemon, set, level, round), options.status || 'healthy');
+    })), action: 'Record the observed Speed, or whether it is faster/slower/equal.' },
+  ].filter((clue) => clue.distinct > 1).sort((a, b) => b.eliminatedIfUnique - a.eliminatedIfUnique || b.distinct - a.distinct);
+  return {
+    setCount: pool.length,
+    clues,
+    bestClue: clues[0] || null,
+    note: 'Clue value measures how differently the surviving sets can be distinguished. It is not an estimate of what the opponent is likely to reveal.',
+  };
+}
+
 export function analyzeOpponentSetPool(opponent, ally, opponentSets = [], level = 100, round = 1, options = {}) {
   const sets = opponentSets.filter(Boolean);
   const checks = sets.map((opponentSet) =>
