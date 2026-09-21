@@ -152,6 +152,7 @@ export function advanceAfterBattle(state, { nextCurrentTeam = [], defeatedOppone
     progressionError: null,
     swapAttempt: detected,
     knockedOut: { team: [], opponent: [] },
+    battleConditions: normalizeBattleConditions(),
     noland: isNolandBattle(nextBattle),
   };
   return {
