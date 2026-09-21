@@ -87,7 +87,9 @@ export default function RunFlowV3(){
  const clearOpponentClue=(i,field,value)=>{setOppObs(old=>old.map((o,j)=>{if(j!==i)return o;if(field==='move')return {...o,moves:(o.moves||[]).filter(m=>m!==value)};return {...o,[field]:''};}));refreshOpponentEntry(i);};
  const observeOpponentItem=(i,item)=>updateOppClue(i,'item',item||'');
  const observeOpponentAbility=(i,ability)=>updateOppClue(i,'ability',ability||'');
- const observations=oppObs.filter(o=>o?.species).map(o=>({species:o.species,item:o.item,ability:o.ability||'',moves:(o.moves||[]).filter(Boolean)}));
+ const recordObservedDamage=(i,move,percent)=>{const n=Number(percent);if(!move||!Number.isFinite(n)||n<0||n>100)return;setOppObs(old=>old.map((o,j)=>j===i?{...o,observedDamageMove:move,observedDamagePercent:Number(n.toFixed(2))}:o));refreshOpponentEntry(i);};
+ const clearObservedDamage=(i)=>{setOppObs(old=>old.map((o,j)=>j===i?{...o,observedDamageMove:'',observedDamagePercent:null}:o));refreshOpponentEntry(i);};
+ const observations=oppObs.filter(o=>o?.species).map(o=>({species:o.species,item:o.item,ability:o.ability||'',moves:(o.moves||[]).filter(Boolean),observedDamageMove:o.observedDamageMove||'',observedDamagePercent:o.observedDamagePercent ?? null}));
  const candidateResult=useMemo(()=>analyzeFactoryCandidates({draft,currentTeam:team,previousOpponent:state?.previousOpponent||[],blockedSpecies:state?.blockedSpecies||[],scientist:state?.scientist||{},levelMode:level,battle:b,revealed:{observations},noland:state?.noland||false}),[draft,team,state?.previousOpponent,state?.blockedSpecies,state?.scientist,level,b,observations,state?.noland]);
  const battleDecision=useMemo(()=>analyzeBattleDecision({draft,currentTeam:team,previousOpponent:state?.previousOpponent||[],blockedSpecies:state?.blockedSpecies||[],scientist:state?.scientist||scientist,levelMode:level,battle:b,observations,opponent,knockedOut,activeTeamIndex,activeOpponentIndex,noland:Boolean(state?.noland),battleConditions:state?.battleConditions}),[draft,team,state?.previousOpponent,state?.blockedSpecies,state?.scientist,scientist,level,b,observations,opponent,knockedOut,activeTeamIndex,activeOpponentIndex,state?.noland]);
  const draftBrain=useMemo(()=>analyzeDraftBrain({draft,currentTeam:team,opponents:opponent,levelMode:level,battle:b,swaps:state?.swaps||0,scientist:state?.scientist||scientist,blockedSpecies:state?.blockedSpecies||[]}),[draft,team,opponent,level,battle,state?.swaps,state?.scientist,scientist,state?.blockedSpecies]);
@@ -144,6 +146,8 @@ export default function RunFlowV3(){
    onObserveItem={observeOpponentItem}
    onObserveAbility={observeOpponentAbility}
    onClearClue={clearOpponentClue}
+   onRecordObservedDamage={recordObservedDamage}
+   onClearObservedDamage={clearObservedDamage}
    observedMoves={oppObs.map(o=>o?.moves||[])}
    observedItems={oppObs.map(o=>o?.item||'')}
    opponentText={oppText}
