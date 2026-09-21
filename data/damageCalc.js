@@ -234,7 +234,7 @@ export function getDamageRolls(result) {
   return [...new Set(values)];
 }
 
-export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP, defenderHP, attackerStages = DEFAULT_STAT_STAGES, defenderStages = DEFAULT_STAT_STAGES, attackerAbility, defenderAbility, critical = false, screens = {}, targets = 1, targetSwitching = false, attackerDamagedThisTurn = false, consecutiveUses = 1 }) {
+export function calculateDamage({ attacker, attackerSet, defender, defenderSet, level = 50, round = 1, moveName, weather = 'none', attackerStatus = 'healthy', defenderStatus = 'healthy', attackerHP, defenderHP, attackerStages = DEFAULT_STAT_STAGES, defenderStages = DEFAULT_STAT_STAGES, attackerAbility, defenderAbility, critical = false, screens = {}, targets = 1, targetSwitching = false, attackerDamagedThisTurn = false, consecutiveUses = 1, defenderSubstitute = false }) {
   const move = MOVE_DATA[moveName];
   if (!move) return { min: 0, max: 0, percentMin: 0, percentMax: 0, effectiveness: 0, unsupported: true };
   const rawAtkStats = getStats(attacker, attackerSet, level, round); const rawDefStats = getStats(defender, defenderSet, level, round);
@@ -282,6 +282,7 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
   if (item === 'choice band' && move.category === 'physical') base = Math.floor(base * 1.5);
   const stab = attacker.types.includes(move.type) ? 1.5 : 1; const effectiveness = typeMultiplier;
   const modifiedBase = Math.floor(base * ability.multiplier * lowHPBoost); let critBase = modifiedBase; if (crit) critBase = Math.floor(critBase * 2); if (screens?.reflect && move.category === 'physical' && !crit && moveName !== 'Brick Break') critBase = Math.floor(critBase / 2); if (screens?.lightScreen && move.category === 'special' && !crit && moveName !== 'Brick Break') critBase = Math.floor(critBase / 2); if (targets > 1) critBase = Math.floor(critBase / 2); const min = Math.floor(Math.floor(critBase * stab * effectiveness) * 217 / 255); const max = Math.floor(Math.floor(critBase * stab * effectiveness) * 255 / 255); const hp = rawDefStats.hp;
+  const substituteHP = Math.max(1, Math.floor(rawDefStats.hp / 4));
   if (move.multiHit) {
     const minHits = 2; const maxHits = 5;
     const hitDistribution = GEN3_MULTI_HIT_COUNTS.map(({ hits, probability }) => ({
@@ -290,9 +291,9 @@ export function calculateDamage({ attacker, attackerSet, defender, defenderSet, 
       percentMin: Math.floor((min * hits * 100) / hp * 10) / 10,
       percentMax: Math.floor((max * hits * 100) / hp * 10) / 10,
     }));
-    return { min: min * minHits, max: max * maxHits, percentMin: Math.floor((min * minHits * 100) / hp * 10) / 10, percentMax: Math.floor((max * maxHits * 100) / hp * 10) / 10, effectiveness, hp, immune: false, multiHit: true, hitRange: [minHits, maxHits], hitDistribution, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAttackerStats, rawDefenderStats: rawDefenderStats };
+    return { min: min * minHits, max: max * maxHits, percentMin: Math.floor((min * minHits * 100) / hp * 10) / 10, percentMax: Math.floor((max * maxHits * 100) / hp * 10) / 10, substitutePercentMin: Math.floor((min * minHits * 100) / substituteHP * 10) / 10, substitutePercentMax: Math.floor((max * maxHits * 100) / substituteHP * 10) / 10, substituteBreaks: defenderSubstitute && max * maxHits >= substituteHP, effectiveness, hp, immune: false, multiHit: true, hitRange: [minHits, maxHits], hitDistribution, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAttackerStats, rawDefenderStats: rawDefenderStats };
   }
-  return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, effectiveness, hp, immune: false, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
+  return { min, max, percentMin: Math.floor((min * 100) / hp * 10) / 10, percentMax: Math.floor((max * 100) / hp * 10) / 10, substitutePercentMin: Math.floor((min * 100) / substituteHP * 10) / 10, substitutePercentMax: Math.floor((max * 100) / substituteHP * 10) / 10, substituteBreaks: defenderSubstitute && max >= substituteHP, effectiveness, hp, immune: false, abilityReason: ability.reason, attackerAbility: chosenAtkAbility, defenderAbility: chosenDefAbility, attackerStats: atkStats, defenderStats: defStats, rawAttackerStats: rawAtkStats, rawDefenderStats: rawDefStats };
 }
 export function calculateResidualDamage({ pokemon, set, level = 50, round = 1, hp, status = 'healthy', weather = 'none', toxicCounter = 1, bindTurns = 0, bindFraction = 1 / 16, curse = false }) {
   const maxHP = getStats(pokemon, set, level, round).hp;
