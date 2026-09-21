@@ -14,6 +14,7 @@ import KOIndicator from './components/KOIndicator';
 import PokemonInfoPanel from './components/PokemonInfoPanel';
 import PokemonHistoryDock from './components/PokemonHistoryDock';
 import BattleScenarioPanel from './components/BattleScenarioPanel';
+import BattleRoom from './components/BattleRoom';
 
 const SPRITES='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
 const norm=v=>String(v||'').trim().toLowerCase();
@@ -35,7 +36,7 @@ export default function RunFlowV3(){
  const [draftText,setDraftText]=useState(blank6()),[draftSets,setDraftSets]=useState([null,null,null,null,null,null]),[selected,setSelected]=useState([]);
  const [state,setState]=useState(null),[phase,setPhase]=useState('draft');
  const [team,setTeam]=useState([]),[opponent,setOpponent]=useState([]),[oppText,setOppText]=useState(blank3()),[oppSets,setOppSets]=useState([null,null,null]),[oppObs,setOppObs]=useState(blankObs3());
- const [swapOut,setSwapOut]=useState(null),[swapIn,setSwapIn]=useState(null),[celebrate,setCelebrate]=useState(null);const [scenario,setScenario]=useState({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});const [infoPokemon,setInfoPokemon]=useState(null),[infoKind,setInfoKind]=useState('YOUR POKÉMON');const scale=useRef(new Animated.Value(.7)).current;
+ const [swapOut,setSwapOut]=useState(null),[swapIn,setSwapIn]=useState(null),[celebrate,setCelebrate]=useState(null);const [activeTeamIndex,setActiveTeamIndex]=useState(0),[activeOpponentIndex,setActiveOpponentIndex]=useState(0);const [scenario,setScenario]=useState({hp:{},status:{},stages:{},weather:'none',focus:'team:0'});const [infoPokemon,setInfoPokemon]=useState(null),[infoKind,setInfoKind]=useState('YOUR POKÉMON');const scale=useRef(new Animated.Value(.7)).current;
  const b=state?.battle||Math.max(1,Number(battle)||1),sw=state?.swaps??Math.max(0,Number(swaps)||0);
  const knockedOut=state?.knockedOut||{team:[],opponent:[]};
  const draft=useMemo(()=>draftText.map((x,i)=>{if(!x)return null;const p=selectedPokemon(x,draftSets[i]);if(!p)return null;const slot=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw,slotIndex:i});return {...p,draftSlot:i,isElevated:slot.isElevated,factoryIV:slot.iv,poolBucket:slot.poolBucket}}),[draftText,draftSets,level,b,sw]);
@@ -59,16 +60,32 @@ export default function RunFlowV3(){
  <View style={st.card}><View style={st.titleRow}><Text style={st.title}>SIX-POKÉMON DRAFT</Text><Text style={st.elev}>{elevation} ↑</Text></View><Text style={st.help}>Enter each Pokémon, choose its exact Factory set, then tap its ball to select it. Selection order becomes your party order.</Text><View style={st.grid}>{[0,1,2,3,4,5].map(i=>{const slot=getDraftSlotInfo({levelMode:level,battle:b,swaps:sw,slotIndex:i});return <View key={i} style={st.cell}><Ball p={draft[i]} index={i} elevated={slot.isElevated} selected={selected.includes(i)} onPress={()=>toggleDraft(i)}/><TextInput value={draftText[i]} onChangeText={v=>updateDraft(i,v)} placeholder="Pokémon" placeholderTextColor="#61766f" style={st.input}/><SetPicker species={draftText[i]} setId={draftSets[i]} onChange={id=>setDraftSets(old=>old.map((x,j)=>j===i?id:x))}/></View>})}</View><Text style={st.help}>↑ is attached to the draft slot only. If that Pokémon is later swapped out, the replacement is a fresh, non-elevated Pokémon.</Text><Button onPress={lockTeam} disabled={!validSelection}>LOCK IN TEAM {validSelection?'✓':'— SELECT 3 UNIQUE SPECIES + SETS'}</Button></View>
  <DraftDecisionLab draft={draft} blockedSpecies={draft.filter(Boolean).map(p=>p.species)} levelMode={level} battle={b} swaps={sw} />
  <DraftCalculator draft={draft} level={level} battle={b}/><CandidateAnalysisPanel draft={draft} blockedSpecies={draft.filter(Boolean).map(p=>p.species)} scientist={state?.scientist||{}} levelMode={level} battle={b} revealed={state?.revealed||{}} noland={state?.noland||false}/></>:<>
- <View style={st.partyDock}><View style={st.partyHeader}><Text style={st.label}>YOUR PARTY • FIXED TEAM SLOTS</Text><Text style={st.activeCount}>{activeTeam.length}/3 ACTIVE</Text></View>{team.map((p,i)=><Party key={`${p.species}-${p.setId}-${i}`} p={p} slot={i} active={!!swapOut&&swapOut.teamSlot===i} knockedOut={knockedOut.team.includes(i)} onKO={()=>toggleKO('team',i)} onPress={()=>phase==='swap'?setSwapOut(p):openInfo(p,'YOUR POKÉMON')}/>)}</View>
- <PokemonHistoryDock pokemon={state?.previousBattleMemory || draft.filter((_,i)=>!selected.includes(i))} level={level==='Open Level'?100:50} round={Math.max(1,Math.ceil(b/7))}/>
+ <BattleRoom
+   team={team}
+   opponent={opponent}
+   knockedOut={knockedOut}
+   activeTeamIndex={activeTeamIndex}
+   activeOpponentIndex={activeOpponentIndex}
+   onSelectTeam={(i)=>{setActiveTeamIndex(i);setScenario(s=>({...s,focus:`team:${i}`}));}}
+   onSelectOpponent={(i)=>{setActiveOpponentIndex(i);setScenario(s=>({...s,focus:`opponent:${i}`}));}}
+   onMarkKO={(side,i)=>toggleKO(side,i)}
+   onOpponentSearch={(i,v)=>recordOpponent(i,v)}
+   onOpponentSet={(i,id)=>chooseOppSet(i,id)}
+   opponentText={oppText}
+   opponentSets={oppSets}
+   onEndBattle={(outcome)=>{if(outcome==='win'){finish();}else if(outcome==='loss'){setState(null);setTeam([]);setOpponent([]);setPhase('draft');setActiveTeamIndex(0);setActiveOpponentIndex(0);}}}
+   onOpenSummary={(p,k)=>openInfo(p,k)}
+   onScenarioChange={setScenario}
+   scenario={scenario}
+   round={Math.max(1,Math.ceil(b/7))}
+   battle={b}
+   swaps={sw}
+   history={state?.previousBattleMemory || draft.filter((_,i)=>!selected.includes(i))}
+ />
  <BattleScenarioPanel team={team} opponent={opponent} scenario={scenario} onChange={setScenario}/>
- {phase==='battle'&&<><View style={st.card}><Text style={st.label}>OPPONENT TRACKING</Text><Text style={st.title}>What could still be out there?</Text><Text style={st.help}>Tap the small KO button on a Pokémon after it goes down. The X animation marks it out, and the same button becomes UNDO KO if you tapped it by mistake.</Text>
- {[0,1,2].map(i=><View key={i} style={st.oppBox}><OpponentSlot p={opponent[i]} index={i} knockedOut={knockedOut.opponent.includes(i)} onKO={()=>toggleKO('opponent',i)} onPress={()=>openInfo(opponent[i],'OPPONENT')}/><View style={st.oppFields}><TextInput value={oppText[i]} onChangeText={v=>recordOpponent(i,v)} placeholder="Species" placeholderTextColor="#61766f" style={st.input}/>
- <Text style={st.clueLabel}>HELD ITEM</Text><TextInput value={oppObs[i].item} onChangeText={v=>updateOppClue(i,'item',v)} placeholder="Unknown / enter item when seen" placeholderTextColor="#61766f" style={st.input}/>
- <Text style={st.clueLabel}>MOVES SEEN</Text><View style={st.moveGrid}>{[0,1,2,3].map(m=><TextInput key={m} value={oppObs[i].moves[m]||''} onChangeText={v=>updateOppMove(i,m,v)} placeholder={`Move ${m+1}`} placeholderTextColor="#61766f" style={st.moveInput}/>)}</View>
- <SetPicker species={oppText[i]} setId={oppSets[i]} onChange={id=>chooseOppSet(i,id)}/>{oppSets[i]?<Text style={st.confirmed}>✓ EXACT SET CONFIRMED — clues filled from the set</Text>:<Text style={st.unknown}>Set unknown — analysis uses only the clues you have entered.</Text>}</View></View>)}
- <CandidateAnalysisPanel draft={draft} blockedSpecies={state?.blockedSpecies||[]} scientist={state?.scientist||{}} levelMode={level} battle={b} revealed={{observations}} noland={state?.noland||false}/><LiveOpponentAnalysis draft={draft} scientist={state?.scientist||{}} levelMode={level} battle={b} blockedSpecies={state?.blockedSpecies||[]} observations={observations} currentTeam={activeTeam} previousOpponent={state?.previousOpponent||[]} noland={state?.noland||false}/><Button onPress={()=>setPhase('swap')} disabled={opponent.length!==3||opponent.some(p=>!p?.setId)}>WIN → KEEP OR SWAP ONE</Button></View></>}
- {phase==='swap'&&<View style={st.card}><Text style={st.label}>POST-BATTLE SWAP</Text><Text style={st.title}>Keep team or replace one slot</Text><Text style={st.help}>First tap a current party member. Then tap one defeated opponent. The replacement occupies the exact same team slot and is explicitly cleared of draft elevation.</Text><Text style={st.small}>CURRENT TEAM</Text>{team.map((p,i)=><Party key={`out-${i}`} p={p} slot={i} active={swapOut?.teamSlot===i} knockedOut={knockedOut.team.includes(i)} onKO={()=>toggleKO('team',i)} onPress={()=>setSwapOut(p)}/>) }<Text style={st.small}>DEFEATED OPPONENTS</Text>{opponent.map((p,i)=><Party key={`in-${i}`} p={p} slot={i} active={swapIn?.setId===p.setId&&swapIn?.species===p.species} knockedOut={false} onPress={()=>setSwapIn(p)}/>) }<Text style={st.swapText}>{swapOut&&swapIn?`SLOT ${(swapOut.teamSlot??0)+1}: ${swapOut.species} ${swapOut.setId} → ${swapIn.species} ${swapIn.setId}`:'No swap selected — keeping team'}</Text><Button secondary onPress={()=>{setSwapOut(null);setSwapIn(null);finish()}}>KEEP TEAM</Button><Button onPress={finish} disabled={!swapOut||!swapIn}>CONFIRM ONE SWAP</Button></View>}
+ <CandidateAnalysisPanel draft={draft} blockedSpecies={state?.blockedSpecies||[]} scientist={state?.scientist||{}} levelMode={level} battle={b} revealed={{observations}} noland={state?.noland||false}/>
+ <LiveOpponentAnalysis draft={draft} scientist={state?.scientist||{}} levelMode={level} battle={b} blockedSpecies={state?.blockedSpecies||[]} observations={observations} currentTeam={activeTeam} previousOpponent={state?.previousOpponent||[]} noland={state?.noland||false}/>
+ </>{phase==='swap'&&<View style={st.card}><Text style={st.label}>POST-BATTLE SWAP</Text><Text style={st.title}>Keep team or replace one slot</Text><Text style={st.help}>First tap a current party member. Then tap one defeated opponent. The replacement occupies the exact same team slot and is explicitly cleared of draft elevation.</Text><Text style={st.small}>CURRENT TEAM</Text>{team.map((p,i)=><Party key={`out-${i}`} p={p} slot={i} active={swapOut?.teamSlot===i} knockedOut={knockedOut.team.includes(i)} onKO={()=>toggleKO('team',i)} onPress={()=>setSwapOut(p)}/>) }<Text style={st.small}>DEFEATED OPPONENTS</Text>{opponent.map((p,i)=><Party key={`in-${i}`} p={p} slot={i} active={swapIn?.setId===p.setId&&swapIn?.species===p.species} knockedOut={false} onPress={()=>setSwapIn(p)}/>) }<Text style={st.swapText}>{swapOut&&swapIn?`SLOT ${(swapOut.teamSlot??0)+1}: ${swapOut.species} ${swapOut.setId} → ${swapIn.species} ${swapIn.setId}`:'No swap selected — keeping team'}</Text><Button secondary onPress={()=>{setSwapOut(null);setSwapIn(null);finish()}}>KEEP TEAM</Button><Button onPress={finish} disabled={!swapOut||!swapIn}>CONFIRM ONE SWAP</Button></View>}
  <View style={st.card}><Text style={st.title}>Factory memory</Text><Text style={st.help}>Battle {b} • Round {Math.ceil(b/7)} • {state?.swaps||0} swaps • {state?.swapElevation||0} elevated. Team slots persist; elevation is recalculated only from the persistent swap count.</Text></View></>}
  <Text style={st.footer}>Battle Factory Companion • selectable set-aware draft</Text></ScrollView><PokemonInfoPanel visible={!!infoPokemon} pokemon={infoPokemon} kind={infoKind} level={level==='Open Level'?100:50} round={Math.max(1,Math.ceil(b/7))} onClose={()=>setInfoPokemon(null)}/>{celebrate&&<Animated.View pointerEvents="none" style={[st.overlay,{transform:[{scale}]}]}><Text style={st.win}>{celebrate.intensity==='major'?'ROUND COMPLETE!':'BATTLE WON!'}</Text><Text style={st.winSub}>ON TO BATTLE {celebrate.nextBattle}</Text></Animated.View>}</SafeAreaView>
 }
