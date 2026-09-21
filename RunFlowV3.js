@@ -6,6 +6,7 @@ import { getStats } from './data/damageCalc';
 import { createRun, completeBattle } from './data/runProgress';
 import { setKnockedOut } from './data/battleState';
 import { getDraftSlotInfo } from './data/factoryPools';
+import { getOpponentFactoryIV } from './data/factoryRules';
 import { analyzeFactoryCandidates } from './data/candidateEngine';
 import RemainingFactoryPool from './components/RemainingFactoryPool';
 import { getFactorySets, getFactorySet, makeSwapReplacement, makeTeamPokemon } from './data/setIdentity';
@@ -46,11 +47,12 @@ export default function RunFlowV3(){
  const updateDraft=(i,v)=>{setDraftText(old=>old.map((x,j)=>j===i?v:x));setDraftSets(old=>old.map((x,j)=>j===i?null:x));setSelected(old=>old.filter(x=>x!==i));setActiveDraftIndex(old=>old===i?0:old);};
  const lockTeam=()=>{if(!validSelection)return;const t=chosen.map((p,i)=>({...p,teamSlot:i}));const next=createRun({level,battle:b,swaps:Math.min(99,sw+1),draft,draftSlots:draft.map((p,i)=>p?{index:i,species:p.species,setId:p.setId,setKey:p.setKey,isElevated:p.isElevated,factoryIV:p.factoryIV,poolBucket:p.poolBucket}:null).filter(Boolean),currentTeam:t,scientist});setTeam(t);setState(next);setPhase('battle');};
  const toggleKO=(side,index)=>{const next=setKnockedOut(state||{knockedOut:{team:[],opponent:[]}},side,index,!knockedOut[side].includes(index));setState(next);};
+ const opponentIV=getOpponentFactoryIV({battle:b});
  const recordOpponent=(i,v)=>{setOppText(old=>old.map((x,j)=>j===i?v:x));setOppSets(old=>old.map((x,j)=>j===i?null:x));setOppObs(old=>old.map((o,j)=>j===i?{species:v,item:'',moves:['','','','']}:o));setOpponent(old=>{const n=[...old];n[i]={species:v};return n});};
- const refreshOpponentEntry=(i)=>{const id=oppSets[i];if(id==null){setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));return;}const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null});if(p)setOpponent(old=>old.map((x,j)=>j===i?p:x));};
+ const refreshOpponentEntry=(i)=>{const id=oppSets[i];if(id==null){setOpponent(old=>old.map((p,j)=>j===i?{species:oppText[i]}:p));return;}const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null,factoryIV:getOpponentFactoryIV({battle:b})});if(p)setOpponent(old=>old.map((x,j)=>j===i?p:x));};
  const updateOppClue=(i,field,value)=>{setOppObs(old=>old.map((o,j)=>j===i?{...o,[field]:value}:o));refreshOpponentEntry(i);};
  const updateOppMove=(i,m,value)=>{if(m<0)return;setOppObs(old=>old.map((o,j)=>{if(j!==i)return o;const moves=[...(o.moves||[])];if(!moves.includes(value)&&moves.length<4)moves.push(value);return {...o,moves}}));refreshOpponentEntry(i);};
- const chooseOppSet=(i,id)=>{const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null});if(!p)return;setOppSets(old=>old.map((x,j)=>j===i?id:x));setOpponent(old=>{const n=[...old];n[i]=p;return n});};
+ const chooseOppSet=(i,id)=>{const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null,factoryIV:getOpponentFactoryIV({battle:b})});if(!p)return;setOppSets(old=>old.map((x,j)=>j===i?id:x));setOpponent(old=>{const n=[...old];n[i]=p;return n});};
  const observeOpponentMove=(i,move)=>{const current=oppObs[i]?.moves||[]; if(current.includes(move)){clearOpponentClue(i,'move',move);return;} if(current.filter(Boolean).length>=4)return; updateOppMove(i,current.length,move);};
  const clearOpponentClue=(i,field,value)=>{setOppObs(old=>old.map((o,j)=>{if(j!==i)return o;if(field==='move')return {...o,moves:(o.moves||[]).filter(m=>m!==value)};return {...o,[field]:''};}));refreshOpponentEntry(i);};
  const observeOpponentItem=(i,item)=>updateOppClue(i,'item',item||'');
@@ -60,7 +62,7 @@ export default function RunFlowV3(){
  const survivingAbilities=useMemo(()=>{const out={};Object.entries(setProbabilities).forEach(([species,rows])=>{const sets=getFactorySets(species).filter(s=>rows?.[s.id]==null||Number(rows[s.id])>0);const abilities=[...new Set(sets.flatMap(s=>String(s.ability||'').split('/').map(a=>a.trim()).filter(Boolean)))];if(abilities.length===1)out[species]=abilities[0];});return out;},[setProbabilities]);
  const survivingSetIds=useMemo(()=>{const out={};Object.entries(setProbabilities).forEach(([species,rows])=>{const ids=Object.entries(rows||{}).filter(([,p])=>Number(p)>0).map(([id])=>id);if(ids.length===1)out[species]=ids[0];});return out;},[setProbabilities]);
  useEffect(()=>{Object.entries(survivingAbilities).forEach(([species,ability])=>{const i=oppText.findIndex(x=>norm(x)===norm(species));if(i>=0&&!oppObs[i]?.ability){setOppObs(old=>old.map((o,j)=>j===i?{...o,ability}:o));}});},[survivingAbilities,oppText,oppObs]);
- useEffect(()=>{Object.entries(survivingSetIds).forEach(([species,id])=>{const i=oppText.findIndex(x=>norm(x)===norm(species));if(i>=0&&oppSets[i]!==id){const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null});if(!p)return;setOppSets(old=>old.map((x,j)=>j===i?id:x));setOpponent(old=>{const n=[...old];n[i]=p;return n});}});},[survivingSetIds,oppText,oppSets]);
+ useEffect(()=>{Object.entries(survivingSetIds).forEach(([species,id])=>{const i=oppText.findIndex(x=>norm(x)===norm(species));if(i>=0&&oppSets[i]!==id){const p=selectedPokemon(oppText[i],id,{teamSlot:i,isElevated:false,draftSlot:null,factoryIV:getOpponentFactoryIV({battle:b})});if(!p)return;setOppSets(old=>old.map((x,j)=>j===i?id:x));setOpponent(old=>{const n=[...old];n[i]=p;return n});}});},[survivingSetIds,oppText,oppSets]);
  const finish=(nextTeam=team,didSwap=false,defeatedOpponent=pendingBattle?.opponent||opponent,observed=pendingBattle?.observations||observations)=>{
    if((defeatedOpponent||[]).length!==3)return;
    if(didSwap && (!swapOut || !swapIn))return;
