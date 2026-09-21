@@ -6,6 +6,15 @@ An offline Pokémon Emerald Battle Factory companion for phone use.
 
 **v0.5.0 — Factory Brain candidate engine + persistent run workflow**
 
+### Pre-test hardening completed
+
+- Bundled Emerald sprites for all 265 Factory species; no runtime web asset fetch is required.
+- Battle-condition controls and state propagation are wired through decision analysis.
+- Gen III fixed-damage, multi-hit, priority, residual, Substitute, Explosion, and multi-turn handling has been covered by the validation guardrails.
+- Sequential observation evidence is replayed against exact Factory sets.
+- Next-battle exposure preview is restricted to Factory-legal surviving pools.
+- `npm run validate:factory` is the single local Factory validation command.
+
 The app now includes:
 
 - Open Level / Level 50 selection
