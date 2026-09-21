@@ -122,7 +122,7 @@ if (runFlow.includes('stealthRock')) throw new Error('Run flow still contains Em
 const battleSequence = read('data/battleSequence.js');
 if (!battleRoom.includes('observedSpeed') || !battleRoom.includes('Observed Speed')) throw new Error('Observed Speed evidence controls are missing');
 const candidateEngine = read('data/candidateEngine.js');
-if (!candidateEngine.includes('observedDamagePercent') || !candidateEngine.includes('observedDamageMove') || !candidateEngine.includes('observedDamageMatches') || !candidateEngine.includes('observedSpeed')) {
+if (!candidateEngine.includes('observationImpact') || !candidateEngine.includes('observedDamagePercent') || !candidateEngine.includes('observedDamageMove') || !candidateEngine.includes('observedDamageMatches') || !candidateEngine.includes('observedSpeed')) {
   throw new Error('Factory candidate engine is missing observed damage evidence filtering');
 }
 
