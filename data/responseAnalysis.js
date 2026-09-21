@@ -1,7 +1,7 @@
 import { bestDamagingMoves, calculateDamage, getEffectiveSpeed, getStats } from './damageCalc';
 import { getPokemon } from './factoryData';
 import { getFactorySet } from './setIdentity';
-import { getMoveTurnProfile, getMovePriority } from './battleSequence';
+import { getMoveTurnProfile, getMovePriority, getTurnOrderExplanation } from './battleSequence';
 import { scenarioSwitchInDamage } from './scenarioDamage';
 
 function resolvePokemon(value) {
@@ -110,7 +110,7 @@ export function analyzeResponse(opponent, ally, level = 100, round = 1, options 
   else classification = 'Limited pressure';
   const incomingTurn = incoming?.moveName ? getMoveTurnProfile(incoming.moveName, options.weather || 'none') : null;
   const returnTurn = hitBack?.moveName ? getMoveTurnProfile(hitBack.moveName, options.weather || 'none') : null;
-  const turnOrder = hitBack?.moveName || incoming?.moveName ? { priority: { ally: getMovePriority(hitBack?.moveName), opponent: getMovePriority(incoming?.moveName) }, allyProfile: returnTurn, opponentProfile: incomingTurn } : null;
+  const turnOrder = hitBack?.moveName || incoming?.moveName ? { priority: { ally: getMovePriority(hitBack?.moveName), opponent: getMovePriority(incoming?.moveName) }, allyProfile: returnTurn, opponentProfile: incomingTurn, explanation: getTurnOrderExplanation({ moveName: hitBack?.moveName, speed: allySpeed }, { moveName: incoming?.moveName, speed: opponentSpeed }) } : null;
   return { ally: allyPokemon, opponent: opponentPokemon, allySet, opponentSet, allySpeed, opponentSpeed, relation, hitBack, incoming, damageOut, damageIn, safeSwitch, classification, incomingMove: incoming?.moveName || null, returnMove: hitBack?.moveName || null, switchIn: allySwitch, turnOrder };
 }
 
