@@ -43,7 +43,7 @@ jobs:
 
           def find_species_id(name):
               key = name.strip().lower().replace('♀', '-f').replace('♂', '-m').replace(' ', '-')
-              aliases = {'mr.-mime':'mr-mime','farfetch’d':'farfetchd','farfetch’d':'farfetchd','nidoran♀':'nidoran-f','nidoran♂':'nidoran-m'}
+              aliases = {'mr.-mime':'mr-mime','mr. mime':'mr-mime','farfetch’d':'farfetchd','farfetch\'d':'farfetchd','nidoran♀':'nidoran-f','nidoran♂':'nidoran-m'}
               key = aliases.get(key, key)
               if key in names: return names[key]
               key = key.replace('é', 'e')
