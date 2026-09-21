@@ -122,6 +122,8 @@ export default function BattleRoom({
   onClearClue,
   onRecordObservedDamage,
   onClearObservedDamage,
+  onRecordObservedSpeed,
+  onClearObservedSpeed,
   scenario = {},
   round = 1,
   battle = 1,
@@ -199,7 +201,7 @@ export default function BattleRoom({
         {[0,1,2].map(i => <Slot key={i} pokemon={team[i]} side="you" index={i} active={activeTeamIndex === i && !!team[i]} knockedOut={knockedOut.team.includes(i)} onPress={() => { if (team[i]) { setViewedSide('team'); onSelectTeam?.(i); } }} scenario={scenario} onScenarioChange={onScenarioChange} />)}
       </View>
 
-      <QuickReference source={viewedSide === 'team' ? activeYou : activeFoe} target={viewedSide === 'team' ? activeFoe : activeYou} side={viewedSide} setId={viewedSide === 'team' ? activeYou?.setId : setId} setProbabilities={viewedSide === 'opponent' ? opponentProbability : {}} onSet={(id)=>viewedSide === 'team' ? onSelectTeam?.(activeTeamIndex, id) : undefined} onConfirmSet={(id)=>viewedSide === 'team' ? onSelectTeam?.(activeTeamIndex, id) : onOpponentSet?.(activeOpponentIndex, id)} onObserveMove={onObserveMove} onObserveItem={onObserveItem} onObserveAbility={onObserveAbility} onClearClue={onClearClue} observedAbility={observedAbilities?.[activeOpponentIndex] || ''} onRecordObservedDamage={onRecordObservedDamage} onClearObservedDamage={onClearObservedDamage} observedMoves={observedMoves?.[activeOpponentIndex] || []} observedItem={observedItems?.[activeOpponentIndex] || ''} scenario={scenario} onScenarioChange={onScenarioChange}/>
+      <QuickReference source={viewedSide === 'team' ? activeYou : activeFoe} target={viewedSide === 'team' ? activeFoe : activeYou} side={viewedSide} setId={viewedSide === 'team' ? activeYou?.setId : setId} setProbabilities={viewedSide === 'opponent' ? opponentProbability : {}} onSet={(id)=>viewedSide === 'team' ? onSelectTeam?.(activeTeamIndex, id) : undefined} onConfirmSet={(id)=>viewedSide === 'team' ? onSelectTeam?.(activeTeamIndex, id) : onOpponentSet?.(activeOpponentIndex, id)} onObserveMove={onObserveMove} onObserveItem={onObserveItem} onObserveAbility={onObserveAbility} onClearClue={onClearClue} observedAbility={observedAbilities?.[activeOpponentIndex] || ''} onRecordObservedDamage={onRecordObservedDamage} onClearObservedDamage={onClearObservedDamage} onRecordObservedSpeed={onRecordObservedSpeed} onClearObservedSpeed={onClearObservedSpeed} observedSpeed={observedSpeeds[activeOpponentIndex] ?? null} observedSpeedRelation={observedSpeedRelations[activeOpponentIndex] || ''} observedMoves={observedMoves?.[activeOpponentIndex] || []} observedItem={observedItems?.[activeOpponentIndex] || ''} scenario={scenario} onScenarioChange={onScenarioChange}/>
 
 
       <View style={styles.statusArea}>        <Text style={styles.hpText}>{viewedSide==='team' ? 'YOU' : 'FOE'} HP {viewedSide==='team' ? (scenario?.hp?.['team:'+activeTeamIndex] ?? '—') : (scenario?.hp?.['opponent:'+activeOpponentIndex] ?? '—')} / {viewedSide==='team' ? (activeYou ? getStats(activeYou, getFactorySet(activeYou.species, activeYou.setId), activeYou.level || 50, 1).hp : '—') : (activeFoe && setId != null ? getStats(activeFoe, getFactorySet(activeFoe.species, setId), activeFoe.level || 50, 1).hp : '—')}</Text>
