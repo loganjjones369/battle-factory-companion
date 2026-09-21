@@ -58,7 +58,7 @@ export function buildDraftSetSpread({ draft = [], levelMode = 'Open Level', batt
       const twoHit = setResults.filter((x) => x.best?.guaranteedTwoHKO || (x.best?.ko && x.best.ko <= 2));
       const fiftyPlus = setResults.filter((x) => x.best?.percentMax >= 50);
       const faster = setResults.filter((x) => x.faster);
-      return { target, total: setResults.length, meaningful: meaningful.length, twoHit: twoHit.length, fiftyPlus: fiftyPlus.length, faster: faster.length, sets: setResults };
+      return { target, total: setResults.length, meaningful: meaningful.length, twoHit: twoHit.length, fiftyPlus: fiftyPlus.length, faster: faster.length, sets: setResults, worst: setResults.reduce((best, x) => !best || (x.best?.percentMax || 0) > (best.best?.percentMax || 0) ? x : best, null), best: setResults.reduce((best, x) => !best || (x.best?.percentMax || 0) < (best.best?.percentMax || 0) ? x : best, null) };
     });
     const pressureTargets = targets.filter((target) => target.twoHit || target.fiftyPlus || target.faster);
     const pressureScore = targets.reduce((sum, target) => sum + target.twoHit * 3 + target.fiftyPlus + target.faster, 0);
