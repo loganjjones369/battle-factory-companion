@@ -103,6 +103,7 @@ export default function BattleRoom({
   battle = 1,
   swaps = 0,
   history = [],
+  setProbabilities = {},
 }) {
   const [statusOpen, setStatusOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
@@ -128,7 +129,7 @@ export default function BattleRoom({
   const setId = opponentSets[activeOpponentIndex];
   const activeOppSpecies = activeFoe?.species;
   const activeOppSetIds = activeOppSpecies ? getFactorySets(activeOppSpecies).map(s => s.id) : [];
-  const opponentProbability = activeOppSpecies ? activeOppSetIds.reduce((acc,id) => ({...acc,[id]: Number((100 / Math.max(1,activeOppSetIds.length)).toFixed(1))}), {}) : {};
+  const opponentProbability = activeOppSpecies ? (setProbabilities[activeOppSpecies.toLowerCase()] || {}) : {};
   const statusLabel = String(status).toUpperCase();
 
   const chooseSpecies = (species) => {
