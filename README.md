@@ -4,9 +4,12 @@ An offline Pokémon Emerald Battle Factory companion for phone use.
 
 ## Current version
 
-**v0.5.0 — Factory Brain candidate engine + persistent run workflow**
+**v0.6.0 — Phone-test preparation + Factory Brain candidate engine**
 
 ### Pre-test hardening completed
+
+- EAS preview and production build profiles are configured with current cloud build images for Android and iOS.
+- The preview profile uses internal distribution so the finished test build can be installed without publishing the app to an app store.
 
 - Bundled Emerald sprites for all 265 Factory species; no runtime web asset fetch is required.
 - Battle-condition controls and state propagation are wired through decision analysis.
@@ -64,14 +67,14 @@ Factory round/elevation mechanics have also been cross-checked against establish
 
 ## Roadmap
 
-1. Complete the remaining Emerald move/mechanics data so every Factory set can be evaluated by the damage engine, including special handling for variable, fixed-damage, multi-hit, and multi-turn moves.
-2. Replace the remaining remote sprite dependency with bundled offline sprite assets.
+1. **Phone build + first real-device test** — connect the Expo/EAS project, produce an internal iOS preview build, install it on the phone, and exercise the complete Open/Level 50 run flow offline.
+2. Complete any remaining Emerald move/mechanics gaps discovered during real-device testing.
 3. Expand opponent observation tracking: speed tests, damage ranges, ability/item confirmation, and multi-turn evidence.
 4. Expand switch-in and revenge analysis to account for current HP, residual damage, status, hazards, screens, priority, and damage-range certainty.
 5. Finish the offline Factory Buddy-style deduction layer, including richer scientist clues and remaining-pool/team enumeration.
 6. Add a dedicated Noland battle view with his special variant restrictions surfaced directly in the UI.
 7. Add a run-summary/history screen so previous battles and eliminated sets can be reviewed without leaving the active run.
-8. Package the app for reliable offline phone use.
+8. Package the final app for reliable offline phone use.
 
 ## Running locally
 
