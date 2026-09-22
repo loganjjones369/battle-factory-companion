@@ -13,6 +13,11 @@
     },
     "ios": {
       "bundleIdentifier": "com.loganjjones369.battlefactorycompanion"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "feda24cd-2b0f-4ea0-ae40-074af249d39b"
+      }
     }
   }
 }
